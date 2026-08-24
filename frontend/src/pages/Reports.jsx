@@ -397,25 +397,29 @@ export default function Reports() {
                 </div>
                 <div className="space-y-2">
                   <div className="overflow-x-auto rounded-[1.1rem] border border-[var(--border-default)]">
-                  <div className="min-w-[440px] grid grid-cols-[auto_1fr_auto_auto] gap-x-4 gap-y-0">
-                    <div className="contents text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)] bg-[var(--surface-secondary)]">
-                      <span className="bg-[var(--surface-secondary)] px-4 py-2.5">#</span>
-                      <span className="bg-[var(--surface-secondary)] px-4 py-2.5">Cashier</span>
-                      <span className="bg-[var(--surface-secondary)] px-4 py-2.5 text-right">Sales</span>
-                      <span className="bg-[var(--surface-secondary)] px-4 py-2.5 text-right">Revenue</span>
-                    </div>
-                    {cashierData.map((c, i) => (
-                      <div key={c.name} className="contents text-[13px] transition">
-                        <span className="flex items-center px-4 py-2.5 border-t border-[var(--border-default)]">
-                          <span className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: c.color }}>{i + 1}</span>
-                        </span>
-                        <span className="flex items-center px-4 py-2.5 border-t border-[var(--border-default)] font-medium text-[var(--text-primary)]">{c.name}</span>
-                        <span className="flex items-center justify-end px-4 py-2.5 border-t border-[var(--border-default)] tabular-nums text-[var(--text-muted)]">{c.sales}</span>
-                        <span className="flex items-center justify-end px-4 py-2.5 border-t border-[var(--border-default)] font-semibold tabular-nums text-[var(--text-primary)]">{formatMoney(currency, c.revenue)}</span>
-                      </div>
-                    ))}
+                    <table className="table-cards w-full text-[13px]">
+                      <thead>
+                        <tr className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)] bg-[var(--surface-secondary)]">
+                          <th className="px-4 py-2.5 text-left">#</th>
+                          <th className="px-4 py-2.5 text-left">Cashier</th>
+                          <th className="px-4 py-2.5 text-right">Sales</th>
+                          <th className="px-4 py-2.5 text-right">Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-default)]">
+                        {cashierData.map((c, i) => (
+                          <tr key={c.name} className="transition">
+                            <td data-label="Rank" className="px-4 py-2.5">
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: c.color }}>{i + 1}</span>
+                            </td>
+                            <td data-label="Cashier" className="px-4 py-2.5 font-medium text-[var(--text-primary)]">{c.name}</td>
+                            <td data-label="Sales" className="px-4 py-2.5 text-right tabular-nums text-[var(--text-muted)]">{c.sales}</td>
+                            <td data-label="Revenue" className="px-4 py-2.5 text-right font-semibold tabular-nums text-[var(--text-primary)]">{formatMoney(currency, c.revenue)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
                 </div>
               </div>
             ) : (
@@ -431,7 +435,7 @@ export default function Reports() {
               action={<span className="rounded-full bg-[rgba(218,106,90,0.12)] px-3 py-1 text-[12px] font-semibold text-[var(--danger)]">−{formatMoney(currency, totalRefunds)}</span>}
             >
               <div className="overflow-x-auto rounded-[1.1rem] border border-[var(--border-default)]">
-                <table className="w-full text-sm">
+                <table className="table-cards w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
                       {['Date', 'Sale #', 'Items', 'Refund', 'Reason', 'By'].map((h) => (
@@ -442,12 +446,12 @@ export default function Reports() {
                   <tbody className="divide-y divide-[var(--border-default)]">
                     {returns.slice(0, 10).map((ret) => (
                       <tr key={ret.id} className="transition hover:bg-[var(--surface-secondary)]">
-                        <td className="whitespace-nowrap px-4 py-2.5 text-xs text-[var(--text-muted)]">{new Date(ret.createdAt).toLocaleDateString([], { dateStyle: 'medium' })}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs text-[var(--text-muted)]">#{ret.saleId}</td>
-                        <td className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.items?.map((it) => `${it.product?.name || 'Item'} ×${it.quantity}`).join(', ') || '—'}</td>
-                        <td className="px-4 py-2.5 font-semibold tabular-nums text-[var(--danger)]">−{formatMoney(currency, ret.totalRefund)}</td>
-                        <td className="px-4 py-2.5 text-[var(--text-muted)]">{ret.reason || '—'}</td>
-                        <td className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.processedBy?.name || '—'}</td>
+                        <td data-label="Date" className="whitespace-nowrap px-4 py-2.5 text-xs text-[var(--text-muted)]">{new Date(ret.createdAt).toLocaleDateString([], { dateStyle: 'medium' })}</td>
+                        <td data-label="Sale #" className="px-4 py-2.5 font-mono text-xs text-[var(--text-muted)]">#{ret.saleId}</td>
+                        <td data-label="Items" className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.items?.map((it) => `${it.product?.name || 'Item'} ×${it.quantity}`).join(', ') || '—'}</td>
+                        <td data-label="Refund" className="px-4 py-2.5 font-semibold tabular-nums text-[var(--danger)]">−{formatMoney(currency, ret.totalRefund)}</td>
+                        <td data-label="Reason" className="px-4 py-2.5 text-[var(--text-muted)]">{ret.reason || '—'}</td>
+                        <td data-label="By" className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.processedBy?.name || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -529,7 +533,7 @@ export default function Reports() {
                   <p className="text-[13px] font-semibold text-[var(--text-primary)]">Sales in range <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">{rangeData.sales.length} transactions</span></p>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="table-cards w-full text-sm">
                     <thead>
                       <tr className="border-b border-[var(--border-default)] text-left">
                         {['ID', 'Date', 'Customer', 'Cashier', 'Payment', 'Total'].map((h) => (
@@ -540,14 +544,14 @@ export default function Reports() {
                     <tbody className="divide-y divide-[var(--border-default)]">
                       {rangeData.sales.map((sale) => (
                         <tr key={sale.id} className="transition hover:bg-[var(--surface-secondary)]">
-                          <td className="px-4 py-2.5 font-mono text-xs text-[var(--text-muted)]">#{sale.id}</td>
-                          <td className="px-4 py-2.5 text-[var(--text-secondary)]">{new Date(sale.createdAt).toLocaleDateString()}</td>
-                          <td className="px-4 py-2.5 text-[var(--text-primary)]">{sale.customer?.name || 'Walk-in'}</td>
-                          <td className="px-4 py-2.5 text-[var(--text-secondary)]">{sale.cashier?.name || '—'}</td>
-                          <td className="px-4 py-2.5">
+                          <td data-label="ID" className="px-4 py-2.5 font-mono text-xs text-[var(--text-muted)]">#{sale.id}</td>
+                          <td data-label="Date" className="px-4 py-2.5 text-[var(--text-secondary)]">{new Date(sale.createdAt).toLocaleDateString()}</td>
+                          <td data-label="Customer" className="px-4 py-2.5 text-[var(--text-primary)]">{sale.customer?.name || 'Walk-in'}</td>
+                          <td data-label="Cashier" className="px-4 py-2.5 text-[var(--text-secondary)]">{sale.cashier?.name || '—'}</td>
+                          <td data-label="Payment" className="px-4 py-2.5">
                             <span className="inline-block rounded-full bg-[var(--surface-secondary)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">{sale.paymentMethod}</span>
                           </td>
-                          <td className="px-4 py-2.5 font-semibold tabular-nums text-[var(--text-primary)]">{formatMoney(currency, sale.total)}</td>
+                          <td data-label="Total" className="px-4 py-2.5 font-semibold tabular-nums text-[var(--text-primary)]">{formatMoney(currency, sale.total)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -619,7 +623,7 @@ export default function Reports() {
               <div className="py-8 text-center text-sm text-[var(--text-muted)]">No sales match your search.</div>
             ) : (
               <div className="overflow-x-auto rounded-[1.1rem] border border-[var(--border-default)]">
-                <table className="w-full text-sm">
+                <table className="table-cards w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
                       {['Receipt #', 'Date', 'Customer', 'Cashier', 'Payment', 'Total', ''].map((h, i) => (
@@ -630,22 +634,22 @@ export default function Reports() {
                   <tbody className="divide-y divide-[var(--border-default)]">
                     {filteredReceipts.slice(0, 100).map((sale) => (
                       <tr key={sale.id} className="border-l-[3px] border-l-[var(--accent)] transition hover:bg-[var(--surface-secondary)]">
-                        <td className="px-4 py-3">
+                        <td data-label="Receipt" className="px-4 py-3">
                           <span className="font-mono text-xs font-semibold text-[var(--text-secondary)]">
                             {sale.receipt?.receiptNumber || `SD-${String(sale.id).padStart(6, '0')}`}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3">
+                        <td data-label="Date" className="whitespace-nowrap px-4 py-3">
                           <p className="text-xs text-[var(--text-secondary)]">{new Date(sale.createdAt).toLocaleDateString([], { dateStyle: 'medium' })}</p>
                           <p className="text-[11px] text-[var(--text-muted)]">{new Date(sale.createdAt).toLocaleTimeString([], { timeStyle: 'short' })}</p>
                         </td>
-                        <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{sale.customer?.name || 'Walk-in'}</td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">{sale.cashier?.name || '—'}</td>
-                        <td className="px-4 py-3">
+                        <td data-label="Customer" className="px-4 py-3 font-medium text-[var(--text-primary)]">{sale.customer?.name || 'Walk-in'}</td>
+                        <td data-label="Cashier" className="px-4 py-3 text-[var(--text-secondary)]">{sale.cashier?.name || '—'}</td>
+                        <td data-label="Payment" className="px-4 py-3">
                           <span className="inline-flex items-center rounded-full bg-[var(--surface-secondary)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--text-muted)]">{sale.paymentMethod}</span>
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-[var(--text-primary)]">{formatMoney(currency, sale.total)}</td>
-                        <td className="px-4 py-3">
+                        <td data-label="Total" className="px-4 py-3 text-right font-semibold tabular-nums text-[var(--text-primary)]">{formatMoney(currency, sale.total)}</td>
+                        <td data-label="PDF" className="px-4 py-3">
                           <button
                             type="button"
                             onClick={() => handleDownloadReceipt(sale.id)}

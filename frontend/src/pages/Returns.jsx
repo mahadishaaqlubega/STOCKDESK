@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchSales, fetchSale, createReturn, fetchReturns, fetchSettings } from '../utils/api';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 function formatMoney(currency, value) {
   return `${currency} ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -98,6 +99,7 @@ function ReturnModal({ sale, currency, onClose, onSubmit }) {
                         min={0}
                         max={maxQty}
                         step={1}
+                        inputMode="numeric"
                         value={qty}
                         onChange={(e) => handleQtyChange(item.productId, e.target.value)}
                         placeholder="0"
@@ -191,6 +193,8 @@ export default function Returns() {
   const [saleDetail, setSaleDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [toast, setToast] = useState({ type: '', text: '' });
+
+  useBodyScrollLock(Boolean(saleDetail));
 
   useEffect(() => {
     async function load() {
@@ -308,7 +312,7 @@ export default function Returns() {
             </p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="table-cards w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
                   {['Receipt', 'Date', 'Cashier', 'Total', 'Payment', ''].map((h) => (
@@ -330,24 +334,24 @@ export default function Returns() {
                 ) : (
                   sales.map((sale) => (
                     <tr key={sale.id} className="border-l-[3px] border-l-[var(--accent)] transition hover:bg-[var(--surface-secondary)]">
-                      <td className="px-4 py-3 font-mono text-xs text-[var(--text-muted)]">
+                      <td data-label="Receipt" className="px-4 py-3 font-mono text-xs text-[var(--text-muted)]">
                         {sale.receipt?.receiptNumber || `#${sale.id}`}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3">
+                      <td data-label="Date" className="whitespace-nowrap px-4 py-3">
                         <p className="text-sm text-[var(--text-secondary)]">{new Date(sale.createdAt).toLocaleDateString([], { dateStyle: 'medium' })}</p>
                         <p className="text-[11px] text-[var(--text-muted)]">{getRelativeTime(sale.createdAt)}</p>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
+                      <td data-label="Cashier" className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2 md:justify-start">
                           <UserAvatar name={sale.cashier?.name} />
                           <span className="text-[var(--text-primary)]">{sale.cashier?.name || '—'}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-semibold tabular-nums text-[var(--text-primary)]">
+                      <td data-label="Total" className="px-4 py-3 font-semibold tabular-nums text-[var(--text-primary)]">
                         {formatMoney(sale.currency || currency, sale.total)}
                       </td>
-                      <td className="px-4 py-3 text-[var(--text-muted)]">{sale.paymentMethod}</td>
-                      <td className="px-4 py-3">
+                      <td data-label="Payment" className="px-4 py-3 text-[var(--text-muted)]">{sale.paymentMethod}</td>
+                      <td data-label="Action" className="px-4 py-3">
                         <button
                           type="button"
                           disabled={loadingDetail}
@@ -381,7 +385,7 @@ export default function Returns() {
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="table-cards w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
                   {['Date', 'Original Sale', 'Items Returned', 'Refund', 'Reason', 'Processed By'].map((h) => (
@@ -406,24 +410,24 @@ export default function Returns() {
                 ) : (
                   returns.map((ret) => (
                     <tr key={ret.id} className="border-l-[3px] border-l-[var(--danger)] transition hover:bg-[var(--surface-secondary)]">
-                      <td className="whitespace-nowrap px-4 py-3">
+                      <td data-label="Date" className="whitespace-nowrap px-4 py-3">
                         <p className="text-xs text-[var(--text-secondary)]">{new Date(ret.createdAt).toLocaleDateString([], { dateStyle: 'medium' })}</p>
                         <p className="text-[11px] text-[var(--text-muted)]">{getRelativeTime(ret.createdAt)}</p>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-[var(--text-muted)]">#{ret.saleId}</td>
-                      <td className="px-4 py-3 text-[var(--text-secondary)]">
+                      <td data-label="Sale #" className="px-4 py-3 font-mono text-xs text-[var(--text-muted)]">#{ret.saleId}</td>
+                      <td data-label="Items" className="px-4 py-3 text-[var(--text-secondary)]">
                         {ret.items?.map((item) => (
                           <span key={item.productId} className="inline-block">
                             {item.product?.name} ×{item.quantity}
                           </span>
                         )).reduce((prev, curr, i) => [prev, <span key={`sep-${i}`} className="text-[var(--text-muted)]">, </span>, curr]) || '—'}
                       </td>
-                      <td className="px-4 py-3 font-semibold tabular-nums text-[var(--danger)]">
+                      <td data-label="Refund" className="px-4 py-3 font-semibold tabular-nums text-[var(--danger)]">
                         −{formatMoney(currency, ret.totalRefund)}
                       </td>
-                      <td className="px-4 py-3 text-[var(--text-muted)]">{ret.reason || '—'}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
+                      <td data-label="Reason" className="px-4 py-3 text-[var(--text-muted)]">{ret.reason || '—'}</td>
+                      <td data-label="By" className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2 md:justify-start">
                           <UserAvatar name={ret.processedBy?.name} />
                           <span className="text-[var(--text-secondary)]">{ret.processedBy?.name || '—'}</span>
                         </div>

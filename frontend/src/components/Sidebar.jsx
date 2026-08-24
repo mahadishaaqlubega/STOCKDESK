@@ -222,7 +222,7 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-[var(--sidebar-border)] bg-white/5 p-2 text-[var(--sidebar-text)] transition hover:bg-white/10 lg:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--sidebar-border)] bg-white/5 text-[var(--sidebar-text)] transition hover:bg-white/10 lg:hidden"
             aria-label="Close navigation"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
@@ -238,7 +238,7 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
           <p className="mt-1 text-sm text-[var(--sidebar-muted)]">{shopSlug}</p>
         </div>
 
-        <nav className="mt-7 space-y-1.5">
+        <nav className="mt-7 min-h-0 flex-1 space-y-1.5 overflow-y-auto">
           {visibleLinks.map((item) => (
             <NavLink
               key={item.to}
@@ -320,7 +320,7 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
               type="button"
               title={activeTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               onClick={() => setThemeMode(activeTheme === 'dark' ? 'light' : 'dark')}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--sidebar-muted)] transition hover:bg-white/10 hover:text-[var(--sidebar-text)]"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[var(--sidebar-muted)] transition hover:bg-white/10 hover:text-[var(--sidebar-text)]"
               aria-label="Toggle theme"
             >
               {activeTheme === 'dark' ? (

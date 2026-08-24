@@ -296,7 +296,7 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden px-3 py-2 sm:px-4 sm:py-3 lg:px-5 lg:py-2.5" style={{ background: 'var(--bg-auth)' }}>
+    <div className="relative min-h-dvh overflow-x-hidden px-3 py-2 sm:px-4 sm:py-3 lg:px-5 lg:py-2.5" style={{ background: 'var(--bg-auth)' }}>
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-24 top-8 h-64 w-64 rounded-full bg-[var(--accent)]/15 blur-3xl" />
         <div className="absolute right-0 top-1/4 h-72 w-72 rounded-full bg-[var(--success)]/10 blur-3xl" />
@@ -327,7 +327,7 @@ export default function Login() {
         </button>
       </div>
 
-      <div className="app-modal relative mx-auto grid w-full max-w-5xl overflow-visible rounded-[2rem] border backdrop-blur lg:min-h-[calc(100vh-6rem)] lg:grid-cols-[0.98fr_minmax(0,1.02fr)]">
+      <div className="app-modal relative mx-auto grid w-full max-w-5xl overflow-visible rounded-[2rem] border backdrop-blur lg:min-h-[calc(100dvh-6rem)] lg:grid-cols-[0.98fr_minmax(0,1.02fr)]">
         <section className="relative hidden overflow-hidden lg:block lg:px-7 lg:py-6 xl:px-8 xl:py-7" style={{ background: 'var(--sidebar-bg)' }}>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(30,167,189,0.24),transparent_34%)]" />
           <div className="absolute right-8 top-8 h-24 w-24 rounded-full border border-white/10 bg-white/5 blur-2xl" />

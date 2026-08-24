@@ -38,7 +38,7 @@ export default function Header({ onOpenSidebar, onToggleSidebar, sidebarCollapse
         <button
           type="button"
           onClick={onOpenSidebar}
-          className="app-btn-secondary rounded-lg border p-2 lg:hidden"
+          className="app-btn-secondary flex h-11 w-11 items-center justify-center rounded-lg border lg:hidden"
           aria-label="Open navigation"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">

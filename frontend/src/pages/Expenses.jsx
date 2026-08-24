@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchExpenses, createExpense, updateExpense, deleteExpense, fetchSettings } from '../utils/api';
 import { getUser } from '../utils/auth';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const CATEGORIES = ['Rent', 'Utilities', 'Supplies', 'Salaries', 'Maintenance', 'Marketing', 'Other'];
 
@@ -16,6 +18,9 @@ export default function Expenses() {
   const [message, setMessage] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  useBodyScrollLock(Boolean(deleteTarget));
 
   const loadExpenses = async (start, end) => {
     setLoading(true);
@@ -74,7 +79,6 @@ export default function Expenses() {
   };
 
   const handleDelete = async (expense) => {
-    if (!window.confirm(`Delete expense "${expense.description || expense.category}"?`)) return;
     try {
       await deleteExpense(expense.id);
       await loadExpenses(startDate, endDate);
@@ -167,7 +171,7 @@ export default function Expenses() {
               </span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="table-cards w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
                     {['Date', 'Category', 'Description', 'Amount', ...(isAdmin ? ['Actions'] : [])].map((h) => (
@@ -198,20 +202,20 @@ export default function Expenses() {
                       const meta = CATEGORY_META[expense.category] || CATEGORY_META.Other;
                       return (
                         <tr key={expense.id} className="border-l-[3px] transition hover:bg-[var(--surface-secondary)]" style={{ borderLeftColor: meta.color }}>
-                          <td className="whitespace-nowrap px-4 py-3.5 text-xs text-[var(--text-muted)]">
+                          <td data-label="Date" className="whitespace-nowrap px-4 py-3.5 text-xs text-[var(--text-muted)]">
                             {new Date(expense.date).toLocaleDateString([], { dateStyle: 'medium' })}
                           </td>
-                          <td className="px-4 py-3.5">
+                          <td data-label="Category" className="px-4 py-3.5">
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-secondary)] px-2.5 py-1 text-xs font-semibold" style={{ color: meta.color }}>
                               {meta.icon}
                               {expense.category}
                             </span>
                           </td>
-                          <td className="px-4 py-3.5 text-[var(--text-primary)]">{expense.description || '—'}</td>
-                          <td className="px-4 py-3.5 font-semibold tabular-nums text-[var(--danger)]">{fmt(expense.amount)}</td>
+                          <td data-label="Description" className="px-4 py-3.5 text-[var(--text-primary)]">{expense.description || '—'}</td>
+                          <td data-label="Amount" className="px-4 py-3.5 font-semibold tabular-nums text-[var(--danger)]">{fmt(expense.amount)}</td>
                           {isAdmin && (
-                            <td className="px-4 py-3.5">
-                              <div className="flex gap-2">
+                            <td data-label="Actions" className="px-4 py-3.5">
+                              <div className="flex flex-wrap justify-end gap-2 md:justify-start">
                                 <button
                                   type="button"
                                   onClick={() => setForm({ id: expense.id, category: expense.category, description: expense.description || '', amount: expense.amount, date: expense.date, notes: expense.notes || '' })}
@@ -221,7 +225,7 @@ export default function Expenses() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleDelete(expense)}
+                                  onClick={() => setDeleteTarget(expense)}
                                   className="app-btn-secondary rounded-[0.9rem] border px-3 py-1.5 text-[12px] font-medium transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
                                 >
                                   Delete
@@ -277,6 +281,7 @@ export default function Expenses() {
                       type="number"
                       min="0"
                       step="0.01"
+                      inputMode="decimal"
                       required
                       placeholder="0.00"
                       value={form.amount}
@@ -325,6 +330,24 @@ export default function Expenses() {
           </aside>
         )}
       </div>
+
+      {deleteTarget ? (
+        <ConfirmDialog
+          title="Delete expense?"
+          message={
+            <>
+              Delete <strong className="font-semibold text-[var(--text-primary)]">{deleteTarget.description || deleteTarget.category}</strong> permanently?
+            </>
+          }
+          confirmLabel="Delete"
+          onConfirm={() => {
+            const target = deleteTarget;
+            setDeleteTarget(null);
+            handleDelete(target);
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }

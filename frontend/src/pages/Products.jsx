@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchSettings, restockProduct, fetchStockHistory } from '../utils/api';
 import { getUser } from '../utils/auth';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const emptyForm = { name: '', category: '', buyPrice: '', sellPrice: '', quantity: 0, lowStock: 5 };
 
@@ -49,6 +51,9 @@ export default function Products() {
   const [restockCategoryModal, setRestockCategoryModal] = useState(false);
   const [restockCategoryForm, setRestockCategoryForm] = useState({ category: '', quantity: '', costPrice: '', supplier: '', notes: '' });
   const [restockCategoryMessage, setRestockCategoryMessage] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  useBodyScrollLock(Boolean(restockmodal) || restockCategoryModal || Boolean(deleteTarget));
 
   useEffect(() => {
     loadData();
@@ -137,7 +142,6 @@ export default function Products() {
   };
 
   const removeProduct = async (id) => {
-    if (!window.confirm('Delete this product?')) return;
     await deleteProduct(id);
     setMessage('Product deleted.');
     await loadData();
@@ -408,7 +412,7 @@ export default function Products() {
           </div>
         ) : (
           <div className="mt-5 overflow-x-auto rounded-[1.35rem] border border-[var(--border-default)]">
-            <table className="min-w-full text-left text-sm">
+            <table className="table-cards min-w-full text-left text-sm">
               <thead className="app-table-head">
                 <tr>
                   <th className="px-4 py-3 font-medium">Name</th>
@@ -424,26 +428,26 @@ export default function Products() {
                   const isLow = Number(product.quantity || 0) <= Math.max(5, Number(product.lowStock || 0));
                   return (
                     <tr key={product.id} className="app-row-hover transition">
-                      <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
+                      <td data-label="Name" className="px-4 py-3 font-medium text-[var(--text-primary)]">
                         <div className="flex items-center gap-3">
-                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--surface-secondary)] text-xs font-semibold text-[var(--accent-strong)]">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--surface-secondary)] text-xs font-semibold text-[var(--accent-strong)]">
                             {String(product.name || 'P').slice(0, 1).toUpperCase()}
                           </span>
-                          <span>{product.name}</span>
+                          <span className="min-w-0 break-words">{product.name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-[var(--text-muted)]">{product.category || 'Uncategorized'}</td>
-                      {isAdmin ? <td className="px-4 py-3 text-[var(--text-muted)]">{formatMoney(currency, product.buyPrice)}</td> : null}
-                      <td className="px-4 py-3 text-[var(--text-primary)]">{formatMoney(currency, product.sellPrice)}</td>
-                      <td className="px-4 py-3">
+                      <td data-label="Category" className="px-4 py-3 text-[var(--text-muted)]">{product.category || 'Uncategorized'}</td>
+                      {isAdmin ? <td data-label="Buy" className="px-4 py-3 text-[var(--text-muted)]">{formatMoney(currency, product.buyPrice)}</td> : null}
+                      <td data-label="Sell" className="px-4 py-3 text-[var(--text-primary)]">{formatMoney(currency, product.sellPrice)}</td>
+                      <td data-label="Qty" className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${isLow ? 'app-alert-danger' : 'app-alert-success'}`}>
                           {product.quantity}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-[var(--text-muted)]">{product.lowStock}</td>
+                      <td data-label="Low Stock" className="px-4 py-3 text-[var(--text-muted)]">{product.lowStock}</td>
                       {isAdmin ? (
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2">
+                        <td data-label="Actions" className="px-4 py-3">
+                          <div className="flex flex-wrap justify-end gap-2 md:justify-start">
                             <button
                               type="button"
                               onClick={() => editProduct(product)}
@@ -460,7 +464,7 @@ export default function Products() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => removeProduct(product.id)}
+                              onClick={() => setDeleteTarget(product)}
                               className="app-btn-danger rounded-lg px-3 py-1.5 text-sm transition"
                             >
                               Delete
@@ -584,6 +588,24 @@ export default function Products() {
           </div>
         </div>
       )}
+
+      {deleteTarget ? (
+        <ConfirmDialog
+          title="Delete product?"
+          message={
+            <>
+              Delete <strong className="font-semibold text-[var(--text-primary)]">{deleteTarget.name}</strong> permanently? This cannot be undone.
+            </>
+          }
+          confirmLabel="Delete"
+          onConfirm={() => {
+            const id = deleteTarget.id;
+            setDeleteTarget(null);
+            removeProduct(id);
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }

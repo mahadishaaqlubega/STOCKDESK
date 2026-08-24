@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { fetchPlatformOverview, deleteShop } from '../utils/api';
 import { getUser } from '../utils/auth';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 function TrashIcon() {
@@ -225,6 +226,8 @@ export default function Shops() {
   const [sortKey, setSortKey] = useState('joined');
   const [sortDir, setSortDir] = useState('desc');
   const mountedRef = useRef(true);
+
+  useBodyScrollLock(Boolean(shopToDelete));
 
   const load = async (isInitial = false) => {
     try {
@@ -669,7 +672,7 @@ export default function Shops() {
             </div>
           ) : (
             <div className="mt-5 overflow-x-auto rounded-[1.2rem] border border-[var(--border-default)]">
-              <table className="min-w-full text-left text-sm">
+              <table className="table-cards min-w-full text-left text-sm">
                 <thead className="app-table-head">
                   <tr>
                     <th className="px-4 py-3">{sortHeader('name', 'Shop')}</th>
@@ -686,20 +689,20 @@ export default function Shops() {
                 <tbody className="divide-y divide-[var(--border-default)] bg-[var(--surface-primary)]">
                   {sortedShops.map((shop) => (
                     <tr key={shop.id} className="app-row-hover transition">
-                      <td className="px-4 py-3.5">
+                      <td data-label="Shop" className="px-4 py-3.5">
                         <div className="flex items-center gap-2.5">
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-xs font-bold text-[var(--accent-strong)]">
                             {String(shop.name || 'S').slice(0, 1).toUpperCase()}
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <p className="font-semibold leading-tight text-[var(--text-primary)]">{shop.name}</p>
                             <p className="text-xs text-[var(--text-muted)]">{shop.currency}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td data-label="Admin" className="px-4 py-3.5">
                         {shop.owner ? (
-                          <div>
+                          <div className="min-w-0">
                             <p className="font-medium text-[var(--text-primary)]">{shop.owner.name}</p>
                             <p className="text-xs text-[var(--text-muted)]">
                               @{shop.owner.username}
@@ -710,17 +713,17 @@ export default function Shops() {
                           <span className="text-[var(--text-muted)]">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td data-label="Status" className="px-4 py-3.5">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.1em] ${shop.isActive ? 'bg-emerald-500/15 text-emerald-600' : 'bg-[var(--surface-secondary)] text-[var(--text-muted)]'}`}>
                           {shop.isActive ? 'Active' : 'Paused'}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-center font-semibold text-[var(--text-primary)]">{Number(shop.metrics?.userCount || 0)}</td>
-                      <td className="px-4 py-3.5 text-center font-semibold text-[var(--text-primary)]">{Number(shop.metrics?.productCount || 0)}</td>
-                      <td className="px-4 py-3.5 text-center font-semibold text-[var(--text-primary)]">{Number(shop.metrics?.saleCount || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3.5 text-sm text-[var(--text-muted)]">{formatRelativeTime(shop.activity?.lastLoginAt)}</td>
-                      <td className="px-4 py-3.5 text-sm text-[var(--text-muted)]">{new Date(shop.createdAt).toLocaleDateString()}</td>
-                      <td className="px-4 py-3.5 text-center">
+                      <td data-label="Users" className="px-4 py-3.5 text-right font-semibold text-[var(--text-primary)] md:text-center">{Number(shop.metrics?.userCount || 0)}</td>
+                      <td data-label="Products" className="px-4 py-3.5 text-right font-semibold text-[var(--text-primary)] md:text-center">{Number(shop.metrics?.productCount || 0)}</td>
+                      <td data-label="Sales" className="px-4 py-3.5 text-right font-semibold text-[var(--text-primary)] md:text-center">{Number(shop.metrics?.saleCount || 0).toLocaleString()}</td>
+                      <td data-label="Last Login" className="px-4 py-3.5 text-sm text-[var(--text-muted)]">{formatRelativeTime(shop.activity?.lastLoginAt)}</td>
+                      <td data-label="Joined" className="px-4 py-3.5 text-sm text-[var(--text-muted)]">{new Date(shop.createdAt).toLocaleDateString()}</td>
+                      <td data-label="Action" className="px-4 py-3.5 text-right md:text-center">
                         <button
                           type="button"
                           onClick={() => handleDeleteClick(shop)}

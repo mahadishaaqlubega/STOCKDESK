@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createCustomer, deleteCustomer, fetchCustomers, updateCustomer, fetchCustomerSales, fetchSettings } from '../utils/api';
 import { getUser } from '../utils/auth';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const initialForm = {
   id: null,
@@ -46,6 +48,9 @@ export default function Customers() {
   const [historyCustomer, setHistoryCustomer] = useState(null);
   const [historyData, setHistoryData] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  useBodyScrollLock(Boolean(historyCustomer) || Boolean(deleteTarget));
 
   const activeCustomers = useMemo(() => customers.filter((customer) => customer.isActive !== false).length, [customers]);
   const repeatCustomers = useMemo(() => customers.filter((customer) => Number(customer.salesCount || 0) > 1).length, [customers]);
@@ -103,10 +108,6 @@ export default function Customers() {
   async function handleDelete(customer) {
     if (!canDelete) {
       setMessage('You do not have permission to delete customers.');
-      return;
-    }
-
-    if (!window.confirm(`Delete customer \"${customer.name}\"?`)) {
       return;
     }
 
@@ -179,7 +180,7 @@ export default function Customers() {
           </div>
 
           <div className="mt-6 overflow-x-auto rounded-[1.35rem] border border-[var(--border-default)]">
-            <table className="min-w-full divide-y divide-[var(--border-default)] text-left text-sm">
+            <table className="table-cards min-w-full divide-y divide-[var(--border-default)] text-left text-sm">
               <thead className="app-table-head">
                 <tr>
                   <th className="px-4 py-3 font-medium">Customer</th>
@@ -206,29 +207,29 @@ export default function Customers() {
                 ) : (
                   filteredCustomers.map((customer) => (
                     <tr key={customer.id} className="app-row-hover transition">
-                      <td className="px-4 py-4">
+                      <td data-label="Customer" className="px-4 py-4">
                         <div className="flex items-center gap-3">
                           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--surface-secondary)] text-xs font-semibold text-[var(--accent-strong)]">
                             {String(customer.name || 'C').slice(0, 1).toUpperCase()}
                           </span>
-                          <div>
+                          <div className="min-w-0">
                           <p className="font-semibold text-[var(--text-primary)]">{customer.name}</p>
                           <p className="text-xs text-[var(--text-muted)]">Added {new Date(customer.createdAt).toLocaleDateString()}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td data-label="Contact" className="px-4 py-4">
                         <p className="text-[var(--text-secondary)]">{customer.phone || '-'}</p>
                         <p className="text-xs text-[var(--text-muted)]">{customer.email || 'No email'}</p>
                       </td>
-                      <td className="px-4 py-4 font-medium text-[var(--text-primary)]">{Number(customer.salesCount || 0)}</td>
-                      <td className="px-4 py-4">
+                      <td data-label="Sales" className="px-4 py-4 font-medium text-[var(--text-primary)]">{Number(customer.salesCount || 0)}</td>
+                      <td data-label="Status" className="px-4 py-4">
                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${customer.isActive ? 'app-alert-success' : 'app-alert-info'}`}>
                           {customer.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-4 py-4">
-                        <div className="flex gap-2">
+                      <td data-label="Actions" className="px-4 py-4">
+                        <div className="flex flex-wrap justify-end gap-2 md:justify-start">
                           <button
                             type="button"
                             onClick={() => setForm({
@@ -253,7 +254,7 @@ export default function Customers() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDelete(customer)}
+                            onClick={() => setDeleteTarget(customer)}
                             className="app-btn-danger rounded-lg px-3 py-2 text-xs font-medium transition disabled:opacity-50"
                             disabled={!canDelete}
                           >
@@ -405,6 +406,24 @@ export default function Customers() {
           </div>
         </div>
       )}
+
+      {deleteTarget ? (
+        <ConfirmDialog
+          title="Delete customer?"
+          message={
+            <>
+              Delete <strong className="font-semibold text-[var(--text-primary)]">{deleteTarget.name}</strong> permanently? This cannot be undone.
+            </>
+          }
+          confirmLabel="Delete"
+          onConfirm={() => {
+            const target = deleteTarget;
+            setDeleteTarget(null);
+            handleDelete(target);
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }

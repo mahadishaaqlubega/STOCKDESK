@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchProfile, updateProfile, resendVerification, changePassword, closeAccount } from '../utils/api';
 import { getToken, updateToken, logout } from '../utils/auth';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 function resizeImage(file, maxSize = 512) {
   return new Promise((resolve, reject) => {
@@ -156,6 +157,8 @@ export default function Profile() {
   const [closeMessage, setCloseMessage] = useState('');
   const [closeStep, setCloseStep] = useState('confirm');
   const [activeTab, setActiveTab] = useState('account');
+
+  useBodyScrollLock(showAvatarModal);
 
   useEffect(() => {
     loadProfile();
@@ -386,7 +389,7 @@ export default function Profile() {
                     {initials}
                   </div>
                 )}
-                <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/50 text-white opacity-0 transition group-hover:opacity-100 ring-4 ring-[var(--surface-primary)]">
+                <span className="app-touch-reveal absolute inset-0 flex items-center justify-center rounded-2xl bg-black/50 text-white opacity-0 transition group-hover:opacity-100 ring-4 ring-[var(--surface-primary)]">
                   <CameraIcon />
                 </span>
               </div>

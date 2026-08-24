@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchProducts, createSale, fetchSettings, downloadReceipt, fetchSale, fetchCustomers, printReceiptToPrinter, createReturn } from '../utils/api';
 import { getToken, getUser } from '../utils/auth';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import PosReceipt from '../components/Receipt/PosReceipt';
 
 const paymentMethods = ['Cash', 'Card', 'Mobile Money'];
@@ -51,6 +52,8 @@ export default function POS() {
   const [returnReason, setReturnReason] = useState('');
   const [returnMessage, setReturnMessage] = useState('');
   const [returnLoading, setReturnLoading] = useState(false);
+
+  useBodyScrollLock(showReceipt);
 
   useEffect(() => {
     loadProducts();
@@ -297,7 +300,7 @@ export default function POS() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${mobileSection === 'browse' && cartItemCount > 0 ? 'pb-28 xl:pb-0' : ''}`}>
       <section className="app-panel relative overflow-hidden rounded-[1.7rem] border p-5 sm:p-6">
         <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/3 bg-[radial-gradient(circle_at_top_right,rgba(30,167,189,0.14),transparent_58%)] lg:block" />
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -444,16 +447,16 @@ export default function POS() {
                             <button
                               type="button"
                               onClick={() => updateQuantity(item.productId, -1)}
-                              className="app-btn-secondary rounded-full border px-3 py-1 transition"
+                              className="app-btn-secondary flex h-11 w-11 items-center justify-center rounded-full border text-lg transition"
                               aria-label={`Decrease quantity of ${item.name}`}
                             >
-                              -
+                              −
                             </button>
                             <span className="w-8 text-center font-semibold">{item.quantity}</span>
                             <button
                               type="button"
                               onClick={() => updateQuantity(item.productId, 1)}
-                              className="app-btn-secondary rounded-full border px-3 py-1 transition"
+                              className="app-btn-secondary flex h-11 w-11 items-center justify-center rounded-full border text-lg transition"
                               aria-label={`Increase quantity of ${item.name}`}
                             >
                               +
@@ -528,6 +531,7 @@ export default function POS() {
                           type="number"
                           min="0"
                           step="0.01"
+                          inputMode="decimal"
                           placeholder="0.00"
                           value={sp.amount}
                           onChange={(e) => setSplitPayments((prev) => prev.map((p, idx) => idx === i ? { ...p, amount: e.target.value } : p))}
@@ -559,6 +563,7 @@ export default function POS() {
                   type="number"
                   min="0"
                   step="0.01"
+                  inputMode="decimal"
                   value={discount}
                   onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                   placeholder={discountType === 'percentage' ? 'Discount' : 'Amount'}
@@ -645,6 +650,7 @@ export default function POS() {
           type="button"
           onClick={() => setMobileSection('cart')}
           className="app-btn-primary fixed bottom-4 left-4 right-4 z-30 rounded-2xl px-4 py-4 text-left shadow-xl xl:hidden"
+          style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
         >
           <span className="block text-xs uppercase tracking-[0.16em] text-white/80">Current Sale</span>
           <span className="mt-1 flex items-center justify-between gap-4 text-sm font-semibold text-white">
@@ -734,6 +740,7 @@ export default function POS() {
                         type="number"
                         min="0"
                         max={item.quantity}
+                        inputMode="numeric"
                         value={returnItems[item.productId] || 0}
                         onChange={(e) => setReturnItems((prev) => ({ ...prev, [item.productId]: Number(e.target.value) }))}
                         className="app-input w-20 rounded-lg border px-3 py-1.5 text-sm"

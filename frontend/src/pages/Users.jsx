@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { fetchUsers, createUser, deleteUser } from '../utils/api';
 import { getUser } from '../utils/auth';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const ROLE_OPTIONS = ['Admin', 'Manager', 'Cashier'];
 const initialForm = { name: '', username: '', password: '', displayRole: 'Cashier' };
@@ -59,6 +61,9 @@ export default function Users() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const currentUser = getUser();
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  useBodyScrollLock(showPasswordModal || Boolean(deleteTarget));
   const adminCount = users.filter((user) => (user.displayRole || user.role) === 'Admin').length;
   const managerCount = users.filter((user) => (user.displayRole || user.role) === 'Manager').length;
   const cashierCount = users.filter((user) => (user.displayRole || user.role) === 'Cashier' || ((user.displayRole || user.role) === 'Staff')).length;
@@ -105,19 +110,17 @@ export default function Users() {
     }
   };
 
-  const handleDelete = async (userId, userName) => {
+  const handleDelete = async (userId) => {
     if (userId === currentUser?.id) {
       setMessage('Cannot delete your own account.');
       return;
     }
-    if (window.confirm(`Are you sure you want to delete user "${userName}"?`)) {
-      try {
-        await deleteUser(userId);
-        setMessage('User deleted successfully.');
-        await loadUsers();
-      } catch (error) {
-        setMessage(error.message);
-      }
+    try {
+      await deleteUser(userId);
+      setMessage('User deleted successfully.');
+      await loadUsers();
+    } catch (error) {
+      setMessage(error.message);
     }
   };
 
@@ -144,7 +147,7 @@ export default function Users() {
             Passwords are shown once after account creation. Store them safely before closing the confirmation screen.
           </div>
           <div className="overflow-x-auto rounded-2xl border border-[var(--border-default)]">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+            <table className="table-cards min-w-full divide-y divide-slate-200 text-left text-sm">
               <thead className="app-table-head">
                 <tr>
                   <th className="px-4 py-3">Name</th>
@@ -158,19 +161,19 @@ export default function Users() {
               <tbody className="divide-y divide-[var(--border-default)] bg-[var(--surface-primary)]">
                 {users.map((user) => (
                   <tr key={user.id} className="app-row-hover transition">
-                    <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{user.name || '-'}</td>
-                    <td className="px-4 py-3">{user.username || '-'}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="Name" className="px-4 py-3 font-medium text-[var(--text-primary)]">{user.name || '-'}</td>
+                    <td data-label="Username" className="px-4 py-3">{user.username || '-'}</td>
+                    <td data-label="Email" className="px-4 py-3">
                       {user.email ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm text-[var(--text-primary)]">{user.email}</span>
+                        <div className="flex items-center justify-end gap-1.5 md:justify-start">
+                          <span className="min-w-0 break-words text-sm text-[var(--text-primary)]">{user.email}</span>
                           {user.isVerified ? (
-                            <span className="inline-flex items-center gap-0.5 rounded-full border border-[var(--success-border)] bg-[var(--success-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+                            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-[var(--success-border)] bg-[var(--success-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--success)]">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-2.5 w-2.5"><polyline points="20 6 9 17 4 12" /></svg>
                               Verified
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-0.5 rounded-full border border-[var(--warning-border)] bg-[var(--warning-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)]">
+                            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-[var(--warning-border)] bg-[var(--warning-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)]">
                               Pending
                             </span>
                           )}
@@ -179,7 +182,7 @@ export default function Users() {
                         <span className="text-sm text-[var(--text-muted)]">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="Role" className="px-4 py-3">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
                         (user.displayRole || user.role) === 'Admin'
                           ? 'app-panel-accent'
@@ -190,10 +193,10 @@ export default function Users() {
                         {user.displayRole || user.role}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{new Date(user.createdAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="Created" className="px-4 py-3">{new Date(user.createdAt).toLocaleDateString()}</td>
+                    <td data-label="Action" className="px-4 py-3">
                       <button
-                        onClick={() => handleDelete(user.id, user.name)}
+                        onClick={() => setDeleteTarget(user)}
                         disabled={user.id === currentUser?.id}
                         className="app-btn-danger rounded-lg px-3 py-1.5 text-sm transition disabled:cursor-not-allowed disabled:opacity-50"
                       >
@@ -338,6 +341,24 @@ export default function Users() {
           </div>
         </div>
       )}
+
+      {deleteTarget ? (
+        <ConfirmDialog
+          title="Delete user?"
+          message={
+            <>
+              Delete <strong className="font-semibold text-[var(--text-primary)]">{deleteTarget.name || deleteTarget.username}</strong> permanently? This cannot be undone.
+            </>
+          }
+          confirmLabel="Delete"
+          onConfirm={() => {
+            const target = deleteTarget;
+            setDeleteTarget(null);
+            handleDelete(target.id);
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }

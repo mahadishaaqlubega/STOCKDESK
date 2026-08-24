@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fetchShopDetail, deleteShop } from '../utils/api';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 const ACTION_META = {
   CREATE: { label: 'Create', text: 'text-[var(--success)]', bg: 'bg-[rgba(74,168,132,0.12)]' },
@@ -89,6 +90,8 @@ export default function ShopDetail() {
   const [error, setError] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useBodyScrollLock(confirmOpen);
 
   const load = async () => {
     try {

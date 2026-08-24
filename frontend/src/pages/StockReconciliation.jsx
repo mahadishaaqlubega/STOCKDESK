@@ -356,7 +356,7 @@ export default function StockReconciliation() {
                                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${badgeClass}`}>
                                       {qty === 0 ? 'Out of stock' : `${qty} in stock`}
                                     </span>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="h-3.5 w-3.5 text-[var(--text-muted)] opacity-0 transition group-hover:opacity-100">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="app-touch-reveal h-3.5 w-3.5 text-[var(--text-muted)] opacity-0 transition group-hover:opacity-100">
                                       <path d="M9 18l6-6-6-6" />
                                     </svg>
                                   </div>
@@ -396,6 +396,7 @@ export default function StockReconciliation() {
                       type="number"
                       step="0.01"
                       min="0"
+                      inputMode="decimal"
                       value={physicalQuantity}
                       onChange={(e) => setPhysicalQuantity(e.target.value)}
                       className="app-input w-full rounded-[1.1rem] border px-4 py-2.5 text-sm"
@@ -635,7 +636,7 @@ export default function StockReconciliation() {
 
             {/* Table */}
             <div className="mt-4 overflow-x-auto rounded-[1.1rem] border border-[var(--border-default)]">
-              <table className="w-full text-sm">
+              <table className="table-cards w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
                     {['Date', 'Product', 'System', 'Physical', 'Variance', 'Reason', 'By'].map((h, i) => (
@@ -674,23 +675,23 @@ export default function StockReconciliation() {
                       const reasonMeta = REASON_META[rec.reason] || REASON_META.Other;
                       return (
                       <tr key={rec.id} className="border-l-[3px] transition hover:bg-[var(--surface-secondary)]" style={{ borderLeftColor: borderColor }}>
-                        <td className="whitespace-nowrap px-4 py-3">
+                        <td data-label="Date" className="whitespace-nowrap px-4 py-3">
                           <p className="text-xs text-[var(--text-secondary)]">{formatDateTime(rec.reconciliationDate)}</p>
                           <p className="text-[11px] text-[var(--text-muted)]">{getRelativeTime(rec.reconciliationDate)}</p>
                         </td>
-                        <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
+                        <td data-label="Product" className="px-4 py-3 font-medium text-[var(--text-primary)]">
                           {rec.product?.name}
                         </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-[var(--text-secondary)]">
+                        <td data-label="System" className="px-4 py-3 text-right tabular-nums text-[var(--text-secondary)]">
                           {parseFloat(rec.systemQuantity).toFixed(2)}
                         </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-[var(--text-secondary)]">
+                        <td data-label="Physical" className="px-4 py-3 text-right tabular-nums text-[var(--text-secondary)]">
                           {parseFloat(rec.physicalQuantity).toFixed(2)}
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td data-label="Variance" className="px-4 py-3 text-right">
                           <VariancePill variance={rec.variance} />
                         </td>
-                        <td className="px-4 py-3">
+                        <td data-label="Reason" className="px-4 py-3">
                           {rec.reason ? (
                             <span className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: reasonMeta.color }}>
                               {reasonMeta.icon}
@@ -700,8 +701,8 @@ export default function StockReconciliation() {
                             <span className="text-[var(--text-muted)]">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
+                        <td data-label="By" className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2 md:justify-start">
                             <UserAvatar name={rec.adjustedBy?.name} />
                             <span className="text-xs text-[var(--text-secondary)]">{rec.adjustedBy?.name || '—'}</span>
                           </div>

@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { logout, getUser } from '../utils/auth';
 
 export default function Layout() {
@@ -9,13 +10,15 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  useBodyScrollLock(sidebarOpen);
+
   const handleLogout = () => {
     logout();
   };
 
   return (
-    <div className="app-shell min-h-screen">
-      <div className="flex min-h-screen">
+    <div className="app-shell min-h-dvh">
+      <div className="flex min-h-dvh">
         <Sidebar
           user={user}
           isOpen={sidebarOpen}

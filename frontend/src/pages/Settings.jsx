@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { closeBusinessDay, configurePrinter, disconnectPrinter, fetchDayClosures, fetchPrinterStatus, fetchSettings, fetchUsers, resetUserPassword, saveSettings, testPrinter } from '../utils/api';
 import { getUser } from '../utils/auth';
 import ThemeToggleButton from '../components/ThemeToggleButton';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const currencies = [
   { code: 'AED', country: 'United Arab Emirates - Dirham' },
@@ -206,6 +207,7 @@ export default function Settings() {
   const [testingPrinter, setTestingPrinter] = useState(false);
   const [closingDay, setClosingDay] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [confirmClose, setConfirmClose] = useState(false);
 
   useEffect(() => {
     async function loadSettings() {
@@ -300,10 +302,6 @@ export default function Settings() {
   };
 
   const handleCloseBusinessDay = async () => {
-    if (!window.confirm('Close the current business day and save today\'s totals as a snapshot? Sales history will remain available.')) {
-      return;
-    }
-
     try {
       setClosingDay(true);
       const response = await closeBusinessDay();
@@ -373,7 +371,7 @@ export default function Settings() {
               ) : null}
 
               <div className="overflow-x-auto rounded-2xl border border-[var(--border-default)]">
-                <table className="min-w-full text-left text-sm">
+                <table className="table-cards min-w-full text-left text-sm">
                   <thead className="app-table-head">
                     <tr>
                       <th className="px-4 py-3">Username</th>
@@ -385,10 +383,10 @@ export default function Settings() {
                   <tbody className="divide-y divide-[var(--border-default)] bg-[var(--surface-primary)]">
                     {teamUsers.map((user) => (
                       <tr key={user.id} className="app-row-hover transition">
-                        <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{user.username}</td>
-                        <td className="px-4 py-3 text-[var(--text-muted)]">{user.displayRole || user.role}</td>
-                        <td className="px-4 py-3 text-[var(--text-muted)]">{new Date(user.createdAt).toLocaleDateString()}</td>
-                        <td className="px-4 py-3">
+                        <td data-label="Username" className="px-4 py-3 font-medium text-[var(--text-primary)]">{user.username}</td>
+                        <td data-label="Role" className="px-4 py-3 text-[var(--text-muted)]">{user.displayRole || user.role}</td>
+                        <td data-label="Created" className="px-4 py-3 text-[var(--text-muted)]">{new Date(user.createdAt).toLocaleDateString()}</td>
+                        <td data-label="Action" className="px-4 py-3">
                           <button
                             type="button"
                             onClick={() => {
@@ -631,7 +629,7 @@ export default function Settings() {
                 </div>
                 <button
                   type="button"
-                  onClick={handleCloseBusinessDay}
+                  onClick={() => setConfirmClose(true)}
                   disabled={closingDay}
                   className="app-btn-danger-solid rounded-lg px-5 py-3 text-sm font-medium transition disabled:opacity-60"
                 >
@@ -672,6 +670,19 @@ export default function Settings() {
           ) : null}
         </>
       )}
+
+      {confirmClose ? (
+        <ConfirmDialog
+          title="Close business day?"
+          message="Close the current business day and save today's totals as a snapshot? Sales history will remain available."
+          confirmLabel="Close Day"
+          onConfirm={() => {
+            setConfirmClose(false);
+            handleCloseBusinessDay();
+          }}
+          onCancel={() => setConfirmClose(false)}
+        />
+      ) : null}
     </div>
   );
 }

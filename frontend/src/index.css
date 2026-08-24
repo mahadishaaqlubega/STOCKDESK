@@ -156,7 +156,13 @@ input,
 select,
 textarea {
   @apply outline-none;
+  -webkit-tap-highlight-color: transparent;
   transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+button,
+a {
+  touch-action: manipulation;
 }
 
 button:focus,
@@ -164,6 +170,81 @@ input:focus,
 select:focus,
 textarea:focus {
   box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+/*
+ * Prevent iOS Safari from auto-zooming when a form control is focused.
+ * Safari zooms any input/select/textarea with a font-size under 16px, so we
+ * bump them to 16px on touch/coarse-pointer devices (phones, tablets).
+ */
+@media (any-pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/*
+ * Stacked "card" tables on small screens.
+ * Add the .table-cards class to a <table> and put a data-label attribute on
+ * each data <td>; below md the table head is hidden and every row renders as
+ * a bordered card with label/value rows instead of horizontal scrolling.
+ */
+@media (max-width: 767px) {
+  .table-cards {
+    display: block;
+  }
+
+  .table-cards thead {
+    display: none;
+  }
+
+  .table-cards tbody {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .table-cards tr {
+    display: block;
+    padding: 0.375rem 0;
+    border: 1px solid var(--border-default);
+    border-radius: 1.15rem;
+    background: var(--surface-primary);
+    box-shadow: var(--shadow-card);
+  }
+
+  .table-cards td {
+    display: block;
+    width: 100%;
+    border: 0;
+    padding: 0.5rem 1rem;
+    text-align: right;
+    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .table-cards td[data-label]::before {
+    content: attr(data-label);
+    float: left;
+    padding-right: 0.75rem;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+}
+
+/*
+ * Hover-only affordances (opacity/transform reveals) have no trigger on touch
+ * devices, so force them visible when the primary input is a coarse pointer.
+ */
+@media (hover: none) {
+  .app-touch-reveal {
+    opacity: 1;
+  }
 }
 
 ::selection {

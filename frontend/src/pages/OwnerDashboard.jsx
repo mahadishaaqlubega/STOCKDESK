@@ -183,7 +183,7 @@ export default function OwnerDashboard() {
   const activityRate = s.totalShops > 0 ? Math.round((s.recentlyActiveShops / s.totalShops) * 100) : 0;
 
   return (
-    <div className="relative min-h-screen space-y-6 overflow-hidden rounded-3xl bg-[#09090b]">
+    <div className="relative min-h-dvh space-y-6 overflow-hidden rounded-3xl bg-[#09090b]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
         <div className="absolute -left-32 top-0 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-teal-500/20 to-emerald-500/10 blur-[120px]" />
         <div className="absolute -right-32 top-1/4 h-[400px] w-[400px] rounded-full bg-gradient-to-br from-violet-500/15 to-sky-500/10 blur-[100px]" />

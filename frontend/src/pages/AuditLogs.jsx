@@ -266,7 +266,7 @@ export default function AuditLogs() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="table-cards w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--border-default)]">
                 {['Timestamp', 'User', 'Action', 'Entity', 'ID', 'IP'].map((h) => (
@@ -294,7 +294,7 @@ export default function AuditLogs() {
                   const meta = ACTION_META[log.action] || {};
                   return (
                     <tr key={log.id} className={`border-l-[3px] transition hover:bg-[var(--surface-secondary)] ${meta.border || 'border-l-transparent'}`}>
-                      <td className="whitespace-nowrap px-4 py-3">
+                      <td data-label="Time" className="whitespace-nowrap px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className={`rounded-[0.6rem] p-1 ${meta.bg || 'bg-[var(--surface-secondary)]'}`}>
                             <ActionIcon action={log.action} />
@@ -305,8 +305,8 @@ export default function AuditLogs() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
+                      <td data-label="User" className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2.5 md:justify-start">
                           <UserAvatar name={log.user?.name} />
                           <div className="min-w-0">
                             <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{log.user?.name || '—'}</p>
@@ -314,16 +314,16 @@ export default function AuditLogs() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td data-label="Action" className="px-4 py-3">
                         <ActionChip action={log.action} />
                       </td>
-                      <td className="px-4 py-3">
+                      <td data-label="Entity" className="px-4 py-3">
                         <span className="inline-flex items-center rounded-[0.7rem] bg-[var(--surface-secondary)] px-2.5 py-1 text-[12px] font-medium text-[var(--text-secondary)]">
                           {log.entityType}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-[var(--text-muted)]">{log.entityId || '—'}</td>
-                      <td className="px-4 py-3">
+                      <td data-label="ID" className="px-4 py-3 font-mono text-xs text-[var(--text-muted)]">{log.entityId || '—'}</td>
+                      <td data-label="IP" className="px-4 py-3">
                         <span className="inline-flex items-center gap-1 font-mono text-xs text-[var(--text-muted)]">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3 w-3 opacity-50"><circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
                           {log.ipAddress || '—'}

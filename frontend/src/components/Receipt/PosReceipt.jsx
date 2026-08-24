@@ -291,7 +291,7 @@ export default function PosReceipt({ sale, settings, cashierName, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-3 sm:items-center sm:p-4 no-print" onClick={onClose}>
-      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+      <div className="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <div className="overflow-y-auto px-5 py-5 sm:px-7 sm:py-7 print:p-0 print:rounded-none print:shadow-none print:max-w-none">
           {/* Receipt Header */}
           <div className="mb-5 rounded-[24px] bg-[#1f7a8c] px-5 py-5 text-white">
