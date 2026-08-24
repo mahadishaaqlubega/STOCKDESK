@@ -1,28 +1,30 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import Layout from './components/Layout';
-import Login from './pages/Login';
-import OwnerLogin from './pages/OwnerLogin';
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import Customers from './pages/Customers';
-import POS from './pages/POS';
-import Reports from './pages/Reports';
-import Settings from './pages/Settings';
-import Users from './pages/Users';
-import Shops from './pages/Shops';
-import OwnerDashboard from './pages/OwnerDashboard';
-import ShopDetail from './pages/ShopDetail';
-import Expenses from './pages/Expenses';
-import AuditLogs from './pages/AuditLogs';
-import StockReconciliation from './pages/StockReconciliation';
-import Returns from './pages/Returns';
-import VerifyEmail from './pages/VerifyEmail';
-import ResetPassword from './pages/ResetPassword';
-import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
+import PageLoader from './components/PageLoader';
 import { getUser, hasActiveSession } from './utils/auth';
 import useInactivityLogout from './hooks/useInactivityLogout';
+
+const Login = lazy(() => import('./pages/Login'));
+const OwnerLogin = lazy(() => import('./pages/OwnerLogin'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Products = lazy(() => import('./pages/Products'));
+const Customers = lazy(() => import('./pages/Customers'));
+const POS = lazy(() => import('./pages/POS'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Users = lazy(() => import('./pages/Users'));
+const Shops = lazy(() => import('./pages/Shops'));
+const OwnerDashboard = lazy(() => import('./pages/OwnerDashboard'));
+const ShopDetail = lazy(() => import('./pages/ShopDetail'));
+const Expenses = lazy(() => import('./pages/Expenses'));
+const AuditLogs = lazy(() => import('./pages/AuditLogs'));
+const StockReconciliation = lazy(() => import('./pages/StockReconciliation'));
+const Returns = lazy(() => import('./pages/Returns'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const Profile = lazy(() => import('./pages/Profile'));
 
 function App() {
   const [session, setSession] = useState({
@@ -54,32 +56,34 @@ function App() {
   }, []);
 
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/owner-login" element={<Navigate to="/owner" replace />} />
-      <Route path="/owner" element={session.isAuthenticated ? <Navigate to={isSuperAdmin ? '/app/owner' : '/app'} replace /> : <OwnerLogin />} />
-      <Route path="/app" element={session.isAuthenticated ? <Layout /> : <Navigate to="/login" replace />}>
-        <Route index element={isSuperAdmin ? <Navigate to="/owner" replace /> : <Dashboard />} />
-        <Route path="owner" element={isSuperAdmin ? <OwnerDashboard /> : <Navigate to="/app" replace />} />
-        <Route path="shops" element={isSuperAdmin ? <Shops /> : <Navigate to="/app" replace />} />
-        <Route path="shops/:id" element={isSuperAdmin ? <ShopDetail /> : <Navigate to="/app" replace />} />
-        <Route path="products" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Products />} />
-        <Route path="customers" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Customers />} />
-        <Route path="pos" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <POS />} />
-        <Route path="reports" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <Reports />} />
-        <Route path="expenses" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <Expenses />} />
-        <Route path="stock-reconciliation" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <StockReconciliation />} />
-        <Route path="returns" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Returns />} />
-        <Route path="audit-logs" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <AuditLogs />} />
-        <Route path="settings" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <Settings />} />
-        <Route path="users" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Users />} />
-        <Route path="profile" element={isStaff ? staffBlocked : <Profile />} />
-      </Route>
-      <Route path="*" element={<Navigate to={session.isAuthenticated ? '/app' : '/login'} replace />} />
-    </Routes>
+    <Suspense fallback={<PageLoader fullPage />}>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/owner-login" element={<Navigate to="/owner" replace />} />
+        <Route path="/owner" element={session.isAuthenticated ? <Navigate to={isSuperAdmin ? '/app/owner' : '/app'} replace /> : <OwnerLogin />} />
+        <Route path="/app" element={session.isAuthenticated ? <Layout /> : <Navigate to="/login" replace />}>
+          <Route index element={isSuperAdmin ? <Navigate to="/owner" replace /> : <Dashboard />} />
+          <Route path="owner" element={isSuperAdmin ? <OwnerDashboard /> : <Navigate to="/app" replace />} />
+          <Route path="shops" element={isSuperAdmin ? <Shops /> : <Navigate to="/app" replace />} />
+          <Route path="shops/:id" element={isSuperAdmin ? <ShopDetail /> : <Navigate to="/app" replace />} />
+          <Route path="products" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Products />} />
+          <Route path="customers" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Customers />} />
+          <Route path="pos" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <POS />} />
+          <Route path="reports" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <Reports />} />
+          <Route path="expenses" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <Expenses />} />
+          <Route path="stock-reconciliation" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <StockReconciliation />} />
+          <Route path="returns" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Returns />} />
+          <Route path="audit-logs" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <AuditLogs />} />
+          <Route path="settings" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <Settings />} />
+          <Route path="users" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Users />} />
+          <Route path="profile" element={isStaff ? staffBlocked : <Profile />} />
+        </Route>
+        <Route path="*" element={<Navigate to={session.isAuthenticated ? '/app' : '/login'} replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 
