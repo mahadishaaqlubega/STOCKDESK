@@ -1,18 +1,12 @@
 jest.mock('../src/models', () => {
-  const mockFindOne = jest.fn();
-  const mockFindByPk = jest.fn();
-  const mockCreate = jest.fn();
-  const mockUpdate = jest.fn();
-  const mockDestroy = jest.fn();
-  const mockSave = jest.fn();
-
   const mockModel = () => ({
-    findOne: mockFindOne,
-    findByPk: mockFindByPk,
-    create: mockCreate,
-    update: mockUpdate,
-    destroy: mockDestroy,
-    save: mockSave,
+    findOne: jest.fn(),
+    findByPk: jest.fn(),
+    findAll: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    destroy: jest.fn(),
+    save: jest.fn(),
   });
 
   return {
