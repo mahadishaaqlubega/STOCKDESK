@@ -2,7 +2,7 @@ require('./setup');
 const request = require('supertest');
 const app = require('../src/app');
 const { adminToken, staffToken } = require('./helpers');
-const { Product, Customer, Expense, Sale } = require('../src/models');
+const { Product, Customer, Expense, Sale, User } = require('../src/models');
 
 describe('GET /api/products', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -30,6 +30,10 @@ describe('POST /api/products', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('requires Admin role', async () => {
+    User.findByPk.mockResolvedValue({
+      id: 2, role: 'Staff', name: 'Staff', username: 'staff', shopId: 10,
+    });
+
     const res = await request(app)
       .post('/api/products')
       .set('Authorization', `Bearer ${staffToken()}`)
@@ -95,6 +99,9 @@ describe('GET /api/sales', () => {
 
   it('returns sales for authenticated user', async () => {
     Sale.findAll = jest.fn().mockResolvedValue([]);
+    User.findByPk.mockResolvedValue({
+      id: 1, role: 'Admin', name: 'Admin', username: 'admin', shopId: 10,
+    });
 
     const res = await request(app)
       .get('/api/sales')
