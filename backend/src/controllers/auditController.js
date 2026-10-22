@@ -1,5 +1,7 @@
 const { Audit, User, Shop } = require('../models');
 const { Op } = require('sequelize');
+const { parseLocalDate } = require('../config/timezone');
+const { startOfDay, endOfDay } = require('../utils/businessMetrics');
 
 // Log an action
 exports.logAction = async (userId, shopId, action, entityType, entityId, details, req) => {
@@ -36,8 +38,9 @@ exports.getAuditLogs = async (req, res) => {
 
     if (startDate || endDate) {
       where.createdAt = {};
-      if (startDate) where.createdAt[Op.gte] = new Date(startDate);
-      if (endDate) where.createdAt[Op.lte] = new Date(endDate);
+      // Whole local days: an end date includes everything on that day.
+      if (startDate) where.createdAt[Op.gte] = startOfDay(parseLocalDate(startDate));
+      if (endDate) where.createdAt[Op.lte] = endOfDay(parseLocalDate(endDate));
     }
 
     const { count, rows } = await Audit.findAndCountAll({

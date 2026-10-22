@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { Sale, SaleItem, Product, Receipt, User, Setting, Shop, Customer, DayClosure, SaleReturn, SaleReturnItem } = require('../models');
 const { generateReceiptPdf } = require('../utils/receiptGenerator');
 const { startOfDay, endOfDay, getMetricsForRange } = require('../utils/businessMetrics');
+const { localDateString } = require('../config/timezone');
 const { Op } = require('sequelize');
 const auditController = require('./auditController');
 
@@ -524,7 +525,7 @@ exports.publicReceipt = async (req, res, next) => {
 exports.closeBusinessDay = async (req, res, next) => {
   try {
     const now = new Date();
-    const closureDate = startOfDay(now).toISOString().slice(0, 10);
+    const closureDate = localDateString(now);
     const existingClosure = await DayClosure.findOne({
       where: { shopId: req.user.shopId, closedForDate: closureDate },
       include: [{ model: User, as: 'closedBy', attributes: ['id', 'name'] }],

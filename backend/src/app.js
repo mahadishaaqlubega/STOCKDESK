@@ -1,3 +1,5 @@
+// Local business day for everything below (also when app.js is loaded alone).
+require('./config/timezone');
 const express = require('express');
 const compression = require('compression');
 const cors = require('cors');

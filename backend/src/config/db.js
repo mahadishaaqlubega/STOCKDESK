@@ -83,11 +83,15 @@ const pool = {
   acquire: 30000,
 };
 
+const { APP_TIMEZONE } = require('./timezone');
+
 const sequelize = connectionString
   ? new Sequelize(connectionString, {
       dialect: 'postgres',
       logging: false,
       pool,
+      // Session time zone: SQL that groups by day uses local days.
+      timezone: APP_TIMEZONE,
       dialectOptions: useSsl
         ? {
             ssl: {
@@ -107,6 +111,7 @@ const sequelize = connectionString
         dialect: 'postgres',
         logging: false,
         pool,
+        timezone: APP_TIMEZONE,
         dialectOptions: useSsl
           ? {
               ssl: {

@@ -1,4 +1,5 @@
 const { Op } = require('sequelize');
+const { localDateString } = require('../config/timezone');
 const {
   Audit,
   Customer,
@@ -267,7 +268,7 @@ exports.getDashboard = async (req, res, next) => {
     for (let i = 0; i < trendDays; i += 1) {
       const date = new Date(trendStart);
       date.setDate(date.getDate() + i);
-      const key = date.toISOString().slice(0, 10);
+      const key = localDateString(date);
       salesSeries.push({ day: key, label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), count: saleByDay.get(key) || 0 });
       signupsSeries.push({ day: key, label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), count: signupByDay.get(key) || 0 });
     }

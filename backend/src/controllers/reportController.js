@@ -2,6 +2,7 @@ const { Sale, SaleItem, Product, User, Expense, Customer } = require('../models'
 
 const RANGE_SALES_LIMIT = 1000;
 const { fn, col, Op, literal } = require('sequelize');
+const { parseLocalDate } = require('../config/timezone');
 const { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getMetricsForRange } = require('../utils/businessMetrics');
 const sequelize = require('../config/db');
 
@@ -196,8 +197,8 @@ exports.rangeReport = async (req, res, next) => {
     const { start, end } = req.query;
     if (!start || !end) return res.status(400).json({ message: 'start and end query params required' });
 
-    const rangeStart = startOfDay(new Date(start));
-    const rangeEnd = endOfDay(new Date(end));
+    const rangeStart = startOfDay(parseLocalDate(start));
+    const rangeEnd = endOfDay(parseLocalDate(end));
 
     const [metrics, sales, topProducts] = await Promise.all([
       getMetricsForRange(req.user.shopId, rangeStart, rangeEnd),

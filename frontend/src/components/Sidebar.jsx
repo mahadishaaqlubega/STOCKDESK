@@ -118,7 +118,7 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
           </button>
         </div>
 
-        <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        <nav className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           {sections.map((section, index) => (
             <div key={section.title || index} className={index ? 'mt-5' : 'mt-1'}>
               {section.title ? (

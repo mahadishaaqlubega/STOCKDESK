@@ -1,6 +1,8 @@
 const { StockReconciliation, Product, User } = require('../models');
 const auditController = require('./auditController');
 const { Op } = require('sequelize');
+const { parseLocalDate } = require('../config/timezone');
+const { startOfDay, endOfDay } = require('../utils/businessMetrics');
 
 // Create stock reconciliation record
 exports.createReconciliation = async (req, res) => {
@@ -109,8 +111,8 @@ exports.getReconciliations = async (req, res) => {
 
     if (startDate || endDate) {
       where.reconciliationDate = {};
-      if (startDate) where.reconciliationDate[Op.gte] = new Date(startDate);
-      if (endDate) where.reconciliationDate[Op.lte] = new Date(endDate);
+      if (startDate) where.reconciliationDate[Op.gte] = startOfDay(parseLocalDate(startDate));
+      if (endDate) where.reconciliationDate[Op.lte] = endOfDay(parseLocalDate(endDate));
     }
 
     const { count, rows } = await StockReconciliation.findAndCountAll({
@@ -153,8 +155,8 @@ exports.getReconciliationSummary = async (req, res) => {
 
     if (startDate || endDate) {
       where.reconciliationDate = {};
-      if (startDate) where.reconciliationDate[Op.gte] = new Date(startDate);
-      if (endDate) where.reconciliationDate[Op.lte] = new Date(endDate);
+      if (startDate) where.reconciliationDate[Op.gte] = startOfDay(parseLocalDate(startDate));
+      if (endDate) where.reconciliationDate[Op.lte] = endOfDay(parseLocalDate(endDate));
     }
 
     const summary = await StockReconciliation.findAll({

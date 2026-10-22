@@ -1,6 +1,8 @@
 const dotenv = require('dotenv');
 
 dotenv.config();
+// Before anything else makes a Date: run the process on shop-local time.
+require('./config/timezone');
 
 const PORT = process.env.PORT || 4000;
 
