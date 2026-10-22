@@ -228,6 +228,44 @@ const stamp = Date.now().toString(36);
   check('count history loads', (await api('GET', '/stock-reconciliation/history?limit=5', admin)).status === 200);
   check('count summary loads (was always failing)', (await api('GET', '/stock-reconciliation/summary', admin)).status === 200);
 
+  // ---------------------------------------------------------------- suppliers
+  group('Suppliers & purchases');
+  check('staff cannot open suppliers', (await api('GET', '/suppliers', staff)).status === 403);
+  check('supplier needs a name', (await api('POST', '/suppliers', admin, { phone: '0700' })).status === 400);
+  const supplier = await api('POST', '/suppliers', admin, { name: `E2E Wholesaler ${stamp}`, phone: '0772000999' });
+  check('create supplier', supplier.status === 201);
+  const stockItem = await api('POST', '/products', admin, { name: `E2E Bought item ${stamp}`, category: 'E2E-Buy', buyPrice: 5000, sellPrice: 9000, quantity: 2, lowStock: 1 });
+  const purchase = await api('POST', '/purchases', admin, {
+    supplierId: supplier.data.id,
+    reference: 'INV-77',
+    items: [{ productId: stockItem.data.id, quantity: 5, unitCost: 7000, sellPrice: 12000 }],
+    amountPaid: 20000,
+    paymentMethod: 'Mobile Money',
+    dueDate: '2030-02-01',
+  });
+  check('record purchase: total 35,000, owe 15,000', purchase.status === 201 && Number(purchase.data.total) === 35000 && Number(purchase.data.balanceDue) === 15000, `${purchase.status} ${purchase.data.message || purchase.data.total}`);
+  const bought = (await api('GET', `/products/${stockItem.data.id}`, admin)).data;
+  check('purchase adds stock and updates cost and price', bought.quantity === 7 && Number(bought.buyPrice) === 7000 && Number(bought.sellPrice) === 12000, `${bought.quantity} ${bought.buyPrice} ${bought.sellPrice}`);
+  const history = (await api('GET', `/products/${stockItem.data.id}/stock-history`, admin)).data;
+  check('stock history shows the delivery', history.some((h) => h.purchaseId === purchase.data.id && h.supplier === supplier.data.name));
+  check('services cannot be purchased into stock', (await api('POST', '/purchases', admin, { supplierId: supplier.data.id, items: [{ productId: pricedService.data.id, quantity: 1, unitCost: 1 }] })).status === 400);
+  check('paying more than the total refused', (await api('POST', '/purchases', admin, { supplierId: supplier.data.id, items: [{ productId: stockItem.data.id, quantity: 1, unitCost: 100 }], amountPaid: 500 })).status === 400);
+  check('fractional quantity refused', (await api('POST', '/purchases', admin, { supplierId: supplier.data.id, items: [{ productId: stockItem.data.id, quantity: 0.5, unitCost: 100 }] })).status === 400);
+  check('another shop cannot use this supplier', (await api('POST', '/purchases', otherShopAdmin, { supplierId: supplier.data.id, items: [{ productId: stockItem.data.id, quantity: 1, unitCost: 1 }] })).status === 404);
+  check('another shop cannot see this purchase', (await api('GET', `/purchases/${purchase.data.id}`, otherShopAdmin)).status === 404);
+  const supplierRow = (await api('GET', '/suppliers', admin)).data.find((x) => x.id === supplier.data.id);
+  check('supplier list shows what is owed', supplierRow && supplierRow.balance === 15000 && supplierRow.purchased === 35000, JSON.stringify(supplierRow || {}).slice(0, 120));
+  check('overpaying a supplier refused', (await api('POST', `/suppliers/${supplier.data.id}/payments`, admin, { amount: 20000, method: 'Cash' })).status === 400);
+  const supplierPaid = await api('POST', `/suppliers/${supplier.data.id}/payments`, admin, { amount: 10000, method: 'Bank', notes: 'e2e' });
+  check('pay supplier part of the balance', supplierPaid.status === 201 && supplierPaid.data.balance === 5000, `${supplierPaid.status} ${supplierPaid.data.balance}`);
+  const supStatement = (await api('GET', `/suppliers/${supplier.data.id}/statement`, admin)).data;
+  check('supplier statement: balance and payments', supStatement.balance === 5000 && supStatement.payments.length === 1 && supStatement.openPurchases.length === 1);
+  const purchaseDetail = (await api('GET', `/purchases/${purchase.data.id}`, admin)).data;
+  check('purchase detail lists items and payments', purchaseDetail.items?.length === 1 && purchaseDetail.payments?.length === 1);
+  check('purchases list loads', (await api('GET', '/purchases?limit=5', admin)).data.length >= 1);
+  const removeSupplier = await api('DELETE', `/suppliers/${supplier.data.id}`, admin);
+  check('supplier with purchases is archived, not deleted', removeSupplier.status === 200 && removeSupplier.data.archived === true);
+
   // ---------------------------------------------------------------- reports
   group('Reports & day close');
   const rep = await api('GET', '/reports/summary', admin);

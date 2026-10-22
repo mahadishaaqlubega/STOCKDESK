@@ -95,6 +95,15 @@ const STATEMENTS = [
     sql: `CREATE UNIQUE INDEX IF NOT EXISTS "receipts_public_token_idx" ON "receipts" ("publicToken") WHERE "publicToken" IS NOT NULL;`,
   },
   {
+    name: 'stock_ins.purchaseId',
+    sql: `ALTER TABLE IF EXISTS "stock_ins" ADD COLUMN IF NOT EXISTS "purchaseId" INTEGER;`,
+  },
+  { name: 'index: purchases by shop and date', sql: `CREATE INDEX IF NOT EXISTS "purchases_shop_date_idx" ON "purchases" ("shopId", "purchaseDate");` },
+  { name: 'index: purchases by supplier', sql: `CREATE INDEX IF NOT EXISTS "purchases_supplier_idx" ON "purchases" ("supplierId");` },
+  { name: 'index: purchase items by purchase', sql: `CREATE INDEX IF NOT EXISTS "purchase_items_purchase_idx" ON "purchase_items" ("purchaseId");` },
+  { name: 'index: supplier payments by supplier', sql: `CREATE INDEX IF NOT EXISTS "supplier_payments_supplier_idx" ON "supplier_payments" ("supplierId");` },
+  { name: 'index: suppliers by shop', sql: `CREATE INDEX IF NOT EXISTS "suppliers_shop_name_idx" ON "suppliers" ("shopId", "name");` },
+  {
     name: 'index: open credit sales',
     sql: `CREATE INDEX IF NOT EXISTS "sales_open_credit_idx" ON "sales" ("shopId", "customerId") WHERE "balanceDue" > 0;`,
   },

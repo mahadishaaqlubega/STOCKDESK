@@ -154,6 +154,20 @@ export const recordCreditPayment = (id, body) => request(`/customers/${id}/payme
 export const recordCustomerReminder = (id, body) => request(`/customers/${id}/reminders`, { method: 'POST', body: JSON.stringify(body) });
 export const shareSaleReceipt = (id) => request(`/sales/${id}/share`, { method: 'POST' });
 export const fetchCreditSummary = () => request('/credit/summary');
+export const fetchSuppliers = () => request('/suppliers');
+export const createSupplier = (body) => request('/suppliers', { method: 'POST', body: JSON.stringify(body) });
+export const updateSupplier = (id, body) => request(`/suppliers/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+export const deleteSupplier = (id) => request(`/suppliers/${id}`, { method: 'DELETE' });
+export const fetchSupplierStatement = (id) => request(`/suppliers/${id}/statement`);
+export const paySupplier = (id, body) => request(`/suppliers/${id}/payments`, { method: 'POST', body: JSON.stringify(body) });
+export const fetchPurchases = ({ supplierId, unpaid, limit = 50, offset = 0 } = {}) => {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (supplierId) params.set('supplierId', String(supplierId));
+  if (unpaid) params.set('unpaid', '1');
+  return request(`/purchases?${params}`);
+};
+export const fetchPurchase = (id) => request(`/purchases/${id}`);
+export const createPurchase = (body) => request('/purchases', { method: 'POST', body: JSON.stringify(body) });
 export const downloadReceipt = async (saleId) => {
   try {
     const token = getToken();

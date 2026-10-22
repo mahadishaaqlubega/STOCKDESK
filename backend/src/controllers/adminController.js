@@ -18,6 +18,10 @@ const {
   StockReconciliation,
   User,
   sequelize,
+  Supplier,
+  Purchase,
+  PurchaseItem,
+  SupplierPayment,
 } = require('../models');
 
 const ACTIVITY_WINDOW_HOURS = 24;
@@ -413,6 +417,11 @@ exports.deleteShop = async (req, res, next) => {
       // Delete records that reference Products and Users before them
       await DayClosure.destroy({ where: { shopId }, transaction: t });
       await StockReconciliation.destroy({ where: { shopId }, transaction: t });
+      // Supplier records reference products, so they go first.
+      await SupplierPayment.destroy({ where: { shopId }, transaction: t });
+      await PurchaseItem.destroy({ where: { shopId }, transaction: t });
+      await Purchase.destroy({ where: { shopId }, transaction: t });
+      await Supplier.destroy({ where: { shopId }, transaction: t });
       await StockIn.destroy({ where: { shopId }, transaction: t });
       await Audit.destroy({ where: { shopId }, transaction: t });
       await Expense.destroy({ where: { shopId }, transaction: t });

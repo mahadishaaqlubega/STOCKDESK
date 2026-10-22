@@ -17,6 +17,7 @@ const icons = {
   returns: <Icon><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></Icon>,
   products: <Icon><path d="m21 8-9-5-9 5 9 5 9-5Z" /><path d="m3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></Icon>,
   stockCount: <Icon><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M9 3v2h6V3" /><path d="m9 13 2 2 4-4" /></Icon>,
+  suppliers: <Icon><path d="M3 7h11v9H3z" /><path d="M14 10h4l3 3v3h-7" /><circle cx="7" cy="18" r="1.8" /><circle cx="17.5" cy="18" r="1.8" /></Icon>,
   reports: <Icon><path d="M3 21h18" /><rect x="5" y="11" width="3" height="7" rx="1" /><rect x="10.5" y="6" width="3" height="12" rx="1" /><rect x="16" y="14" width="3" height="4" rx="1" /></Icon>,
   expenses: <Icon><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /><path d="M7 15h3" /></Icon>,
   users: <Icon><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></Icon>,
@@ -41,6 +42,7 @@ const shopSections = [
     title: 'Stock',
     items: [
       { to: '/app/products', label: 'Products', icon: icons.products },
+      { to: '/app/suppliers', label: 'Suppliers', icon: icons.suppliers, adminOnly: true },
       { to: '/app/stock-reconciliation', label: 'Stock count', icon: icons.stockCount, adminOnly: true },
     ],
   },

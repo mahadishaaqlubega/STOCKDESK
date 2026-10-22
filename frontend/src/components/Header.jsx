@@ -7,6 +7,7 @@ const pageTitles = {
   '/app/owner': 'Platform overview',
   '/app/shops': 'Shops',
   '/app/products': 'Products',
+  '/app/suppliers': 'Suppliers & purchases',
   '/app/customers': 'Customers',
   '/app/pos': 'Point of sale',
   '/app/reports': 'Reports',

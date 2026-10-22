@@ -19,6 +19,10 @@ const {
   StockReconciliation,
   Audit,
   sequelize,
+  Supplier,
+  Purchase,
+  PurchaseItem,
+  SupplierPayment,
 } = require('../models');
 const { Op } = require('sequelize');
 const { escapeLike } = require('../utils/sql');
@@ -298,6 +302,11 @@ exports.closeAccount = async (req, res, next) => {
       await Sale.destroy({ where: { shopId }, transaction });
       await DayClosure.destroy({ where: { shopId }, transaction });
       await StockReconciliation.destroy({ where: { shopId }, transaction });
+      // Supplier records reference products, so they go first.
+      await SupplierPayment.destroy({ where: { shopId }, transaction });
+      await PurchaseItem.destroy({ where: { shopId }, transaction });
+      await Purchase.destroy({ where: { shopId }, transaction });
+      await Supplier.destroy({ where: { shopId }, transaction });
       await StockIn.destroy({ where: { shopId }, transaction });
       await Audit.destroy({ where: { shopId }, transaction });
       await Expense.destroy({ where: { shopId }, transaction });
