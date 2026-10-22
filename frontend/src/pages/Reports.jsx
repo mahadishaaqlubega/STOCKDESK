@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchReports, fetchBestSelling, fetchCashierReport, fetchDashboardSummary, fetchSettings, fetchRangeReport, fetchReturns, fetchSales, downloadReceipt } from '../utils/api';
+import { fetchReports, fetchBestSelling, fetchCashierReport, fetchDashboardSummary, fetchSettings, fetchRangeReport, fetchReturns, fetchSales, downloadReceipt, exportSalesRows } from '../utils/api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, AreaChart, Area, LineChart, Line, Legend } from 'recharts';
 import { formatMoney } from '../utils/format';
 import { tileEdge } from '../components/ui';
@@ -240,29 +240,67 @@ export default function Reports() {
     }
   };
 
-  const downloadCSV = () => {
-    if (!rangeData) return;
-    const rows = [
-      ['Sale ID', 'Date', 'Customer', 'Cashier', 'Payment', 'Subtotal', 'Tax', 'Total'],
-      ...(rangeData.sales || []).map((s) => [
-        s.id,
-        new Date(s.createdAt).toLocaleDateString(),
-        s.customer?.name || 'Walk-in',
-        s.cashier?.name || '',
-        s.paymentMethod,
-        Number(s.total || 0) - Number(s.taxAmount || 0),
-        s.taxAmount || 0,
-        s.total,
-      ]),
-    ];
-    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `report_${rangeStart}_to_${rangeEnd}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  // Excel workbook: a summary sheet and one row per item sold, for the
+  // accountant (profit per line, discounts, credit still owed).
+  const [exporting, setExporting] = useState(false);
+  const downloadExcel = async () => {
+    if (!rangeStart || !rangeEnd) return;
+    setExporting(true);
+    try {
+      const [{ rows, truncated }, { downloadWorkbook }] = await Promise.all([exportSalesRows(rangeStart, rangeEnd), import('../utils/spreadsheet')]);
+      const m = rangeData?.metrics || {};
+      const summary = [
+        { item: 'Period', value: `${rangeStart} to ${rangeEnd}` },
+        { item: 'Sales (orders)', value: Number(m.orderCount || 0) },
+        { item: 'Gross sales', value: Number(m.grossSales || 0) },
+        { item: 'Discounts', value: Number(m.discountTotal || 0) },
+        { item: 'Refunds', value: Number(m.refundTotal || 0) },
+        { item: 'Net sales', value: Number(m.netSales || 0) },
+        { item: 'Gross profit', value: Number(m.grossProfit || 0) },
+        { item: 'Sold on credit', value: Number(m.creditSales || 0) },
+        { item: 'Credit collected', value: Number(m.creditCollected || 0) },
+        { item: 'Currency', value: currency },
+        ...(truncated ? [{ item: 'Note', value: 'Only the first 50,000 lines are included. Export a shorter period for the rest.' }] : []),
+      ];
+      await downloadWorkbook(`sales-${rangeStart}-to-${rangeEnd}.xlsx`, [
+        { name: 'Summary', columns: [{ header: 'Item', key: 'item', width: 22 }, { header: 'Value', key: 'value', width: 22, money: true }], rows: rangeData ? summary : summary.slice(0, 1).concat(summary.slice(-1)) },
+        {
+          name: 'Items sold',
+          columns: [
+            { header: 'Date', key: 'date', width: 18, date: true },
+            { header: 'Receipt', key: 'receiptNumber', width: 12 },
+            { header: 'Cashier', key: 'cashier', width: 16 },
+            { header: 'Customer', key: 'customer', width: 20 },
+            { header: 'Payment', key: 'paymentMethod', width: 13 },
+            { header: 'Product', key: 'product', width: 30 },
+            { header: 'Category', key: 'category', width: 16 },
+            { header: 'Qty', key: 'quantity', width: 7 },
+            { header: 'List price', key: 'listPrice', width: 12, money: true },
+            { header: 'Price charged', key: 'price', width: 13, money: true },
+            { header: 'Line total', key: 'lineTotal', width: 13, money: true },
+            { header: 'Line cost', key: 'lineCost', width: 12, money: true },
+            { header: 'Line profit', key: 'lineProfit', width: 12, money: true },
+            { header: 'Still owed on sale', key: 'balanceDue', width: 16, money: true },
+          ],
+          rows: rows.map((r) => ({
+            ...r,
+            date: new Date(r.date),
+            customer: r.customer || 'Walk-in',
+            quantity: Number(r.quantity),
+            listPrice: Number(r.listPrice),
+            price: Number(r.price),
+            lineTotal: Number(r.lineTotal),
+            lineCost: Number(r.lineCost),
+            lineProfit: Number(r.lineTotal) - Number(r.lineCost),
+            balanceDue: Number(r.balanceDue) || '',
+          })),
+        },
+      ]);
+    } catch (e) {
+      window.alert(e.message);
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -470,7 +508,7 @@ export default function Reports() {
       <section className="app-panel rounded-2xl border">
         <div className="border-b border-[var(--border-default)] px-5 py-4">
           <h3 className="text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">Custom Date Range</h3>
-          <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">Generate a detailed report for any period with CSV export.</p>
+          <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">Generate a detailed report for any period, and export every item sold to Excel.</p>
         </div>
         <div className="flex flex-wrap items-end gap-3 px-5 py-4">
           <div className="flex flex-col gap-1">
@@ -484,12 +522,10 @@ export default function Reports() {
           <button type="button" onClick={runRangeReport} disabled={!rangeStart || !rangeEnd || rangeLoading} className="app-btn-primary rounded-[0.9rem] px-4 py-2 text-sm font-medium disabled:opacity-50">
             {rangeLoading ? 'Loading…' : 'Run Report'}
           </button>
-          {rangeData && (
-            <button type="button" onClick={downloadCSV} className="app-btn-secondary flex items-center gap-2 rounded-[0.9rem] border px-4 py-2 text-sm font-medium">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-              Export CSV
-            </button>
-          )}
+          <button type="button" onClick={downloadExcel} disabled={!rangeStart || !rangeEnd || exporting} className="app-btn-secondary flex items-center gap-2 rounded-[0.9rem] border px-4 py-2 text-sm font-medium disabled:opacity-50">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4 text-emerald-600"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M3 15h18M9 3v18" /></svg>
+            {exporting ? 'Preparing…' : 'Export to Excel'}
+          </button>
         </div>
 
         {rangeData && (

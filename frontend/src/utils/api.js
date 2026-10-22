@@ -154,6 +154,9 @@ export const recordCreditPayment = (id, body) => request(`/customers/${id}/payme
 export const recordCustomerReminder = (id, body) => request(`/customers/${id}/reminders`, { method: 'POST', body: JSON.stringify(body) });
 export const shareSaleReceipt = (id) => request(`/sales/${id}/share`, { method: 'POST' });
 export const fetchCreditSummary = () => request('/credit/summary');
+export const importProducts = (body) => request('/import/products', { method: 'POST', body: JSON.stringify(body) });
+export const importCustomers = (body) => request('/import/customers', { method: 'POST', body: JSON.stringify(body) });
+export const exportSalesRows = (start, end) => request(`/exports/sales?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&tz=${new Date().getTimezoneOffset()}`);
 export const fetchSuppliers = () => request('/suppliers');
 export const createSupplier = (body) => request('/suppliers', { method: 'POST', body: JSON.stringify(body) });
 export const updateSupplier = (id, body) => request(`/suppliers/${id}`, { method: 'PUT', body: JSON.stringify(body) });

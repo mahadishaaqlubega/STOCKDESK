@@ -20,6 +20,7 @@ const creditRoutes = require('./routes/credit');
 const publicRoutes = require('./routes/public');
 const supplierRoutes = require('./routes/suppliers');
 const purchaseRoutes = require('./routes/purchases');
+const importRoutes = require('./routes/imports');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -184,6 +185,7 @@ app.use('/api/credit', creditRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/purchases', purchaseRoutes);
+app.use('/api', importRoutes);
 
 app.use(errorHandler);
 

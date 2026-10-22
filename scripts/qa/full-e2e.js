@@ -266,6 +266,43 @@ const stamp = Date.now().toString(36);
   const removeSupplier = await api('DELETE', `/suppliers/${supplier.data.id}`, admin);
   check('supplier with purchases is archived, not deleted', removeSupplier.status === 200 && removeSupplier.data.archived === true);
 
+  // ---------------------------------------------------------------- excel
+  group('Excel import & export');
+  check('staff cannot import', (await api('POST', '/import/products', staff, { rows: [{ name: 'x', sellPrice: 1 }] })).status === 403);
+  const beforeCount = (await api('GET', '/products?includeArchived=1', admin)).data.length;
+  const importRows = [
+    { __row: 2, name: `E2E Imported cable ${stamp}`, category: 'Cables', sku: `IMP-${stamp}`, type: 'goods', buyPrice: '2,000', sellPrice: 'UGX 3,500', quantity: 12, lowStock: 2 },
+    { __row: 3, name: stockItem.data.name, sellPrice: 15000, quantity: 99 },
+    { __row: 4, name: `E2E Imported labour ${stamp}`, type: 'Service', sellPrice: '' },
+  ];
+  const dry = await api('POST', '/import/products', admin, { rows: importRows, dryRun: true });
+  check('preview: 2 new, 1 update, nothing saved', dry.status === 200 && dry.data.created === 2 && dry.data.updated === 1 && dry.data.errorCount === 0 && (await api('GET', '/products?includeArchived=1', admin)).data.length === beforeCount, JSON.stringify(dry.data).slice(0, 160));
+  const withErrors = await api('POST', '/import/products', admin, { rows: [...importRows, { __row: 5, name: '', sellPrice: 1 }, { __row: 6, name: 'Bad price', sellPrice: 'abc' }, { __row: 7, name: `E2E Imported cable ${stamp}`, sku: `IMP-${stamp}`, sellPrice: 1 }], dryRun: false });
+  check('any bad row blocks the whole import', withErrors.data.saved === false && withErrors.data.errorCount === 3 && (await api('GET', '/products?includeArchived=1', admin)).data.length === beforeCount, JSON.stringify(withErrors.data.rows?.slice(0, 3)));
+  const imported = await api('POST', '/import/products', admin, { rows: importRows, dryRun: false });
+  check('import saves new and updated products', imported.status === 201 && imported.data.saved && (await api('GET', '/products?includeArchived=1', admin)).data.length === beforeCount + 2);
+  const importedItem = (await api('GET', `/products/${stockItem.data.id}`, admin)).data;
+  check('update changes price but leaves stock alone', Number(importedItem.sellPrice) === 15000 && importedItem.quantity === bought.quantity, `${importedItem.sellPrice} ${importedItem.quantity}`);
+  const cable = (await api('GET', `/products?search=${encodeURIComponent(`E2E Imported cable ${stamp}`)}`, admin)).data[0];
+  check('amounts like "UGX 3,500" are understood', cable && Number(cable.sellPrice) === 3500 && Number(cable.buyPrice) === 2000 && cable.quantity === 12);
+  const stockSync = await api('POST', '/import/products', admin, { rows: [{ name: stockItem.data.name, quantity: 4 }], dryRun: false, updateStock: true });
+  check('"set stock" option updates quantities', stockSync.data.saved && (await api('GET', `/products/${stockItem.data.id}`, admin)).data.quantity === 4);
+  check('import is idempotent (re-import = no change)', (await api('POST', '/import/products', admin, { rows: importRows.slice(0, 1), dryRun: true })).data.unchanged === 1);
+  const newPhone = `0709${String(Date.now()).slice(-6)}`;
+  const custImport = await api('POST', '/import/customers', admin, { rows: [
+    { name: `E2E Imported customer ${stamp}`, phone: newPhone },
+    { name: 'Renamed by phone', phone: '+256 700 111 222', email: 'grace@example.com' },
+    { name: 'Bad email', email: 'not-an-email' },
+  ], dryRun: true });
+  check('customer preview: new, matched by phone, bad email', custImport.data.created === 1 && custImport.data.updated === 1 && custImport.data.errorCount === 1, JSON.stringify(custImport.data).slice(0, 160));
+  const custSaved = await api('POST', '/import/customers', admin, { rows: [{ name: `E2E Imported customer ${stamp}`, phone: newPhone }], dryRun: false });
+  check('customer import saves', custSaved.status === 201 && custSaved.data.created === 1);
+  check('sales export needs dates', (await api('GET', '/exports/sales', admin)).status === 400);
+  const tz = new Date().getTimezoneOffset();
+  const exportRows = await api('GET', `/exports/sales?start=${iso}&end=${iso}&tz=${tz}`, admin);
+  check('sales export lists today\'s items with profit inputs', exportRows.status === 200 && exportRows.data.rows.length > 5 && 'lineCost' in exportRows.data.rows[0] && 'listPrice' in exportRows.data.rows[0]);
+  check('another shop sees none of these sales', !(await api('GET', `/exports/sales?start=${iso}&end=${iso}&tz=${tz}`, otherShopAdmin)).data.rows.some((r) => r.receiptNumber === cashDetail.receipt?.receiptNumber));
+
   // ---------------------------------------------------------------- reports
   group('Reports & day close');
   const rep = await api('GET', '/reports/summary', admin);

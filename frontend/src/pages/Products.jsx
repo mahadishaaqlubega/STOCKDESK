@@ -5,6 +5,21 @@ import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatMoney, formatCompactMoney, formatAmount } from '../utils/format';
 import { StatTile, statIcons } from '../components/ui';
+import ImportDialog from '../components/ImportDialog';
+import ExcelMenu from '../components/ExcelMenu';
+import { importProducts } from '../utils/api';
+import { PRODUCT_COLUMNS, downloadWorkbook, fileDate } from '../utils/spreadsheet';
+
+const PRODUCT_SHEET_COLUMNS = [
+  { header: 'Name', key: 'name', width: 34 },
+  { header: 'Category', key: 'category', width: 18 },
+  { header: 'SKU', key: 'sku', width: 14 },
+  { header: 'Type', key: 'type', width: 10 },
+  { header: 'Cost price', key: 'buyPrice', width: 14, money: true },
+  { header: 'Selling price', key: 'sellPrice', width: 14, money: true },
+  { header: 'Quantity', key: 'quantity', width: 11 },
+  { header: 'Reorder level', key: 'lowStock', width: 14 },
+];
 
 const emptyForm = { name: '', sku: '', category: '', buyPrice: '', sellPrice: '', quantity: 0, lowStock: 5, type: 'goods' };
 const PAGE_SIZE = 50;
@@ -102,8 +117,25 @@ export default function Products() {
   const [restockCategoryForm, setRestockCategoryForm] = useState({ category: '', quantity: '', costPrice: '', supplier: '', notes: '' });
   const [restockCategoryMessage, setRestockCategoryMessage] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
 
-  useBodyScrollLock(Boolean(restockmodal) || restockCategoryModal || Boolean(deleteTarget) || drawerOpen);
+  useBodyScrollLock(Boolean(restockmodal) || restockCategoryModal || Boolean(deleteTarget) || drawerOpen || importOpen);
+
+  const exportProducts = () => downloadWorkbook(`products-${fileDate()}.xlsx`, [{
+    name: 'Products',
+    columns: [...PRODUCT_SHEET_COLUMNS, { header: 'Stock value (cost)', key: 'stockValue', width: 18, money: true }],
+    rows: products.map((p) => ({
+      name: p.name,
+      category: p.category,
+      sku: p.sku || '',
+      type: p.type || 'goods',
+      buyPrice: Number(p.buyPrice || 0),
+      sellPrice: Number(p.sellPrice || 0),
+      quantity: p.type === 'service' ? '' : Number(p.quantity || 0),
+      lowStock: p.type === 'service' ? '' : Number(p.lowStock || 0),
+      stockValue: p.type === 'service' ? '' : Number(p.buyPrice || 0) * Number(p.quantity || 0),
+    })),
+  }]).catch((error) => showToast(error.message));
 
   const showToast = (text) => {
     setToast(text);
@@ -369,6 +401,12 @@ export default function Products() {
                 <button type="button" onClick={openRestockCategory} className="app-btn-secondary hidden rounded-lg border px-3 py-2 text-sm font-medium sm:inline-flex">
                   Restock category
                 </button>
+                <ExcelMenu
+                  items={[
+                    { label: 'Import products…', hint: 'Add or update many at once', onClick: () => setImportOpen(true) },
+                    { label: 'Export products', hint: `${products.length} rows with stock value`, onClick: exportProducts },
+                  ]}
+                />
                 <button type="button" onClick={openCreate} className="app-btn-primary inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4"><path d="M12 5v14M5 12h14" /></svg>
                   Add product
@@ -714,6 +752,26 @@ export default function Products() {
         <div className="fixed bottom-4 left-1/2 z-[60] -translate-x-1/2 rounded-lg bg-[var(--surface-inverse)] px-4 py-2.5 text-sm text-[var(--bg-app)] shadow-[var(--shadow-raised)]" role="status">
           {toast}
         </div>
+      ) : null}
+      {importOpen ? (
+        <ImportDialog
+          title="Import products"
+          noun="products"
+          columns={PRODUCT_COLUMNS}
+          required={['name']}
+          submit={importProducts}
+          options={[{ key: 'updateStock', label: 'Also set stock quantities of existing products', hint: 'Off: only new products get the quantity in the file; existing stock is left alone (use Record purchase for deliveries).' }]}
+          template={{
+            filename: 'stockdesk-products-template.xlsx',
+            columns: PRODUCT_SHEET_COLUMNS,
+            rows: [
+              { name: 'Tecno Spark 20 screen', category: 'Screens', sku: 'TS20-LCD', type: 'goods', buyPrice: 45000, sellPrice: 65000, quantity: 10, lowStock: 3 },
+              { name: 'Phone repair (labour)', category: 'Services', sku: '', type: 'service', buyPrice: 0, sellPrice: 0, quantity: '', lowStock: '' },
+            ],
+          }}
+          onClose={() => setImportOpen(false)}
+          onDone={() => loadData()}
+        />
       ) : null}
     </div>
   );

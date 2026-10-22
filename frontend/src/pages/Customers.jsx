@@ -12,6 +12,19 @@ import {
 } from '../utils/api';
 import { customerWhatsApp, reminderMessage, whatsappLink } from '../utils/whatsapp';
 import { WhatsAppIcon } from '../components/Receipt/PosReceipt';
+import ImportDialog from '../components/ImportDialog';
+import ExcelMenu from '../components/ExcelMenu';
+import { importCustomers } from '../utils/api';
+import { CUSTOMER_COLUMNS, downloadWorkbook, fileDate } from '../utils/spreadsheet';
+
+const CUSTOMER_SHEET_COLUMNS = [
+  { header: 'Name', key: 'name', width: 28 },
+  { header: 'Phone', key: 'phone', width: 16 },
+  { header: 'WhatsApp', key: 'whatsapp', width: 16 },
+  { header: 'Email', key: 'email', width: 26 },
+  { header: 'Address', key: 'address', width: 24 },
+  { header: 'Notes', key: 'notes', width: 30 },
+];
 import { getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -65,8 +78,9 @@ export default function Customers() {
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [savingCustomer, setSavingCustomer] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
-  useBodyScrollLock(Boolean(historyCustomer) || Boolean(deleteTarget) || Boolean(creditCustomer) || drawerOpen);
+  useBodyScrollLock(Boolean(historyCustomer) || Boolean(deleteTarget) || Boolean(creditCustomer) || drawerOpen || importOpen);
 
   const owing = useMemo(() => customers.filter((customer) => Number(customer.balance || 0) > 0), [customers]);
   const totalOwed = useMemo(() => owing.reduce((sum, customer) => sum + Number(customer.balance || 0), 0), [owing]);
@@ -282,10 +296,45 @@ export default function Customers() {
               ))}
             </div>
           </div>
+          <div className="flex gap-2">
+          {canDelete ? (
+            <ExcelMenu
+              items={[
+                { label: 'Import customers…', hint: 'From a spreadsheet or phone contacts export', onClick: () => setImportOpen(true) },
+                {
+                  label: 'Export customers',
+                  hint: `${customers.length} rows with balances`,
+                  onClick: () => downloadWorkbook(`customers-${fileDate()}.xlsx`, [{
+                    name: 'Customers',
+                    columns: [
+                      ...CUSTOMER_SHEET_COLUMNS,
+                      { header: 'Purchases', key: 'salesCount', width: 11 },
+                      { header: 'Owes', key: 'balance', width: 14, money: true },
+                      { header: 'Credit limit', key: 'creditLimit', width: 14, money: true },
+                      { header: 'Customer since', key: 'createdAt', width: 16 },
+                    ],
+                    rows: customers.map((c) => ({
+                      name: c.name,
+                      phone: c.phone || '',
+                      whatsapp: c.whatsapp || '',
+                      email: c.email || '',
+                      address: c.address || '',
+                      notes: c.notes || '',
+                      salesCount: Number(c.salesCount || 0),
+                      balance: Number(c.balance || 0),
+                      creditLimit: c.creditLimit == null ? '' : Number(c.creditLimit),
+                      createdAt: c.createdAt ? String(c.createdAt).slice(0, 10) : '',
+                    })),
+                  }]).catch((error) => setMessage(error.message)),
+                },
+              ]}
+            />
+          ) : null}
           <button type="button" onClick={openNewCustomer} className="app-btn-primary inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4"><path d="M12 5v14M5 12h14" /></svg>
             Add customer
           </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -638,6 +687,21 @@ export default function Customers() {
             handleDelete(target);
           }}
           onCancel={() => setDeleteTarget(null)}
+        />
+      ) : null}
+      {importOpen ? (
+        <ImportDialog
+          title="Import customers"
+          noun="customers"
+          columns={CUSTOMER_COLUMNS}
+          submit={importCustomers}
+          template={{
+            filename: 'stockdesk-customers-template.xlsx',
+            columns: CUSTOMER_SHEET_COLUMNS,
+            rows: [{ name: 'Grace Namukasa', phone: '0772 000 111', whatsapp: '', email: '', address: 'Masaka', notes: 'Buys screens wholesale' }],
+          }}
+          onClose={() => setImportOpen(false)}
+          onDone={() => loadCustomers()}
         />
       ) : null}
     </div>
