@@ -17,6 +17,7 @@ const auditRoutes = require('./routes/audit');
 const stockReconciliationRoutes = require('./routes/stockReconciliation');
 const profileRoutes = require('./routes/profile');
 const creditRoutes = require('./routes/credit');
+const publicRoutes = require('./routes/public');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -39,7 +40,7 @@ app.use((req, res, next) => {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   // Restrict what API responses may load. Skipped for receipt PDFs so inline
   // PDF rendering in the browser's viewer is not blocked.
-  if (!req.path.endsWith('/receipt')) {
+  if (!req.path.endsWith('/receipt') && !req.path.startsWith('/api/public/receipts/')) {
     res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
   }
   next();
@@ -176,6 +177,7 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/stock-reconciliation', stockReconciliationRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/credit', creditRoutes);
+app.use('/api/public', publicRoutes);
 
 app.use(errorHandler);
 

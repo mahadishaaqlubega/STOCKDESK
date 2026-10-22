@@ -1,8 +1,13 @@
+const crypto = require('crypto');
 const { Sale, SaleItem, Product, Receipt, User, Setting, Shop, Customer, DayClosure, SaleReturn, SaleReturnItem } = require('../models');
 const { generateReceiptPdf } = require('../utils/receiptGenerator');
 const { startOfDay, endOfDay, getMetricsForRange } = require('../utils/businessMetrics');
 const { Op } = require('sequelize');
 const auditController = require('./auditController');
+
+function newReceiptToken() {
+  return crypto.randomBytes(18).toString('base64url');
+}
 
 function buildReceiptNumber(id) {
   return `SD-${String(id).padStart(6, '0')}`;
@@ -249,7 +254,7 @@ exports.createSale = async (req, res, next) => {
     await SaleItem.bulkCreate(saleItems, { transaction });
 
     const receiptNumber = buildReceiptNumber(sale.id);
-    await Receipt.create({ saleId: sale.id, receiptNumber, shopId: req.user.shopId }, { transaction });
+    await Receipt.create({ saleId: sale.id, receiptNumber, shopId: req.user.shopId, publicToken: newReceiptToken() }, { transaction });
 
     await transaction.commit();
 
@@ -341,7 +346,7 @@ exports.getSale = async (req, res, next) => {
           include: [{ model: Product, attributes: ['id', 'name', 'sellPrice', 'category', 'type'] }],
         },
         { model: User, as: 'cashier', attributes: ['id', 'name'] },
-        { model: Customer, as: 'customer', attributes: ['id', 'name', 'phone', 'email'] },
+        { model: Customer, as: 'customer', attributes: ['id', 'name', 'phone', 'whatsapp', 'email'] },
         { model: Receipt, as: 'receipt' },
       ],
     });
@@ -356,15 +361,16 @@ exports.getSale = async (req, res, next) => {
   }
 };
 
-exports.getSaleReceipt = async (req, res, next) => {
-  try {
-    const sale = await Sale.findOne({
-      where: { id: req.params.id, shopId: req.user.shopId },
+// Everything the PDF needs for one sale of one shop.
+async function loadReceiptData(saleId, shopId) {
+  const [sale, settings] = await Promise.all([
+    Sale.findOne({
+      where: { id: saleId, shopId },
       include: [
         {
           model: SaleItem,
           as: 'items',
-          where: { shopId: req.user.shopId },
+          where: { shopId },
           required: false,
           include: [{ model: Product, attributes: ['name', 'category', 'type'] }],
         },
@@ -372,22 +378,72 @@ exports.getSaleReceipt = async (req, res, next) => {
         { model: Customer, as: 'customer', attributes: ['id', 'name', 'phone', 'email'] },
         { model: Receipt, as: 'receipt' },
       ],
-    });
-    const settings = await Setting.findOne({
-      where: { shopId: req.user.shopId },
+    }),
+    Setting.findOne({
+      where: { shopId },
       include: [{ model: Shop, as: 'shop', attributes: ['id', 'name', 'slug'] }],
-    });
-    
+    }),
+  ]);
+  return { sale, settings };
+}
+
+async function sendReceiptPdf(res, sale, settings) {
+  const number = sale.receipt?.receiptNumber || sale.id;
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename=receipt-${number}.pdf`);
+  await generateReceiptPdf(res, sale, settings || {});
+}
+
+exports.getSaleReceipt = async (req, res, next) => {
+  try {
+    const { sale, settings } = await loadReceiptData(req.params.id, req.user.shopId);
     if (!sale) {
       return res.status(404).json({ message: 'Sale not found' });
     }
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename=receipt-${sale.id}.pdf`);
-    
-    await generateReceiptPdf(res, sale, settings);
+    await sendReceiptPdf(res, sale, settings);
   } catch (error) {
     console.error('Receipt generation error:', error);
+    next(error);
+  }
+};
+
+// POST /api/sales/:id/share — the receipt's public link token, created on
+// first use for sales made before links existed.
+exports.shareReceipt = async (req, res, next) => {
+  try {
+    const receipt = await Receipt.findOne({ where: { saleId: req.params.id, shopId: req.user.shopId } });
+    if (!receipt) {
+      return res.status(404).json({ message: 'Sale not found' });
+    }
+    if (!receipt.publicToken) {
+      await receipt.update({ publicToken: newReceiptToken() });
+    }
+    res.json({ token: receipt.publicToken });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/public/receipts/:token — the customer's copy, no sign-in. The
+// token is 144 random bits, so links cannot be guessed or enumerated.
+exports.publicReceipt = async (req, res, next) => {
+  try {
+    const token = String(req.params.token || '');
+    if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) {
+      return res.status(404).json({ message: 'Receipt not found' });
+    }
+    const receipt = await Receipt.findOne({ where: { publicToken: token }, attributes: ['saleId', 'shopId'] });
+    if (!receipt) {
+      return res.status(404).json({ message: 'Receipt not found' });
+    }
+    const { sale, settings } = await loadReceiptData(receipt.saleId, receipt.shopId);
+    if (!sale) {
+      return res.status(404).json({ message: 'Receipt not found' });
+    }
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    await sendReceiptPdf(res, sale, settings);
+  } catch (error) {
     next(error);
   }
 };

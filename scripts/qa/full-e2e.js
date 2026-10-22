@@ -158,6 +158,21 @@ const stamp = Date.now().toString(36);
     check(`PDF receipt renders (${label})`, pdf.status === 200 && buf.slice(0, 4).toString() === '%PDF', `${pdf.status} ${buf.length}b`);
   }
 
+  // ---------------------------------------------------------------- whatsapp
+  group('WhatsApp receipts & reminders');
+  const cashDetail = (await api('GET', `/sales/${cash.data.saleId}`, admin)).data;
+  check('new sales get a receipt link token', /^[A-Za-z0-9_-]{20,}$/.test(cashDetail.receipt?.publicToken || ''));
+  const publicPdf = await fetch(`${BASE}/public/receipts/${cashDetail.receipt?.publicToken}`);
+  const publicBuf = Buffer.from(await publicPdf.arrayBuffer());
+  check('receipt link opens the PDF without signing in', publicPdf.status === 200 && publicBuf.slice(0, 4).toString() === '%PDF', `${publicPdf.status}`);
+  check('made-up receipt link → 404', (await fetch(`${BASE}/public/receipts/AAAAAAAAAAAAAAAAAAAAAAAA`)).status === 404);
+  check('malformed receipt link → 404', (await fetch(`${BASE}/public/receipts/${encodeURIComponent("' OR 1=1")}`)).status === 404);
+  const shared = await api('POST', `/sales/${cash.data.saleId}/share`, staff);
+  check('share returns the same token', shared.status === 200 && shared.data.token === cashDetail.receipt?.publicToken);
+  check('cannot share another shop\'s sale', (await api('POST', `/sales/${cash.data.saleId}/share`, otherShopAdmin)).status === 404);
+  const waEdit = await api('PUT', `/customers/${cust.data.id}`, staff, { name: cust.data.name, phone: '+256700111222', whatsapp: '0772 123456' });
+  check('customer WhatsApp number saved', waEdit.data.whatsapp === '0772 123456');
+
   // ---------------------------------------------------------------- credit
   group('Credit');
   check('credit needs a named customer', (await api('POST', '/sales', staff, { items: [{ productId: goodsId, quantity: 1 }], paymentMethod: 'Credit' })).status === 400);
@@ -172,7 +187,11 @@ const stamp = Date.now().toString(36);
   check('overpayment refused', (await api('POST', `/customers/${cust.data.id}/payments`, staff, { amount: 50000, method: 'Cash' })).status === 400);
   const pay = await api('POST', `/customers/${cust.data.id}/payments`, staff, { amount: 15000, method: 'Cash' });
   check('partial repayment', pay.status === 201 && pay.data.balance === 25000);
+  const reminded = await api('POST', `/customers/${cust.data.id}/reminders`, staff, { channel: 'whatsapp', balance: 25000 });
+  check('debt reminder recorded', reminded.status === 200 && reminded.data.lastReminderAt);
+  check('reminder for another shop\'s customer → 404', (await api('POST', `/customers/${cust.data.id}/reminders`, otherShopAdmin, {})).status === 404);
   const statement = await api('GET', `/customers/${cust.data.id}/credit`, staff);
+  check('statement shows when last reminded', Boolean(statement.data.customer?.lastReminderAt));
   check('statement shows balance, payments, available credit', statement.data.balance === 25000 && statement.data.payments.length === 1 && statement.data.availableCredit === 75000);
 
   // ---------------------------------------------------------------- returns

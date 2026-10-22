@@ -30,6 +30,16 @@ Customer.init(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    whatsapp: {
+      // WhatsApp number when it differs from `phone`; NULL = use phone.
+      type: DataTypes.STRING(32),
+      allowNull: true,
+    },
+    lastReminderAt: {
+      // When a debt reminder was last sent, so staff don't nag twice.
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     creditLimit: {
       // Maximum total the customer may owe. NULL means no limit.
       type: DataTypes.DECIMAL(12, 2),

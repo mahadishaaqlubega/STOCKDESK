@@ -79,6 +79,22 @@ const STATEMENTS = [
     sql: `ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "maxDiscountPercent" NUMERIC(5, 2);`,
   },
   {
+    name: 'customers.whatsapp',
+    sql: `ALTER TABLE IF EXISTS "customers" ADD COLUMN IF NOT EXISTS "whatsapp" VARCHAR(32);`,
+  },
+  {
+    name: 'customers.lastReminderAt',
+    sql: `ALTER TABLE IF EXISTS "customers" ADD COLUMN IF NOT EXISTS "lastReminderAt" TIMESTAMPTZ;`,
+  },
+  {
+    name: 'receipts.publicToken',
+    sql: `ALTER TABLE IF EXISTS "receipts" ADD COLUMN IF NOT EXISTS "publicToken" VARCHAR(64);`,
+  },
+  {
+    name: 'index: receipts by public token',
+    sql: `CREATE UNIQUE INDEX IF NOT EXISTS "receipts_public_token_idx" ON "receipts" ("publicToken") WHERE "publicToken" IS NOT NULL;`,
+  },
+  {
     name: 'index: open credit sales',
     sql: `CREATE INDEX IF NOT EXISTS "sales_open_credit_idx" ON "sales" ("shopId", "customerId") WHERE "balanceDue" > 0;`,
   },

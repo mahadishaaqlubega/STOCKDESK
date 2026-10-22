@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { currencyDecimals } from '../../utils/format';
 import { PAPER_SIZES, getPrintSettings, savePrintSettings } from '../../utils/printSettings';
+import { API_BASE, shareSaleReceipt } from '../../utils/api';
+import { customerWhatsApp, publicReceiptUrl, receiptMessage, whatsappLink } from '../../utils/whatsapp';
 
 /**
  * Sales receipt.
@@ -348,6 +350,16 @@ export function buildReceiptHtml(sale, settings, cashierName, options = {}) {
   return paper === 'a4' ? buildA4Html(model) : buildThermalHtml(model, paper);
 }
 
+function WhatsAppIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3Z" />
+    </svg>
+  );
+}
+
+export { WhatsAppIcon };
+
 export default function PosReceipt({ sale, settings, cashierName, onClose, autoPrint = false }) {
   const frameRef = useRef(null);
   const printedRef = useRef(false);
@@ -379,6 +391,30 @@ export default function PosReceipt({ sale, settings, cashierName, onClose, autoP
       printedRef.current = true;
       window.setTimeout(handlePrint, 150);
     }
+  };
+
+  // Opens WhatsApp with the receipt typed out and a link to the PDF. Walk-in
+  // customers have no number: WhatsApp then asks which chat to send it to.
+  const sendWhatsApp = async () => {
+    const number = customerWhatsApp(sale.customer, settings);
+    const messageFor = (token) => receiptMessage(sale, settings, publicReceiptUrl(API_BASE, token));
+    const token = sale.receipt?.publicToken;
+    if (token) {
+      window.open(whatsappLink(number, messageFor(token)), '_blank', 'noopener');
+      return;
+    }
+    // Older sale without a link yet: open the tab now (inside the click, so
+    // it isn't blocked), then point it at WhatsApp once the link exists.
+    const tab = window.open('', '_blank');
+    let created = null;
+    try {
+      created = (await shareSaleReceipt(sale.id)).token;
+    } catch {
+      created = null;
+    }
+    const url = whatsappLink(number, messageFor(created));
+    if (tab) tab.location.href = url;
+    else window.location.href = url;
   };
 
   const choosePaper = (value) => {
@@ -443,6 +479,15 @@ export default function PosReceipt({ sale, settings, cashierName, onClose, autoP
         <div className="flex gap-2 border-t border-[var(--border-default)] px-5 py-4">
           <button type="button" onClick={onClose} className="app-btn-secondary flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium">
             New sale
+          </button>
+          <button
+            type="button"
+            onClick={sendWhatsApp}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1ebe5b]"
+            title={customerWhatsApp(sale.customer, settings) ? `Send to ${sale.customer.name} on WhatsApp` : 'Choose a WhatsApp chat to send the receipt to'}
+          >
+            <WhatsAppIcon />
+            WhatsApp
           </button>
           <button type="button" onClick={handlePrint} className="app-btn-primary flex-1 rounded-xl px-4 py-2.5 text-sm">
             Print receipt

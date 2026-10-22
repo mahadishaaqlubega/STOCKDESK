@@ -1,10 +1,12 @@
 const { Customer, Sale } = require('../models');
+const auditController = require('./auditController');
 const { Op, fn, col } = require('sequelize');
 
 function normalizeCustomerPayload(body, { allowCreditLimit = false } = {}) {
   const payload = {
     name: String(body.name || '').trim(),
-    phone: body.phone ? String(body.phone).trim() : null,
+    phone: body.phone ? String(body.phone).trim().slice(0, 32) : null,
+    whatsapp: body.whatsapp ? String(body.whatsapp).trim().slice(0, 32) : null,
     email: body.email ? String(body.email).trim().toLowerCase() : null,
     address: body.address ? String(body.address).trim() : null,
     notes: body.notes ? String(body.notes).trim() : null,
@@ -130,6 +132,31 @@ exports.deleteCustomer = async (req, res, next) => {
 
     await customer.destroy();
     res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/customers/:id/reminders — the till opened WhatsApp with a debt
+// reminder; remember when, and log who sent it.
+exports.recordReminder = async (req, res, next) => {
+  try {
+    const customer = await Customer.findOne({ where: { id: req.params.id, shopId: req.user.shopId } });
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found' });
+    }
+    const channel = req.body.channel === 'sms' ? 'sms' : 'whatsapp';
+    await customer.update({ lastReminderAt: new Date() });
+    await auditController.logAction(
+      req.user.id,
+      req.user.shopId,
+      'REMIND',
+      'CUSTOMER',
+      customer.id,
+      { channel, balance: Number(req.body.balance) || undefined },
+      req
+    );
+    res.json({ id: customer.id, lastReminderAt: customer.lastReminderAt });
   } catch (error) {
     next(error);
   }

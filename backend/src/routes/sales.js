@@ -24,6 +24,7 @@ router.post('/', saleController.createSale);
 router.get('/', saleController.listSales);
 router.get('/:id', saleController.getSale);
 router.get('/:id/receipt', saleController.getSaleReceipt);
+router.post('/:id/share', saleController.shareReceipt);
 router.post('/:id/return', authorize(['Admin']), saleController.createReturn);
 
 module.exports = router;

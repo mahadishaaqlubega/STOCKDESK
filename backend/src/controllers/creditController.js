@@ -23,6 +23,8 @@ exports.summary = async (req, res, next) => {
          c.id AS "customerId",
          c.name,
          c.phone,
+         c.whatsapp,
+         c."lastReminderAt",
          c."creditLimit",
          SUM(s."balanceDue")::float AS "balance",
          SUM(CASE WHEN s."dueDate" < :today THEN s."balanceDue" ELSE 0 END)::float AS "overdue",
@@ -56,7 +58,7 @@ exports.customerStatement = async (req, res, next) => {
   try {
     const customer = await Customer.findOne({
       where: { id: req.params.id, shopId: req.user.shopId },
-      attributes: ['id', 'name', 'phone', 'email', 'creditLimit'],
+      attributes: ['id', 'name', 'phone', 'whatsapp', 'email', 'creditLimit', 'lastReminderAt'],
     });
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
 

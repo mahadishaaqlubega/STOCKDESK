@@ -1,6 +1,6 @@
 import { getToken, logout } from './auth';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const PRINTER_API_BASE = import.meta.env.VITE_PRINTER_API_URL || 'http://localhost:4000/api';
 const PRINTER_BRIDGE_KEY = import.meta.env.VITE_PRINTER_BRIDGE_KEY || '';
 
@@ -151,6 +151,8 @@ export const updateCustomer = (id, body) => request(`/customers/${id}`, { method
 export const deleteCustomer = (id) => request(`/customers/${id}`, { method: 'DELETE' });
 export const fetchCustomerCredit = (id) => request(`/customers/${id}/credit`);
 export const recordCreditPayment = (id, body) => request(`/customers/${id}/payments`, { method: 'POST', body: JSON.stringify(body) });
+export const recordCustomerReminder = (id, body) => request(`/customers/${id}/reminders`, { method: 'POST', body: JSON.stringify(body) });
+export const shareSaleReceipt = (id) => request(`/sales/${id}/share`, { method: 'POST' });
 export const fetchCreditSummary = () => request('/credit/summary');
 export const downloadReceipt = async (saleId) => {
   try {

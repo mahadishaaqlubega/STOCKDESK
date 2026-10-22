@@ -8,6 +8,7 @@ const creditController = require('../controllers/creditController');
 router.get('/', authenticate, customerController.listCustomers);
 router.get('/:id', authenticate, customerController.getCustomer);
 router.get('/:id/credit', authenticate, authorize(['Admin', 'Staff']), creditController.customerStatement);
+router.post('/:id/reminders', authenticate, authorize(['Admin', 'Staff']), customerController.recordReminder);
 router.post('/:id/payments', authenticate, authorize(['Admin', 'Staff']), creditController.recordPayment);
 router.post('/', authenticate, authorize(['Admin', 'Staff']), customerController.createCustomer);
 router.put('/:id', authenticate, authorize(['Admin', 'Staff']), customerController.updateCustomer);

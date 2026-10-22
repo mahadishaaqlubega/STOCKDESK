@@ -8,7 +8,10 @@ import {
   fetchSettings,
   fetchCustomerCredit,
   recordCreditPayment,
+  recordCustomerReminder,
 } from '../utils/api';
+import { customerWhatsApp, reminderMessage, whatsappLink } from '../utils/whatsapp';
+import { WhatsAppIcon } from '../components/Receipt/PosReceipt';
 import { getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -19,6 +22,7 @@ const initialForm = {
   id: null,
   name: '',
   phone: '',
+  whatsapp: '',
   email: '',
   address: '',
   notes: '',
@@ -27,6 +31,16 @@ const initialForm = {
 };
 
 const paymentMethods = ['Cash', 'Mobile Money', 'Card'];
+
+function timeAgo(value) {
+  if (!value) return '';
+  const minutes = Math.round((Date.now() - new Date(value).getTime()) / 60000);
+  if (minutes < 60) return minutes <= 1 ? 'just now' : `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? 'yesterday' : `${days} days ago`;
+}
 
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
@@ -37,6 +51,7 @@ export default function Customers() {
   const currentUser = getUser();
   const canDelete = currentUser?.role === 'Admin';
   const [currency, setCurrency] = useState('UGX');
+  const [shopSettings, setShopSettings] = useState(null);
   const [historyCustomer, setHistoryCustomer] = useState(null);
   const [historyData, setHistoryData] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -59,7 +74,7 @@ export default function Customers() {
 
   useEffect(() => {
     loadCustomers();
-    fetchSettings().then((s) => setCurrency(s?.currency || 'UGX')).catch(() => {});
+    fetchSettings().then((s) => { setCurrency(s?.currency || 'UGX'); setShopSettings(s); }).catch(() => {});
   }, []);
 
   const filteredCustomers = useMemo(() => {
@@ -124,6 +139,7 @@ export default function Customers() {
       id: customer.id,
       name: customer.name || '',
       phone: customer.phone || '',
+      whatsapp: customer.whatsapp || '',
       email: customer.email || '',
       address: customer.address || '',
       notes: customer.notes || '',
@@ -206,6 +222,17 @@ export default function Customers() {
   };
 
   const formatMoney = (value) => formatCurrency(currency, value);
+
+  // Opens WhatsApp with the reminder typed out (sent by pressing Send there),
+  // then records it so the list shows when the customer was last reminded.
+  const remind = (customer, balance, openSales = []) => {
+    const number = customerWhatsApp(customer, shopSettings || { currency });
+    window.open(whatsappLink(number, reminderMessage(customer, balance, shopSettings || { currency }, openSales)), '_blank', 'noopener');
+    const sentAt = new Date().toISOString();
+    setCustomers((prev) => prev.map((c) => (c.id === customer.id ? { ...c, lastReminderAt: sentAt } : c)));
+    setCreditData((prev) => (prev && prev.customer?.id === customer.id ? { ...prev, customer: { ...prev.customer, lastReminderAt: sentAt } } : prev));
+    recordCustomerReminder(customer.id, { channel: 'whatsapp', balance }).catch(() => {});
+  };
   const field = 'app-input mt-1.5 w-full rounded-lg border px-3 py-2.5 text-sm';
   const label = 'block text-sm font-medium text-[var(--text-secondary)]';
   const isSuccess = /success/i.test(message);
@@ -302,17 +329,38 @@ export default function Customers() {
                         </div>
                       </td>
                       <td data-label="Contact" className="px-4 py-2.5">
-                        <p className="text-[var(--text-secondary)]">{customer.phone || '—'}</p>
+                        <p className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+                          {customer.phone || (customer.whatsapp ? null : '—')}
+                          {customer.whatsapp && customer.whatsapp !== customer.phone ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-[#1a9e4b]"><WhatsAppIcon /> {customer.whatsapp}</span>
+                          ) : null}
+                        </p>
                         {customer.email ? <p className="text-xs text-[var(--text-muted)]">{customer.email}</p> : null}
                       </td>
                       <td data-label="Sales" className="num px-4 py-2.5 text-right text-[var(--text-secondary)]">{Number(customer.salesCount || 0).toLocaleString()}</td>
                       <td data-label="Balance" className="num px-4 py-2.5 text-right">
-                        {balance > 0 ? <span className="font-semibold text-amber-600 dark:text-amber-300">{formatMoney(balance)}</span> : <span className="text-[var(--text-muted)]">—</span>}
+                        {balance > 0 ? (
+                          <>
+                            <span className="font-semibold text-amber-600 dark:text-amber-300">{formatMoney(balance)}</span>
+                            {customer.lastReminderAt ? <span className="block text-[11px] font-normal text-[var(--text-muted)]">Reminded {timeAgo(customer.lastReminderAt)}</span> : null}
+                          </>
+                        ) : <span className="text-[var(--text-muted)]">—</span>}
                       </td>
                       <td data-label="Actions" className="px-4 py-2.5">
                         <div className="flex items-center justify-end gap-1">
                           {balance > 0 ? (
-                            <button type="button" onClick={() => openCredit(customer)} className="app-btn-primary mr-1 rounded-lg px-2.5 py-1.5 text-xs">Receive payment</button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => remind(customer, balance)}
+                                title={customerWhatsApp(customer, shopSettings || { currency }) ? `Remind ${customer.name} on WhatsApp` : 'No number saved: choose the chat in WhatsApp'}
+                                aria-label={`Remind ${customer.name} on WhatsApp`}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366]/10 px-2.5 py-1.5 text-xs font-medium text-[#1a9e4b] hover:bg-[#25D366]/20 dark:text-[#4ade80]"
+                              >
+                                <WhatsAppIcon /> Remind
+                              </button>
+                              <button type="button" onClick={() => openCredit(customer)} className="app-btn-primary mr-1 rounded-lg px-2.5 py-1.5 text-xs">Receive payment</button>
+                            </>
                           ) : null}
                           <button type="button" onClick={() => openCredit(customer)} title="Credit account" aria-label={`Credit account for ${customer.name}`} className={`h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-secondary)] hover:text-[var(--text-primary)] ${balance > 0 ? 'hidden' : 'flex'}`}>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /></svg>
@@ -363,6 +411,11 @@ export default function Customers() {
                   <input type="email" value={form.email} onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))} placeholder="Optional" className={field} />
                 </label>
               </div>
+              <label className={label}>
+                WhatsApp number
+                <input type="tel" value={form.whatsapp} onChange={(event) => setForm((prev) => ({ ...prev, whatsapp: event.target.value }))} placeholder={form.phone ? `Same as phone (${form.phone})` : '07…'} className={field} />
+                <span className="mt-1 block text-xs font-normal text-[var(--text-muted)]">Leave empty if it&apos;s the phone number. Used for receipts and payment reminders.</span>
+              </label>
               <label className={label}>
                 Address
                 <input value={form.address} onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))} placeholder="Optional" className={field} />
@@ -449,6 +502,20 @@ export default function Customers() {
                     Owes <strong className={creditData.balance > 0 ? 'text-amber-600' : 'text-[var(--text-primary)]'}>{formatMoney(creditData.balance)}</strong>
                     {creditData.creditLimit != null ? ` · limit ${formatMoney(creditData.creditLimit)} · ${formatMoney(creditData.availableCredit)} available` : ' · no credit limit'}
                   </p>
+                ) : null}
+                {creditData?.balance > 0 ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => remind({ ...creditCustomer, ...creditData.customer }, creditData.balance, creditData.openSales)}
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-semibold text-white hover:bg-[#1ebe5b]"
+                    >
+                      <WhatsAppIcon /> Remind on WhatsApp
+                    </button>
+                    <span className="text-xs text-[var(--text-muted)]">
+                      {creditData.customer?.lastReminderAt ? `Last reminded ${timeAgo(creditData.customer.lastReminderAt)}` : 'Not reminded yet'}
+                    </span>
+                  </div>
                 ) : null}
               </div>
               <button type="button" onClick={() => setCreditCustomer(null)} className="app-btn-subtle rounded-full p-2" aria-label="Close">
