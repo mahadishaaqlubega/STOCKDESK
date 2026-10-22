@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchReports, fetchBestSelling, fetchCashierReport, fetchDashboardSummary, fetchSettings, fetchRangeReport, fetchReturns, fetchSales, downloadReceipt } from '../utils/api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, AreaChart, Area, LineChart, Line, Legend } from 'recharts';
+import { formatMoney } from '../utils/format';
 
 const PALETTE = ['#1ea7bd', '#4aa884', '#da6a5a', '#8e7cc3', '#e8a838', '#5b8def', '#e06fa0', '#5bceae'];
-
-function formatMoney(currency, value) {
-  return `${currency} ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 function formatCompact(value) {
   const n = Number(value || 0);
@@ -29,18 +26,17 @@ function DeltaBadge({ value }) {
 
 function KPICard({ eyebrow, label, value, delta, icon }) {
   return (
-    <div className="app-panel group relative overflow-hidden rounded-[1.3rem] border p-4 transition hover:shadow-md">
-      <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-[var(--accent)] opacity-[0.06] transition group-hover:opacity-[0.10]" />
-      <div className="relative flex items-start justify-between">
+    <div className="app-panel rounded-2xl border p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">{eyebrow}</p>
-          <p className="mt-2.5 text-2xl font-bold tracking-tight text-[var(--text-primary)]">{value}</p>
+          <p className="text-[13px] font-medium text-[var(--text-muted)]">{eyebrow}</p>
+          <p className="num mt-2 whitespace-nowrap text-xl font-semibold tracking-tight text-[var(--text-primary)] xl:text-2xl">{value}</p>
           <p className="mt-1 flex items-center text-[13px] text-[var(--text-muted)]">
             {label}
             {delta !== undefined && <DeltaBadge value={delta} />}
           </p>
         </div>
-        {icon && <div className="shrink-0 rounded-[0.9rem] bg-[var(--surface-secondary)] p-2.5 text-[var(--text-muted)]">{icon}</div>}
+        {icon && <div className="shrink-0 rounded-lg bg-[var(--surface-secondary)] p-1.5 text-[var(--text-muted)] [&>svg]:h-4 [&>svg]:w-4">{icon}</div>}
       </div>
     </div>
   );
@@ -48,7 +44,7 @@ function KPICard({ eyebrow, label, value, delta, icon }) {
 
 function SectionCard({ title, subtitle, children, action, className = '' }) {
   return (
-    <section className={`app-panel rounded-[1.4rem] border ${className}`}>
+    <section className={`app-panel rounded-2xl border ${className}`}>
       <div className="flex items-start justify-between gap-4 border-b border-[var(--border-default)] px-5 py-4">
         <div className="min-w-0">
           <h3 className="text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">{title}</h3>
@@ -63,7 +59,7 @@ function SectionCard({ title, subtitle, children, action, className = '' }) {
 
 function EmptyState({ title, message }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-[1.1rem] border border-dashed border-[var(--border-default)] bg-[var(--surface-secondary)] px-4 py-12 text-center">
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--surface-secondary)] px-4 py-12 text-center">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-3 h-8 w-8 text-[var(--text-muted)]"><path d="M4 19h16M7 16V9m5 7V5m5 11v-3" /></svg>
       <p className="text-sm font-medium text-[var(--text-primary)]">{title}</p>
       <p className="mt-1 max-w-xs text-xs text-[var(--text-muted)]">{message}</p>
@@ -74,7 +70,7 @@ function EmptyState({ title, message }) {
 function ChartTooltip({ active, payload, label, currency, valueKey = 'value' }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="app-panel rounded-[1rem] border px-4 py-3 shadow-xl">
+    <div className="app-panel rounded-xl border px-4 py-3 shadow-xl">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">{label}</p>
       {payload.map((p, i) => (
         <p key={i} className="mt-1.5 text-sm font-semibold" style={{ color: p.color || 'var(--text-primary)' }}>
@@ -90,7 +86,7 @@ function SkeletonCards({ count = 3 }) {
   return (
     <div className="grid gap-5 xl:grid-cols-3">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="app-panel h-[26rem] animate-pulse rounded-[1.4rem] border" />
+        <div key={i} className="app-panel h-[26rem] animate-pulse rounded-2xl border" />
       ))}
     </div>
   );
@@ -144,15 +140,25 @@ export default function Reports() {
   /* ---------- derived data ---------- */
   const salesTimeline = useMemo(() => {
     if (!dailySales.length) return [];
-    const grouped = {};
+    // Bucket by hour in chronological order, including quiet hours in
+    // between, so the chart reads left-to-right as the day unfolds.
+    const byHour = new Map();
     dailySales.forEach((sale) => {
       const hour = new Date(sale.createdAt).getHours();
-      const label = `${hour % 12 || 12}${hour < 12 ? 'am' : 'pm'}`;
-      if (!grouped[label]) grouped[label] = { time: label, revenue: 0, orders: 0 };
-      grouped[label].revenue += Number(sale.total || 0);
-      grouped[label].orders += 1;
+      const bucket = byHour.get(hour) || { revenue: 0, orders: 0 };
+      bucket.revenue += Number(sale.total || 0);
+      bucket.orders += 1;
+      byHour.set(hour, bucket);
     });
-    return Object.values(grouped);
+    const hours = [...byHour.keys()];
+    const first = Math.min(...hours);
+    const last = Math.max(...hours);
+    const series = [];
+    for (let hour = first; hour <= last; hour += 1) {
+      const bucket = byHour.get(hour) || { revenue: 0, orders: 0 };
+      series.push({ time: `${hour % 12 || 12}${hour < 12 ? 'am' : 'pm'}`, ...bucket });
+    }
+    return series;
   }, [dailySales]);
 
   const bestProductData = useMemo(
@@ -396,7 +402,7 @@ export default function Reports() {
                   </ResponsiveContainer>
                 </div>
                 <div className="space-y-2">
-                  <div className="overflow-x-auto rounded-[1.1rem] border border-[var(--border-default)]">
+                  <div className="overflow-x-auto rounded-xl border border-[var(--border-default)]">
                     <table className="table-cards w-full text-[13px]">
                       <thead>
                         <tr className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)] bg-[var(--surface-secondary)]">
@@ -434,12 +440,12 @@ export default function Reports() {
               subtitle="All processed returns with refund amounts. Full details available on the Returns page."
               action={<span className="rounded-full bg-[rgba(218,106,90,0.12)] px-3 py-1 text-[12px] font-semibold text-[var(--danger)]">−{formatMoney(currency, totalRefunds)}</span>}
             >
-              <div className="overflow-x-auto rounded-[1.1rem] border border-[var(--border-default)]">
+              <div className="overflow-x-auto rounded-xl border border-[var(--border-default)]">
                 <table className="table-cards w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
                       {['Date', 'Sale #', 'Items', 'Refund', 'Reason', 'By'].map((h) => (
-                        <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">{h}</th>
+                        <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-[var(--text-muted)]">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -463,7 +469,7 @@ export default function Reports() {
       )}
 
       {/* ---------- Date Range Report ---------- */}
-      <section className="app-panel rounded-[1.4rem] border">
+      <section className="app-panel rounded-2xl border">
         <div className="border-b border-[var(--border-default)] px-5 py-4">
           <h3 className="text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">Custom Date Range</h3>
           <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">Generate a detailed report for any period with CSV export.</p>
@@ -497,7 +503,7 @@ export default function Reports() {
                 { label: 'Gross Profit', value: formatMoney(currency, rangeData.metrics?.grossProfit) },
                 { label: 'Expenses', value: formatMoney(currency, rangeData.totalExpenses) },
               ].map((m) => (
-                <div key={m.label} className="rounded-[1.1rem] border border-[var(--border-default)] bg-[var(--surface-secondary)] p-4">
+                <div key={m.label} className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-4">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{m.label}</p>
                   <p className="mt-2 text-xl font-bold text-[var(--text-primary)]">{m.value}</p>
                 </div>
@@ -513,12 +519,12 @@ export default function Reports() {
               const netMargin = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : '0.0';
               return (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-[1.1rem] border border-[var(--border-default)] bg-[var(--surface-secondary)] p-4">
+                  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-4">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">Gross Margin</p>
                     <p className="mt-2 text-2xl font-bold text-[var(--text-primary)]">{grossMargin}%</p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">Revenue minus cost of goods sold</p>
                   </div>
-                  <div className="rounded-[1.1rem] border border-[var(--border-default)] bg-[var(--surface-secondary)] p-4">
+                  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-4">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">Net Profit</p>
                     <p className={`mt-2 text-2xl font-bold ${netProfit >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{formatMoney(currency, netProfit)}</p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">Gross profit minus expenses · {netMargin}% margin</p>
@@ -528,7 +534,7 @@ export default function Reports() {
             })()}
 
             {rangeData.sales?.length > 0 && (
-              <div className="overflow-hidden rounded-[1.1rem] border border-[var(--border-default)]">
+              <div className="overflow-hidden rounded-xl border border-[var(--border-default)]">
                 <div className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)] px-4 py-2.5">
                   <p className="text-[13px] font-semibold text-[var(--text-primary)]">Sales in range <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">{rangeData.sales.length} transactions</span></p>
                 </div>
@@ -537,7 +543,7 @@ export default function Reports() {
                     <thead>
                       <tr className="border-b border-[var(--border-default)] text-left">
                         {['ID', 'Date', 'Customer', 'Cashier', 'Payment', 'Total'].map((h) => (
-                          <th key={h} className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{h}</th>
+                          <th key={h} className="px-4 py-2.5 text-xs font-medium text-[var(--text-muted)]">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -564,7 +570,7 @@ export default function Reports() {
       </section>
 
       {/* ---------- Receipt Archive ---------- */}
-      <section className="app-panel rounded-[1.4rem] border">
+      <section className="app-panel rounded-2xl border">
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border-default)] px-5 py-4">
           <div>
             <h3 className="text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">Receipt Archive</h3>
@@ -622,7 +628,7 @@ export default function Reports() {
             {filteredReceipts.length === 0 ? (
               <div className="py-8 text-center text-sm text-[var(--text-muted)]">No sales match your search.</div>
             ) : (
-              <div className="overflow-x-auto rounded-[1.1rem] border border-[var(--border-default)]">
+              <div className="overflow-x-auto rounded-xl border border-[var(--border-default)]">
                 <table className="table-cards w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
@@ -633,7 +639,7 @@ export default function Reports() {
                   </thead>
                   <tbody className="divide-y divide-[var(--border-default)]">
                     {filteredReceipts.slice(0, 100).map((sale) => (
-                      <tr key={sale.id} className="border-l-[3px] border-l-[var(--accent)] transition hover:bg-[var(--surface-secondary)]">
+                      <tr key={sale.id} className=" transition hover:bg-[var(--surface-secondary)]">
                         <td data-label="Receipt" className="px-4 py-3">
                           <span className="font-mono text-xs font-semibold text-[var(--text-secondary)]">
                             {sale.receipt?.receiptNumber || `SD-${String(sale.id).padStart(6, '0')}`}

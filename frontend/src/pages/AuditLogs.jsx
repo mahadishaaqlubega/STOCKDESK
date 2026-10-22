@@ -159,9 +159,9 @@ export default function AuditLogs() {
           {stats.map((stat) => {
             const meta = ACTION_META[stat.action] || {};
             return (
-              <div key={stat.action} className={`app-panel rounded-[1.2rem] border border-l-[3px] ${meta.border || ''} p-4 transition hover:shadow-md`}>
+              <div key={stat.action} className={`app-panel rounded-xl border ${meta.border || ''} p-4 transition`}>
                 <div className="flex items-center justify-between">
-                  <p className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${meta.text || 'text-[var(--text-muted)]'}`}>
+                  <p className={`text-xs font-medium ${meta.text || 'text-[var(--text-muted)]'}`}>
                     {stat.action}
                   </p>
                   <div className={`rounded-[0.7rem] p-1.5 ${meta.bg || 'bg-[var(--surface-secondary)]'}`}>
@@ -179,7 +179,7 @@ export default function AuditLogs() {
       )}
 
       {/* Filter panel */}
-      <section className="app-panel rounded-[1.4rem] border p-5">
+      <section className="app-panel rounded-2xl border p-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">Filters</h3>
@@ -215,7 +215,7 @@ export default function AuditLogs() {
             <div>
               <label className="mb-1.5 block text-[12px] font-medium text-[var(--text-muted)]">User</label>
               <select name="userId" value={filters.userId} onChange={handleFilterChange}
-                className="app-input w-full rounded-[1rem] border px-3 py-2 text-sm">
+                className="app-input w-full rounded-xl border px-3 py-2 text-sm">
                 <option value="">All users</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>{u.name} ({u.username})</option>
@@ -225,7 +225,7 @@ export default function AuditLogs() {
             <div>
               <label className="mb-1.5 block text-[12px] font-medium text-[var(--text-muted)]">Action</label>
               <select name="action" value={filters.action} onChange={handleFilterChange}
-                className="app-input w-full rounded-[1rem] border px-3 py-2 text-sm">
+                className="app-input w-full rounded-xl border px-3 py-2 text-sm">
                 <option value="">All actions</option>
                 {actions.map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
@@ -233,7 +233,7 @@ export default function AuditLogs() {
             <div>
               <label className="mb-1.5 block text-[12px] font-medium text-[var(--text-muted)]">Entity type</label>
               <select name="entityType" value={filters.entityType} onChange={handleFilterChange}
-                className="app-input w-full rounded-[1rem] border px-3 py-2 text-sm">
+                className="app-input w-full rounded-xl border px-3 py-2 text-sm">
                 <option value="">All types</option>
                 {entityTypes.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -241,19 +241,19 @@ export default function AuditLogs() {
             <div>
               <label className="mb-1.5 block text-[12px] font-medium text-[var(--text-muted)]">From</label>
               <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange}
-                className="app-input w-full rounded-[1rem] border px-3 py-2 text-sm" />
+                className="app-input w-full rounded-xl border px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="mb-1.5 block text-[12px] font-medium text-[var(--text-muted)]">To</label>
               <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange}
-                className="app-input w-full rounded-[1rem] border px-3 py-2 text-sm" />
+                className="app-input w-full rounded-xl border px-3 py-2 text-sm" />
             </div>
           </div>
         )}
       </section>
 
       {/* Logs table */}
-      <section className="app-panel overflow-hidden rounded-[1.4rem] border">
+      <section className="app-panel overflow-hidden rounded-2xl border">
         <div className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)] px-5 py-3.5">
           <div className="flex items-center justify-between">
             <div>
@@ -270,7 +270,7 @@ export default function AuditLogs() {
             <thead>
               <tr className="border-b border-[var(--border-default)]">
                 {['Timestamp', 'User', 'Action', 'Entity', 'ID', 'IP'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)]">
                     {h}
                   </th>
                 ))}

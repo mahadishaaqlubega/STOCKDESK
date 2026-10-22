@@ -116,7 +116,7 @@ function TrashIcon() {
 function SectionCard({ icon, title, subtitle, children, className = '', accent = 'accent' }) {
   const isDanger = accent === 'danger';
   return (
-    <section className={`app-panel rounded-[1.2rem] border p-6 ${isDanger ? 'border-[var(--danger-border)] bg-[var(--danger-soft)]' : ''} ${className}`}>
+    <section className={`app-panel rounded-xl border p-6 ${isDanger ? 'border-[var(--danger-border)] bg-[var(--danger-soft)]' : ''} ${className}`}>
       <div className="flex items-center gap-2.5">
         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isDanger ? 'bg-[var(--danger)] text-white' : 'bg-[var(--accent-soft)] text-[var(--accent)]'}`}>{icon}</span>
         <div>
@@ -361,7 +361,7 @@ export default function Profile() {
   return (
     <div className="space-y-6">
       {/* Profile header */}
-      <section className="app-panel overflow-hidden rounded-[1.6rem] border">
+      <section className="app-panel overflow-hidden rounded-2xl border">
         <div className="relative h-28 bg-[linear-gradient(135deg,var(--accent),var(--accent-hover))]">
           <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
           <div className="pointer-events-none absolute -bottom-16 right-1/3 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
@@ -438,7 +438,7 @@ export default function Profile() {
       {/* Avatar Preview Modal */}
       {showAvatarModal && avatarPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowAvatarModal(false)}>
-          <div className="mx-4 w-full max-w-md rounded-3xl border border-[var(--border-default)] bg-[var(--surface-primary)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-md rounded-xl border border-[var(--border-default)] bg-[var(--surface-primary)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-[var(--text-primary)]">Profile Photo</h3>
               <button type="button" onClick={() => setShowAvatarModal(false)} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-secondary)]">
@@ -447,7 +447,7 @@ export default function Profile() {
             </div>
             <div className="mt-5 flex justify-center">
               <div className="relative">
-                <img src={avatarPreview} alt="Avatar preview" className="h-40 w-40 rounded-3xl object-cover shadow-2xl ring-4 ring-[var(--accent)]/20" />
+                <img src={avatarPreview} alt="Avatar preview" className="h-40 w-40 rounded-xl object-cover shadow-2xl ring-4 ring-[var(--accent)]/20" />
                 <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[var(--surface-primary)] bg-[var(--success)] text-white">
                   <CheckIcon />
                 </span>
@@ -467,7 +467,7 @@ export default function Profile() {
       )}
 
       {message && (
-        <div className={`app-panel rounded-[1.2rem] border px-4 py-3 text-sm ${
+        <div className={`app-panel rounded-xl border px-4 py-3 text-sm ${
           messageType === 'error'
             ? 'border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger)]'
             : 'border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success)]'
@@ -480,13 +480,13 @@ export default function Profile() {
       {statCards.length > 0 && (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
           {statCards.map((card) => (
-            <div key={card.label} className="app-panel rounded-[1.2rem] border border-l-[3px] p-4 transition duration-200 hover:shadow-lg" style={{ borderLeftColor: card.color }}>
+            <div key={card.label} className="app-panel rounded-xl border p-4 transition duration-200" style={{ borderLeftColor: card.color }}>
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[var(--accent)] ring-1 ring-[var(--accent)]/10" style={{ backgroundColor: `${card.color}1f`, color: card.color }}>
                   {card.icon}
                 </span>
                 <div>
-                  <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{card.label}</p>
+                  <p className="text-xs font-medium text-[var(--text-muted)]">{card.label}</p>
                   <p className="mt-0.5 text-2xl font-bold tracking-tight text-[var(--text-primary)]">{card.value}</p>
                 </div>
               </div>
@@ -496,7 +496,7 @@ export default function Profile() {
       )}
 
       {/* Tab navigation */}
-      <div className="app-panel overflow-x-auto rounded-[1.2rem] border p-1.5">
+      <div className="app-panel overflow-x-auto rounded-xl border p-1.5">
         <div className="flex min-w-max gap-1.5">
           {tabs.map((tab) => (
             <button
@@ -506,8 +506,8 @@ export default function Profile() {
               className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition ${
                 activeTab === tab.key
                   ? tab.key === 'danger'
-                    ? 'bg-[var(--danger)] text-white shadow-sm'
-                    : 'bg-[var(--accent)] text-white shadow-sm'
+                    ? 'bg-[var(--danger-soft)] text-[var(--danger)]'
+                    : 'bg-[var(--surface-secondary)] text-[var(--text-primary)]'
                   : 'text-[var(--text-muted)] hover:bg-[var(--surface-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
@@ -570,7 +570,7 @@ export default function Profile() {
           </SectionCard>
 
           {profile && email && !profile.isVerified && (
-            <section className="app-panel rounded-[1.2rem] border border-[var(--warning-border)] bg-[var(--warning-soft)] px-5 py-4">
+            <section className="app-panel rounded-xl border border-[var(--warning-border)] bg-[var(--warning-soft)] px-5 py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--warning)] text-white">
@@ -627,7 +627,7 @@ export default function Profile() {
           <div className="grid gap-3 sm:grid-cols-2">
             {shopFields.map((field) => (
               <div key={field.label} className="app-panel-soft rounded-xl border px-4 py-3">
-                <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{field.label}</p>
+                <p className="text-xs font-medium text-[var(--text-muted)]">{field.label}</p>
                 <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{field.value}</p>
               </div>
             ))}

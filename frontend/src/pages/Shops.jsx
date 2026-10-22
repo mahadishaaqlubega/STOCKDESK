@@ -158,7 +158,7 @@ function DeleteModal({ shop, onCancel, onConfirm, isDeleting }) {
       style={{ background: 'var(--overlay)', backdropFilter: 'blur(4px)' }}
     >
       <div
-        className="w-full max-w-md rounded-[1.6rem] border bg-[var(--surface-primary)] p-6"
+        className="w-full max-w-md rounded-2xl border bg-[var(--surface-primary)] p-6"
         style={{ boxShadow: '0 32px 80px rgba(0,0,0,0.32)' }}
       >
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--danger-soft)] text-[var(--danger)]">
@@ -395,9 +395,7 @@ export default function Shops() {
 
       <div className="space-y-6">
         {/* ── HERO HEADER ────────────────────────────────────────────── */}
-        <section className="app-panel relative overflow-hidden rounded-[1.8rem] border p-6">
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-2/5 bg-[radial-gradient(ellipse_at_top_right,rgba(13,148,136,0.13),transparent_65%)]" />
-          <div className="pointer-events-none absolute bottom-0 left-0 h-40 w-72 bg-[radial-gradient(ellipse_at_bottom_left,rgba(22,163,74,0.07),transparent_70%)]" />
+        <section className="app-panel relative overflow-hidden rounded-2xl border p-6">
 
           <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -508,7 +506,7 @@ export default function Shops() {
         {/* ── ACTIVITY + TOP SHOPS ───────────────────────────────────── */}
         <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
           {/* Recently active */}
-          <div className="app-panel rounded-[1.5rem] border p-5 sm:p-6">
+          <div className="app-panel rounded-2xl border p-5 sm:p-6">
             <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-4">
               <div>
                 <h3 className="font-semibold text-[var(--text-primary)]">Recently Active Shops</h3>
@@ -575,7 +573,7 @@ export default function Shops() {
           {/* Right column */}
           <div className="flex flex-col gap-6">
             {/* Top by transactions */}
-            <div className="app-panel rounded-[1.5rem] border p-5">
+            <div className="app-panel rounded-2xl border p-5">
               <div className="border-b border-[var(--border-default)] pb-4">
                 <h3 className="font-semibold text-[var(--text-primary)]">Top by Transactions</h3>
                 <p className="mt-0.5 text-sm text-[var(--text-muted)]">Ranked by recorded sales</p>
@@ -610,7 +608,7 @@ export default function Shops() {
             </div>
 
             {/* Latest signups */}
-            <div className="app-panel rounded-[1.5rem] border p-5">
+            <div className="app-panel rounded-2xl border p-5">
               <div className="border-b border-[var(--border-default)] pb-4">
                 <h3 className="font-semibold text-[var(--text-primary)]">Latest Signups</h3>
                 <p className="mt-0.5 text-sm text-[var(--text-muted)]">Most recently joined shops</p>
@@ -648,7 +646,7 @@ export default function Shops() {
         </div>
 
         {/* ── TENANT DIRECTORY ───────────────────────────────────────── */}
-        <section className="app-panel rounded-[1.5rem] border p-5 sm:p-6">
+        <section className="app-panel rounded-2xl border p-5 sm:p-6">
           <div className="flex flex-col gap-2 border-b border-[var(--border-default)] pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-semibold text-[var(--text-primary)]">Tenant Directory</h3>
@@ -671,7 +669,7 @@ export default function Shops() {
               <p className="mt-1 text-sm text-[var(--text-muted)]">Shops will appear here once they sign up</p>
             </div>
           ) : (
-            <div className="mt-5 overflow-x-auto rounded-[1.2rem] border border-[var(--border-default)]">
+            <div className="mt-5 overflow-x-auto rounded-xl border border-[var(--border-default)]">
               <table className="table-cards min-w-full text-left text-sm">
                 <thead className="app-table-head">
                   <tr>

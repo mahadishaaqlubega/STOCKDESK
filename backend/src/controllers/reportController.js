@@ -91,7 +91,7 @@ exports.dashboardStats = async (req, res, next) => {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
     sevenDaysAgo.setHours(0, 0, 0, 0);
 
-    const emptyProducts = { totalProducts: 0, totalStock: 0, lowStockCount: 0 };
+    const emptyProducts = { totalProducts: 0, totalStock: 0, lowStockCount: 0, outOfStockCount: 0 };
     const safe = async (fn) => { try { return await fn(); } catch { return null; } };
 
     const [productStats, salesTrend] = await Promise.all([
@@ -99,7 +99,9 @@ exports.dashboardStats = async (req, res, next) => {
         `SELECT
            COUNT(*)::int AS "totalProducts",
            COALESCE(SUM("quantity"), 0)::int AS "totalStock",
-           COUNT(*) FILTER (WHERE "quantity" < GREATEST(5, COALESCE("lowStock", 5)))::int AS "lowStockCount"
+           -- Respect each product's own reorder level; out-of-stock is reported separately.
+           COUNT(*) FILTER (WHERE "quantity" > 0 AND "quantity" <= COALESCE("lowStock", 5))::int AS "lowStockCount",
+           COUNT(*) FILTER (WHERE "quantity" <= 0)::int AS "outOfStockCount"
          FROM "products"
          WHERE "shopId" = :shopId AND COALESCE("type", 'goods') = 'goods'`,
         { replacements: { shopId }, type: sequelize.QueryTypes.SELECT }

@@ -3,160 +3,75 @@ import { getUser } from '../utils/auth';
 import { useTheme } from './ThemeProvider';
 import logo from '../assets/logo.png';
 
-const links = [
+// Minimal 20px stroke icons, one visual family.
+const Icon = ({ children }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+    {children}
+  </svg>
+);
+
+const icons = {
+  dashboard: <Icon><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></Icon>,
+  pos: <Icon><path d="M6 2h12l2 6H4l2-6Z" /><path d="M4 8v12a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8" /><path d="M9 12h6" /></Icon>,
+  customers: <Icon><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18.5 20a6.5 6.5 0 0 0-2.5-5.1" /></Icon>,
+  returns: <Icon><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></Icon>,
+  products: <Icon><path d="m21 8-9-5-9 5 9 5 9-5Z" /><path d="m3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></Icon>,
+  stockCount: <Icon><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M9 3v2h6V3" /><path d="m9 13 2 2 4-4" /></Icon>,
+  reports: <Icon><path d="M3 21h18" /><rect x="5" y="11" width="3" height="7" rx="1" /><rect x="10.5" y="6" width="3" height="12" rx="1" /><rect x="16" y="14" width="3" height="4" rx="1" /></Icon>,
+  expenses: <Icon><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /><path d="M7 15h3" /></Icon>,
+  users: <Icon><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></Icon>,
+  audit: <Icon><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></Icon>,
+  settings: <Icon><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></Icon>,
+  profile: <Icon><circle cx="12" cy="12" r="9" /><circle cx="12" cy="10" r="3" /><path d="M6.2 18.4a7 7 0 0 1 11.6 0" /></Icon>,
+  shops: <Icon><path d="M3 21h18" /><path d="M5 21V8l7-4 7 4v13" /><path d="M10 21v-4h4v4" /></Icon>,
+};
+
+// end: true makes the link active only on its exact path (Dashboard is /app).
+const shopSections = [
+  { title: null, items: [{ to: '/app', label: 'Dashboard', icon: icons.dashboard, end: true }] },
   {
-    to: '/app',
-    label: 'Dashboard',
-    adminOnly: false,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-        <path d="M4 13h7V4H4v9Z" />
-        <path d="M13 20h7v-5h-7v5Z" />
-        <path d="M13 13h7V4h-7v9Z" />
-        <path d="M4 20h7v-5H4v5Z" />
-      </svg>
-    ),
+    title: 'Sell',
+    items: [
+      { to: '/app/pos', label: 'Point of sale', icon: icons.pos },
+      { to: '/app/customers', label: 'Customers', icon: icons.customers },
+      { to: '/app/returns', label: 'Returns', icon: icons.returns },
+    ],
   },
   {
-    to: '/app/products',
-    label: 'Products',
-    adminOnly: false,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-        <path d="m3 7 9-4 9 4-9 4-9-4Z" />
-        <path d="m3 7 9 4 9-4" />
-        <path d="M12 11v10" />
-        <path d="m3 17 9 4 9-4" />
-      </svg>
-    ),
+    title: 'Stock',
+    items: [
+      { to: '/app/products', label: 'Products', icon: icons.products },
+      { to: '/app/stock-reconciliation', label: 'Stock count', icon: icons.stockCount, adminOnly: true },
+    ],
   },
   {
-    to: '/app/pos',
-    label: 'Sales',
-    adminOnly: false,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-        <path d="M4 5h16v14H4z" />
-        <path d="M8 9h8" />
-        <path d="M8 13h3" />
-        <path d="M14 13h2" />
-      </svg>
-    ),
+    title: 'Money',
+    items: [
+      { to: '/app/reports', label: 'Reports', icon: icons.reports, adminOnly: true },
+      { to: '/app/expenses', label: 'Expenses', icon: icons.expenses, adminOnly: true },
+    ],
   },
   {
-    to: '/app/customers',
-    label: 'Customers',
-    adminOnly: false,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-        <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
-        <path d="M9.5 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8Z" />
-        <path d="M21 21v-2a4 4 0 0 0-3-3.9" />
-        <path d="M16 3.1a4 4 0 0 1 0 7.8" />
-      </svg>
-    ),
-  },
-  {
-    to: '/app/returns',
-    label: 'Returns',
-    adminOnly: false,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-        <path d="M9 14l-4-4 4-4" />
-        <path d="M5 10h11a4 4 0 0 1 0 8h-1" />
-      </svg>
-    ),
-  },
-  {
-    to: '/app/reports',
-    label: 'Reports',
-    adminOnly: true,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-        <path d="M4 19h16" />
-        <path d="M7 16V9" />
-        <path d="M12 16V5" />
-        <path d="M17 16v-3" />
-      </svg>
-    ),
-  },
-  {
-    to: '/app/expenses',
-    label: 'Expenses',
-    adminOnly: true,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-        <path d="M12 6v6l4 2" />
-      </svg>
-    ),
-  },
-  {
-    to: '/app/stock-reconciliation',
-    label: 'Stock Reconciliation',
-    adminOnly: true,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-        <path d="M9 3H5a2 2 0 0 0-2 2v4m0 0H3m2 0v2m0-6h10a2 2 0 0 1 2 2v4m0 0h2m-2 0v2m0 0v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5m0 0H3" />
-        <path d="M9 11l1.5 1.5 3-3" />
-      </svg>
-    ),
-  },
-  {
-    to: '/app/audit-logs',
-    label: 'Audit Logs',
-    adminOnly: true,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-        <path d="M12 6v6l4 2" />
-      </svg>
-    ),
-  },
-  {
-    to: '/app/settings',
-    label: 'Settings',
-    adminOnly: true,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-        <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5z" />
-        <path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 0 1-4 0v-.2a1 1 0 0 0-.7-.9 1 1 0 0 0-1.1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 0 1 0-4h.2a1 1 0 0 0 .9-.7 1 1 0 0 0-.2-1.1l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4a2 2 0 0 1 4 0v.2a1 1 0 0 0 .7.9 1 1 0 0 0 1.1-.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6H20a2 2 0 0 1 0 4h-.2a1 1 0 0 0-.9.7Z" />
-      </svg>
-    ),
+    title: 'Admin',
+    items: [
+      { to: '/app/users', label: 'Team', icon: icons.users, adminOnly: true },
+      { to: '/app/audit-logs', label: 'Activity log', icon: icons.audit, adminOnly: true },
+      { to: '/app/settings', label: 'Settings', icon: icons.settings, adminOnly: true },
+      { to: '/app/profile', label: 'My account', icon: icons.profile, adminOnly: true },
+    ],
   },
 ];
 
-function UsersIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
-      <path d="M9.5 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8Z" />
-      <path d="M21 21v-2a4 4 0 0 0-3-3.9" />
-      <path d="M16 3.1a4 4 0 0 1 0 7.8" />
-    </svg>
-  );
-}
-
-function ShopsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-      <path d="M3 21h18" />
-      <path d="M5 21V8l7-4 7 4v13" />
-      <path d="M9 10h6" />
-      <path d="M9 14h6" />
-      <path d="M10 21v-3h4v3" />
-    </svg>
-  );
-}
-
-function ProfileIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
-    </svg>
-  );
-}
+const ownerSections = [
+  {
+    title: null,
+    items: [
+      { to: '/app/owner', label: 'Dashboard', icon: icons.dashboard, end: true },
+      { to: '/app/shops', label: 'Shops', icon: icons.shops },
+      { to: '/app/profile', label: 'My account', icon: icons.profile },
+    ],
+  },
+];
 
 export default function Sidebar({ user: providedUser, isOpen = false, collapsed = false, onClose = () => {}, onLogout = () => {} }) {
   const user = providedUser || getUser();
@@ -164,37 +79,13 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
   const activeTheme = themeMode === 'system' ? resolvedTheme : themeMode;
   const isAdmin = user?.role === 'Admin';
   const isSuperAdmin = user?.role === 'SuperAdmin';
-  const shopName = isSuperAdmin ? 'Platform Console' : user?.shop?.name || 'Default Shop';
-  const shopSlug = isSuperAdmin ? 'all-registered-shops' : user?.shop?.slug || 'legacy-shop';
-  const isStaff = user?.role === 'Staff';
-  const visibleLinks = isSuperAdmin
-    ? [
-        {
-          to: '/app/owner',
-          label: 'Dashboard',
-          icon: (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-              <path d="M4 13h7V4H4v9Z" />
-              <path d="M13 20h7v-5h-7v5Z" />
-              <path d="M13 13h7V4h-7v9Z" />
-              <path d="M4 20h7v-5H4v5Z" />
-            </svg>
-          ),
-        },
-        {
-          to: '/app/shops',
-          label: 'Platform',
-          icon: <ShopsIcon />,
-        },
-        {
-          to: '/app/profile',
-          label: 'Profile',
-          icon: <ProfileIcon />,
-        },
-      ]
-    : isStaff
-    ? links.filter((l) => !l.adminOnly)
-    : links;
+  const shopName = isSuperAdmin ? 'Platform console' : user?.shop?.name || 'My shop';
+
+  const sections = (isSuperAdmin ? ownerSections : shopSections)
+    .map((section) => ({ ...section, items: section.items.filter((item) => !item.adminOnly || isAdmin) }))
+    .filter((section) => section.items.length > 0);
+
+  const hideWhenCollapsed = collapsed ? 'lg:hidden' : '';
 
   return (
     <>
@@ -202,154 +93,97 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
         className={`app-overlay fixed inset-0 z-30 transition lg:hidden ${isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
         onClick={onClose}
       />
-<aside
-        className={`app-sidebar-shell fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r px-5 py-5 transition-all duration-300 lg:static lg:shadow-none ${
+      <aside
+        className={`app-sidebar-shell fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col border-r transition-[width,transform] duration-300 lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0 lg:shadow-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${
-          collapsed ? 'lg:translate-x-0 lg:w-20 lg:px-3' : 'lg:translate-x-0 lg:w-72 lg:px-6 lg:py-6'
-        }`}
+        } ${collapsed ? 'lg:w-[72px]' : 'lg:w-[248px]'}`}
+        aria-label="Main navigation"
       >
-        <div className="flex items-center justify-between lg:block">
-          <div>
-              <div className={`flex items-center ${collapsed ? 'lg:justify-center' : 'lg:gap-3.5'}`}>
-                <img src={logo} alt="StockDesk logo" className={`h-16 w-16 object-contain ${collapsed ? 'lg:h-11 lg:w-11' : ''}`} />
-              <div className={`pt-0.5 ${collapsed ? 'lg:hidden' : ''}`}>
-                <p className="text-[1.9rem] font-semibold leading-none tracking-tight text-[var(--sidebar-text)]">StockDesk</p>
-                <p className="mt-2 text-sm font-medium tracking-[0.02em] text-[var(--sidebar-muted)]">Business overview</p>
-              </div>
-            </div>
+        {/* Brand + shop */}
+        <div className={`flex items-center gap-3 px-4 pb-4 pt-5 ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}>
+          <img src={logo} alt="" className="h-9 w-9 shrink-0 object-contain" />
+          <div className={`min-w-0 flex-1 ${hideWhenCollapsed}`}>
+            <p className="text-[15px] font-semibold leading-tight tracking-tight text-[var(--sidebar-text)]">StockDesk</p>
+            <p className="truncate text-xs text-[var(--sidebar-muted)]" title={shopName}>{shopName}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--sidebar-border)] bg-white/5 text-[var(--sidebar-text)] transition hover:bg-white/10 lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--sidebar-muted)] transition hover:bg-white/10 hover:text-[var(--sidebar-text)] lg:hidden"
             aria-label="Close navigation"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-              <path d="M6 6l12 12" />
-              <path d="M18 6L6 18" />
-            </svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
 
-        <div className={`app-sidebar-card mt-7 rounded-2xl border p-4 ${collapsed ? 'lg:hidden' : ''}`}>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--sidebar-muted)]">{isSuperAdmin ? 'Platform Scope' : 'Active Shop'}</p>
-          <p className="mt-2 text-base font-semibold text-[var(--sidebar-text)]">{shopName}</p>
-          <p className="mt-1 text-sm text-[var(--sidebar-muted)]">{shopSlug}</p>
-        </div>
-
-        <nav className="mt-7 min-h-0 flex-1 space-y-1.5 overflow-y-auto">
-          {visibleLinks.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={onClose}
-              className={({ isActive }) =>
-                `app-sidebar-link flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
-                  collapsed ? 'lg:justify-center lg:px-2' : ''
-                } ${
-                  isActive
-                    ? 'app-sidebar-link-active'
-                    : ''
-                }`
-              }
-            >
-              {item.icon}
-              <span className={collapsed ? 'lg:hidden' : ''}>{item.label}</span>
-            </NavLink>
+        <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+          {sections.map((section, index) => (
+            <div key={section.title || index} className={index ? 'mt-5' : 'mt-1'}>
+              {section.title ? (
+                <p className={`mb-1.5 px-3 text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--sidebar-muted)] opacity-80 ${hideWhenCollapsed}`}>
+                  {section.title}
+                </p>
+              ) : null}
+              <div className="space-y-0.5">
+                {section.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    onClick={onClose}
+                    title={collapsed ? item.label : undefined}
+                    className={({ isActive }) =>
+                      `app-sidebar-link flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] font-medium transition ${
+                        collapsed ? 'lg:justify-center lg:px-0' : ''
+                      } ${isActive ? 'app-sidebar-link-active' : ''}`
+                    }
+                  >
+                    {item.icon}
+                    <span className={hideWhenCollapsed}>{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
-          {!isSuperAdmin && isAdmin && (
-            <NavLink
-              to="/app/users"
-              onClick={onClose}
-              className={({ isActive }) =>
-                `app-sidebar-link flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
-                  collapsed ? 'lg:justify-center lg:px-2' : ''
-                } ${
-                  isActive
-                    ? 'app-sidebar-link-active'
-                    : ''
-                }`
-              }
-            >
-              <UsersIcon />
-              <span className={collapsed ? 'lg:hidden' : ''}>Users</span>
-            </NavLink>
-          )}
-          {!isSuperAdmin && isAdmin && (
-            <NavLink
-              to="/app/profile"
-              onClick={onClose}
-              className={({ isActive }) =>
-                `app-sidebar-link flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
-                  collapsed ? 'lg:justify-center lg:px-2' : ''
-                } ${
-                  isActive
-                    ? 'app-sidebar-link-active'
-                    : ''
-                }`
-              }
-            >
-              <ProfileIcon />
-              <span className={collapsed ? 'lg:hidden' : ''}>Profile</span>
-            </NavLink>
-          )}
         </nav>
 
-        <div className={`app-sidebar-card mt-auto rounded-2xl border p-4 ${collapsed ? 'lg:p-3' : ''}`}>
-          <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--sidebar-muted)] ${collapsed ? 'lg:hidden' : ''}`}>
-            {isSuperAdmin ? 'Platform User' : 'Current User'}
-          </p>
-          <div className={`flex items-center gap-3 rounded-2xl bg-[var(--sidebar-hover)] px-3 py-3 ${collapsed ? 'lg:mt-0 lg:justify-center lg:px-0' : 'mt-3'}`}>
+        {/* Account */}
+        <div className="border-t border-[var(--sidebar-border)] p-3">
+          <div className={`flex items-center gap-3 rounded-lg px-2 py-2 ${collapsed ? 'lg:flex-col lg:px-0' : ''}`}>
             {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt="Profile avatar"
-                className="h-11 w-11 rounded-xl object-cover shadow-[var(--sidebar-active-shadow)]"
-              />
+              <img src={user.avatarUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
             ) : (
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--sidebar-active-bg)] text-sm font-semibold text-[var(--sidebar-active-text)] shadow-[var(--sidebar-active-shadow)]">
-                {String(user?.name || 'S').slice(0, 1).toUpperCase()}
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-[var(--sidebar-text)]">
+                {String(user?.name || 'U').slice(0, 1).toUpperCase()}
               </div>
             )}
-            <div className={`min-w-0 flex-1 ${collapsed ? 'lg:hidden' : ''}`}>
-              <p className="truncate text-sm font-semibold text-[var(--sidebar-text)]">{user?.name || 'Staff'}</p>
+            <div className={`min-w-0 flex-1 ${hideWhenCollapsed}`}>
+              <p className="truncate text-[13px] font-medium text-[var(--sidebar-text)]">{user?.name || 'User'}</p>
               <p className="truncate text-xs text-[var(--sidebar-muted)]">{user?.displayRole || user?.role || 'User'}</p>
             </div>
             <button
               type="button"
               title={activeTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               onClick={() => setThemeMode(activeTheme === 'dark' ? 'light' : 'dark')}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[var(--sidebar-muted)] transition hover:bg-white/10 hover:text-[var(--sidebar-text)]"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--sidebar-muted)] transition hover:bg-white/10 hover:text-[var(--sidebar-text)]"
               aria-label="Toggle theme"
             >
               {activeTheme === 'dark' ? (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2.5" /><path d="M12 19.5V22" />
-                  <path d="M4.9 4.9 6.7 6.7" /><path d="M17.3 17.3 19.1 19.1" />
-                  <path d="M2 12h2.5" /><path d="M19.5 12H22" />
-                  <path d="m4.9 19.1 1.8-1.8" /><path d="m17.3 6.7 1.8-1.8" />
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
               ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-                  <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" /></svg>
               )}
             </button>
+            <button
+              type="button"
+              onClick={onLogout}
+              title="Sign out"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--sidebar-muted)] transition hover:bg-white/10 hover:text-red-400"
+              aria-label="Sign out"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onLogout}
-            className={`mt-3 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-[var(--sidebar-muted)] transition hover:bg-white/6 hover:text-[var(--danger)] ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4 shrink-0">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            <span className={collapsed ? 'lg:hidden' : ''}>Sign out</span>
-          </button>
         </div>
       </aside>
     </>

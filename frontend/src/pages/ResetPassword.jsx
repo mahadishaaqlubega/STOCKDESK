@@ -50,7 +50,7 @@ function AuthField({ label, type = 'text', value, onChange, placeholder, autoCom
           onChange={onChange}
           placeholder={placeholder}
           autoComplete={autoComplete}
-          className={`app-input w-full rounded-[1.15rem] border py-2.5 pl-12 text-sm shadow-sm ${type === 'password' ? 'pr-11' : 'pr-4'}`}
+          className={`app-input w-full rounded-xl border py-2.5 pl-12 text-sm shadow-sm ${type === 'password' ? 'pr-11' : 'pr-4'}`}
         />
         {type === 'password' && (
           <button
@@ -117,7 +117,7 @@ export default function ResetPassword() {
       className="flex min-h-dvh items-center justify-center px-4 py-8"
       style={{ background: 'var(--bg-auth)' }}
     >
-      <div className="app-modal w-full max-w-md overflow-hidden rounded-[2rem] border p-8">
+      <div className="app-modal w-full max-w-md overflow-hidden rounded-2xl border p-8">
         <div className="mb-6 flex justify-center">
           <img src={logo} alt="StockDesk" className="h-12 w-12 object-contain" />
         </div>
@@ -135,7 +135,7 @@ export default function ResetPassword() {
             <button
               type="button"
               onClick={() => navigate('/login', { replace: true })}
-              className="app-btn-primary mt-5 inline-flex w-full items-center justify-center rounded-[1.1rem] px-4 py-3 text-sm font-semibold leading-none text-white transition"
+              className="app-btn-primary mt-5 inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold leading-none text-white transition"
             >
               Sign In Now
             </button>
@@ -168,13 +168,13 @@ export default function ResetPassword() {
               />
 
               {error ? (
-                <div className="app-alert-danger rounded-[1.1rem] px-4 py-2.5 text-sm">{error}</div>
+                <div className="app-alert-danger rounded-xl px-4 py-2.5 text-sm">{error}</div>
               ) : null}
 
               <button
                 type="submit"
                 disabled={loading}
-                className={`inline-flex w-full items-center justify-center rounded-[1.1rem] px-4 py-3 text-sm font-semibold leading-none text-white transition ${
+                className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold leading-none text-white transition ${
                   loading ? 'cursor-not-allowed bg-gray-400' : 'app-btn-primary'
                 }`}
               >

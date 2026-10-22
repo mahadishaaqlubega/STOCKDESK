@@ -169,7 +169,7 @@ const currencies = [
 
 function SectionCard({ title, subtitle, children, danger = false }) {
   return (
-    <section className={`app-panel rounded-[1.5rem] border p-5 sm:p-6 ${danger ? 'border-[var(--danger-border)]' : ''}`}>
+    <section className={`app-panel rounded-2xl border p-5 sm:p-6 ${danger ? 'border-[var(--danger-border)]' : ''}`}>
       <div className={`border-b pb-4 ${danger ? 'border-[var(--danger-border)]' : 'border-[var(--border-default)]'}`}>
         <h3 className={`text-lg font-semibold ${danger ? 'text-[var(--danger)]' : 'text-[var(--text-primary)]'}`}>{title}</h3>
         <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>
@@ -622,7 +622,7 @@ export default function Settings() {
                 Closing the day stores totals for net sales, gross sales, gross profit, discounts, orders, and items sold. No raw sales records are deleted.
               </div>
 
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-[1.35rem] border border-[var(--danger-border)] bg-[var(--surface-primary)] p-4">
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--danger-border)] bg-[var(--surface-primary)] p-4">
                 <div>
                   <p className="text-base font-semibold text-[var(--danger)]">Close current business day</p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">Use this at the end of the day to lock in a clean historical snapshot.</p>
@@ -649,7 +649,7 @@ export default function Settings() {
                 ) : (
                   <div className="mt-4 space-y-3">
                     {dayClosures.map((closure) => (
-                      <div key={closure.id} className="app-panel rounded-[1.35rem] border p-4">
+                      <div key={closure.id} className="app-panel rounded-2xl border p-4">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                           <div>
                             <p className="font-semibold text-[var(--text-primary)]">{closure.closedForDate}</p>

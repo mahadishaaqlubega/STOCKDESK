@@ -7,18 +7,18 @@ import logo from '../assets/logo.png';
 
 const featureHighlights = [
   {
-    title: 'Live inventory visibility',
-    description: 'Track stock movement, low inventory, and restock priorities from one workspace.',
+    title: 'Sell in seconds',
+    description: 'Tap or scan items, take Cash, Mobile Money or card, and print a clean receipt.',
     Icon: InventoryIcon,
   },
   {
-    title: 'Fast retail operations',
-    description: 'Keep checkout, reporting, and cashier activity moving without extra handoffs.',
+    title: 'Credit you can track',
+    description: 'Sell on credit with limits and due dates, and see exactly who owes you.',
     Icon: LightningIcon,
   },
   {
-    title: 'Built for shop teams',
-    description: 'Use role-aware sign in and cleaner controls built for day-to-day store work.',
+    title: 'Stock that warns you',
+    description: 'Know what is running low or out before customers ask. Works on phone and PC.',
     Icon: ShieldIcon,
   },
 ];
@@ -143,7 +143,7 @@ function AuthField({ label, type = 'text', value, onChange, placeholder, autoCom
           onChange={onChange}
           placeholder={placeholder}
           autoComplete={autoComplete}
-          className={`app-input w-full rounded-[1.15rem] border py-2.5 pl-12 text-sm shadow-sm ${type === 'password' ? 'pr-11' : 'pr-4'}`}
+          className={`app-input w-full rounded-xl border py-2.5 pl-12 text-sm shadow-sm ${type === 'password' ? 'pr-11' : 'pr-4'}`}
         />
         {type === 'password' && (
           <button
@@ -184,9 +184,9 @@ export default function Login() {
       ? {
           eyebrow: 'Shop Sign In',
           title: 'Welcome back',
-          description: 'Sign in to open your dashboard, manage inventory, and keep sales moving without friction.',
-          note: 'Use the exact shop name registered for your workspace.',
-          action: loading ? 'Signing in...' : 'Enter Dashboard',
+          description: 'Sign in to your shop to start selling.',
+          note: 'Enter your shop name exactly as you registered it.',
+          action: loading ? 'Signing in…' : 'Sign in',
         }
       : mode === 'signup'
       ? {
@@ -327,7 +327,7 @@ export default function Login() {
         </button>
       </div>
 
-      <div className="app-modal relative mx-auto grid w-full max-w-5xl overflow-visible rounded-[2rem] border backdrop-blur lg:min-h-[calc(100dvh-6rem)] lg:grid-cols-[0.98fr_minmax(0,1.02fr)]">
+      <div className="app-modal relative mx-auto grid w-full max-w-5xl overflow-visible rounded-2xl border backdrop-blur lg:min-h-[calc(100dvh-6rem)] lg:grid-cols-[0.98fr_minmax(0,1.02fr)]">
         <section className="relative hidden overflow-hidden lg:block lg:px-7 lg:py-6 xl:px-8 xl:py-7" style={{ background: 'var(--sidebar-bg)' }}>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(30,167,189,0.24),transparent_34%)]" />
           <div className="absolute right-8 top-8 h-24 w-24 rounded-full border border-white/10 bg-white/5 blur-2xl" />
@@ -335,21 +335,21 @@ export default function Login() {
 
           <div className="relative flex h-full flex-col justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-20 w-20 items-center justify-center rounded-[1.6rem] border border-white/10 bg-white/10 p-2.5 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur">
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/10 p-2.5 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur">
                 <img src={logo} alt="StockDesk logo" className="h-15 w-15 object-contain" />
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/70">StockDesk</p>
-                <p className="mt-0.5 text-base font-semibold tracking-tight text-white xl:text-lg">Inventory and POS control</p>
+                <p className="mt-0.5 text-base font-semibold tracking-tight text-white xl:text-lg">Point of sale & stock for shops</p>
               </div>
             </div>
 
             <div className="max-w-xl">
               <h1 className="text-[2.1rem] font-bold leading-tight tracking-tight text-white xl:text-[2.2rem]">
-                Run sales, stock, and staff from one cleaner control surface.
+                Run your whole shop from one screen.
               </h1>
               <p className="mt-2.5 max-w-lg text-[14px] leading-6 text-white/70">
-                Keep inventory, checkout, and daily oversight in one focused system designed for fast shop operations.
+                Sales, stock, customers and credit — clear, fast and built for the way shops in Uganda actually work.
               </p>
             </div>
 
@@ -357,7 +357,7 @@ export default function Login() {
               {featureHighlights.map(({ title, description, Icon }, index) => (
                 <div
                   key={title}
-                  className={`flex items-start gap-3 rounded-[1.1rem] border border-white/10 bg-white/6 px-3.5 py-3 backdrop-blur-sm ${
+                  className={`flex items-start gap-3 rounded-xl border border-white/10 bg-white/6 px-3.5 py-3 backdrop-blur-sm ${
                     index === 2 ? 'xl:col-span-2' : ''
                   }`}
                 >
@@ -374,7 +374,7 @@ export default function Login() {
 
             <div className="hidden grid-cols-3 gap-2.5 2xl:grid">
               {brandStats.map((item) => (
-                <div key={item.label} className="rounded-[1.1rem] border border-white/10 bg-white/8 px-3 py-2.5 text-center backdrop-blur-sm">
+                <div key={item.label} className="rounded-xl border border-white/10 bg-white/8 px-3 py-2.5 text-center backdrop-blur-sm">
                   <div className="text-sm font-semibold tracking-tight text-white xl:text-base">{item.value}</div>
                   <div className="mt-1 text-xs uppercase tracking-[0.16em] text-white/70">{item.label}</div>
                 </div>
@@ -387,11 +387,11 @@ export default function Login() {
           <div className="mx-auto max-w-xl lg:flex lg:h-full lg:flex-col lg:justify-center">
             <div className="mb-5 lg:hidden">
               <div className="flex items-center gap-3">
-                <div className="flex h-16 w-16 items-center justify-center rounded-[1.3rem] bg-[var(--surface-secondary)] p-2.5 shadow-sm">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--surface-secondary)] p-2.5 shadow-sm">
                   <img src={logo} alt="StockDesk logo" className="h-11 w-11 object-contain" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-strong)]">StockDesk</p>
+                  <p className="text-xs font-medium text-[var(--accent-strong)]">StockDesk</p>
                   <p className="mt-1 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Business workspace</p>
                 </div>
               </div>
@@ -406,7 +406,7 @@ export default function Login() {
             ) : null}
 
             {mode === 'login' || mode === 'signup' ? (
-              <div className="mt-4 grid grid-cols-2 rounded-[1.1rem] bg-[var(--surface-secondary)] p-1.5">
+              <div className="mt-4 grid grid-cols-2 rounded-xl bg-[var(--surface-secondary)] p-1.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -414,7 +414,7 @@ export default function Login() {
                     setError('');
                     setSuccess('');
                   }}
-                  className={`inline-flex items-center justify-center rounded-[1rem] px-4 py-3 text-sm font-semibold leading-none transition ${
+                  className={`inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold leading-none transition ${
                     mode === 'login' ? 'app-panel text-[var(--accent-strong)]' : 'text-[var(--text-muted)]'
                   }`}
                 >
@@ -427,7 +427,7 @@ export default function Login() {
                     setError('');
                     setSuccess('');
                   }}
-                  className={`inline-flex items-center justify-center rounded-[1rem] px-4 py-3 text-sm font-semibold leading-none transition ${
+                  className={`inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold leading-none transition ${
                     mode === 'signup' ? 'app-panel text-[var(--accent-strong)]' : 'text-[var(--text-muted)]'
                   }`}
                 >
@@ -447,7 +447,7 @@ export default function Login() {
               </button>
             )}
 
-            <div className="app-panel-soft mt-4 rounded-[1.35rem] border p-4 sm:p-4.5">
+            <div className="app-panel-soft mt-4 rounded-2xl border p-4 sm:p-4.5">
               {mode === 'login' ? (
                 <form className="space-y-3.5" onSubmit={handleSubmit}>
                   <AuthField
@@ -478,7 +478,7 @@ export default function Login() {
                   />
 
                   <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1 rounded-[1.1rem] border border-[var(--border-default)] bg-[var(--surface-primary)] px-4 py-2.5 text-sm leading-5 text-[var(--text-muted)]">
+                    <div className="min-w-0 flex-1 rounded-xl border border-[var(--border-default)] bg-[var(--surface-primary)] px-4 py-2.5 text-sm leading-5 text-[var(--text-muted)]">
                       {panelCopy.note}
                     </div>
                     <button
@@ -490,13 +490,13 @@ export default function Login() {
                     </button>
                   </div>
 
-                  {error ? <div className="app-alert-danger rounded-[1.1rem] px-4 py-2.5 text-sm">{error}</div> : null}
-                  {success ? <div className="app-alert-success rounded-[1.1rem] px-4 py-2.5 text-sm">{success}</div> : null}
+                  {error ? <div className="app-alert-danger rounded-xl px-4 py-2.5 text-sm">{error}</div> : null}
+                  {success ? <div className="app-alert-success rounded-xl px-4 py-2.5 text-sm">{success}</div> : null}
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className={`inline-flex w-full items-center justify-center rounded-[1.1rem] px-4 py-3 text-sm font-semibold leading-none text-white transition ${
+                    className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold leading-none text-white transition ${
                       loading ? 'cursor-not-allowed bg-gray-400' : 'app-btn-primary'
                     }`}
                   >
@@ -521,18 +521,18 @@ export default function Login() {
                     </div>
                   </div>
 
-                  <div className="rounded-[1.1rem] border border-[var(--border-default)] bg-[var(--surface-primary)] px-4 py-3 text-[13px] text-[var(--text-muted)]">
+                  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-primary)] px-4 py-3 text-[13px] text-[var(--text-muted)]">
                     Click the link in the email to activate your account, then come back and sign in.
                   </div>
 
-                  {error ? <div className="app-alert-danger rounded-[1.1rem] px-4 py-2.5 text-sm">{error}</div> : null}
-                  {success ? <div className="app-alert-success rounded-[1.1rem] px-4 py-2.5 text-sm">{success}</div> : null}
+                  {error ? <div className="app-alert-danger rounded-xl px-4 py-2.5 text-sm">{error}</div> : null}
+                  {success ? <div className="app-alert-success rounded-xl px-4 py-2.5 text-sm">{success}</div> : null}
 
                   <button
                     type="button"
                     disabled={loading}
                     onClick={handleResendVerification}
-                    className={`inline-flex w-full items-center justify-center rounded-[1.1rem] border border-[var(--border-default)] bg-[var(--surface-primary)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-secondary)] ${
+                    className={`inline-flex w-full items-center justify-center rounded-xl border border-[var(--border-default)] bg-[var(--surface-primary)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-secondary)] ${
                       loading ? 'cursor-not-allowed opacity-60' : ''
                     }`}
                   >
@@ -551,13 +551,13 @@ export default function Login() {
                     Icon={MailIcon}
                   />
 
-                  {error ? <div className="app-alert-danger rounded-[1.1rem] px-4 py-2.5 text-sm">{error}</div> : null}
-                  {success ? <div className="app-alert-success rounded-[1.1rem] px-4 py-2.5 text-sm">{success}</div> : null}
+                  {error ? <div className="app-alert-danger rounded-xl px-4 py-2.5 text-sm">{error}</div> : null}
+                  {success ? <div className="app-alert-success rounded-xl px-4 py-2.5 text-sm">{success}</div> : null}
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className={`inline-flex w-full items-center justify-center rounded-[1.1rem] px-4 py-3 text-sm font-semibold leading-none text-white transition ${
+                    className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold leading-none text-white transition ${
                       loading ? 'cursor-not-allowed bg-gray-400' : 'app-btn-primary'
                     }`}
                   >
@@ -610,17 +610,17 @@ export default function Login() {
                     />
                   </div>
 
-                  <div className="app-alert-warning md:col-span-2 rounded-[1.1rem] px-4 py-2.5 text-sm">
+                  <div className="app-alert-warning md:col-span-2 rounded-xl px-4 py-2.5 text-sm">
                     {panelCopy.note}
                   </div>
 
-                  {error ? <div className="app-alert-danger md:col-span-2 rounded-[1.1rem] px-4 py-2.5 text-sm">{error}</div> : null}
-                  {success ? <div className="app-alert-success md:col-span-2 rounded-[1.1rem] px-4 py-2.5 text-sm">{success}</div> : null}
+                  {error ? <div className="app-alert-danger md:col-span-2 rounded-xl px-4 py-2.5 text-sm">{error}</div> : null}
+                  {success ? <div className="app-alert-success md:col-span-2 rounded-xl px-4 py-2.5 text-sm">{success}</div> : null}
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className={`md:col-span-2 inline-flex w-full items-center justify-center rounded-[1.1rem] px-4 py-3 text-sm font-semibold leading-none text-white transition ${
+                    className={`md:col-span-2 inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold leading-none text-white transition ${
                       loading ? 'cursor-not-allowed bg-gray-400' : 'app-btn-primary'
                     }`}
                   >

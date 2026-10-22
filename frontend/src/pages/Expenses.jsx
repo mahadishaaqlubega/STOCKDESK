@@ -3,6 +3,7 @@ import { fetchExpenses, createExpense, updateExpense, deleteExpense, fetchSettin
 import { getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { formatMoney } from '../utils/format';
 
 const CATEGORIES = ['Rent', 'Utilities', 'Supplies', 'Salaries', 'Maintenance', 'Marketing', 'Other'];
 
@@ -58,7 +59,7 @@ export default function Expenses() {
     return sorted[0]?.[0] || '—';
   }, [expenses]);
 
-  const fmt = (v) => `${currency} ${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmt = (v) => formatMoney(currency, v);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -113,14 +114,14 @@ export default function Expenses() {
           };
           const iconClass = toneClasses[card.tone] || toneClasses.default;
           return (
-            <div key={card.label} className={`app-panel relative overflow-hidden rounded-[1.2rem] border border-l-[3px] ${card.tone === 'danger' ? 'border-l-[var(--danger)]' : card.tone === 'warning' ? 'border-l-[var(--warning)]' : 'border-l-[var(--accent)]'} p-4 transition duration-200 hover:shadow-lg`}>
+            <div key={card.label} className={`app-panel relative overflow-hidden rounded-xl border p-4 transition duration-200`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{card.eyebrow}</p>
+                  <p className="text-xs font-medium text-[var(--text-muted)]">{card.eyebrow}</p>
                   <p className="mt-1.5 text-[13px] font-medium text-[var(--text-secondary)]">{card.label}</p>
                   <p className="mt-2 text-[1.55rem] font-bold tracking-tight leading-none text-[var(--text-primary)]">{card.value}</p>
                 </div>
-                <div className={`flex h-10 w-10 items-center justify-center rounded-[1.05rem] shadow-sm ring-1 ring-black/5 ${iconClass}`}>{card.icon}</div>
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-sm ring-1 ring-black/5 ${iconClass}`}>{card.icon}</div>
               </div>
             </div>
           );
@@ -131,7 +132,7 @@ export default function Expenses() {
         {/* Left: Table */}
         <section className="min-w-0 flex-1">
           {/* Date filters */}
-          <div className="app-panel mb-4 flex flex-wrap items-end gap-3 rounded-[1.4rem] border p-4">
+          <div className="app-panel mb-4 flex flex-wrap items-end gap-3 rounded-2xl border p-4">
             <div className="flex flex-col gap-1">
               <label className="text-[12px] font-medium text-[var(--text-muted)]">From</label>
               <input
@@ -160,7 +161,7 @@ export default function Expenses() {
             )}
           </div>
 
-          <div className="app-panel overflow-hidden rounded-[1.4rem] border">
+          <div className="app-panel overflow-hidden rounded-2xl border">
             <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 py-4">
               <div>
                 <h3 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">Expense Records</h3>
@@ -175,7 +176,7 @@ export default function Expenses() {
                 <thead>
                   <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
                     {['Date', 'Category', 'Description', 'Amount', ...(isAdmin ? ['Actions'] : [])].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)]">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -246,7 +247,7 @@ export default function Expenses() {
         {/* Right: Form */}
         {isAdmin && (
           <aside className="w-full lg:w-80 xl:w-96">
-            <div className="app-panel sticky top-6 rounded-[1.4rem] border p-6">
+            <div className="app-panel sticky top-6 rounded-2xl border p-6">
               <div className="border-b border-[var(--border-default)] pb-4">
                 <h2 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">{form.id ? 'Edit Expense' : 'Record Expense'}</h2>
                 <p className="mt-1 text-sm text-[var(--text-muted)]">Fill in the details to log an expense.</p>

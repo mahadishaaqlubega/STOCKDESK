@@ -24,13 +24,13 @@ function formatRelativeTime(value) {
 
 function Metric({ icon, label, value }) {
   return (
-    <div className="app-panel rounded-[1.2rem] border border-l-[3px] border-l-[var(--accent)] p-4 transition duration-200 hover:shadow-lg">
+    <div className="app-panel rounded-xl border p-4 transition duration-200">
       <div className="flex items-center gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(30,167,189,0.18),rgba(30,167,189,0.08))] text-[var(--accent)] ring-1 ring-[rgba(30,167,189,0.12)]">
           {icon}
         </span>
         <div>
-          <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{label}</p>
+          <p className="text-xs font-medium text-[var(--text-muted)]">{label}</p>
           <p className="mt-0.5 text-2xl font-bold tracking-tight text-[var(--text-primary)]">{value.toLocaleString()}</p>
         </div>
       </div>
@@ -44,7 +44,7 @@ function DeleteModal({ shop, onCancel, onConfirm, isDeleting }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'var(--overlay)', backdropFilter: 'blur(4px)' }}>
-      <div className="w-full max-w-md rounded-[1.6rem] border bg-[var(--surface-primary)] p-6" style={{ boxShadow: '0 32px 80px rgba(0,0,0,0.32)' }}>
+      <div className="w-full max-w-md rounded-2xl border bg-[var(--surface-primary)] p-6" style={{ boxShadow: '0 32px 80px rgba(0,0,0,0.32)' }}>
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--danger-soft)] text-[var(--danger)]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-6 w-6">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
@@ -126,20 +126,20 @@ export default function ShopDetail() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-36 animate-pulse rounded-[1.8rem] bg-[var(--surface-secondary)]" />
+        <div className="h-36 animate-pulse rounded-2xl bg-[var(--surface-secondary)]" />
         <div className="grid gap-4 sm:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-24 animate-pulse rounded-2xl bg-[var(--surface-secondary)]" />
           ))}
         </div>
-        <div className="h-96 animate-pulse rounded-[1.5rem] bg-[var(--surface-secondary)]" />
+        <div className="h-96 animate-pulse rounded-2xl bg-[var(--surface-secondary)]" />
       </div>
     );
   }
 
   if (error || !shop) {
     return (
-      <div className="app-panel rounded-[1.5rem] border px-6 py-16 text-center">
+      <div className="app-panel rounded-2xl border px-6 py-16 text-center">
         <p className="text-lg font-bold text-[var(--text-primary)]">{error || 'Shop not found'}</p>
         <Link to="/app/shops" className="mt-4 inline-block rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] px-5 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface-tertiary)]">
           Back to shops
@@ -158,8 +158,7 @@ export default function ShopDetail() {
 
       <div className="space-y-6">
         {/* ── HEADER ─────────────────────────────────────────────────── */}
-        <div className="app-panel relative overflow-hidden rounded-[1.8rem] border p-6">
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-2/5 bg-[radial-gradient(ellipse_at_top_right,rgba(13,148,136,0.13),transparent_65%)]" />
+        <div className="app-panel relative overflow-hidden rounded-2xl border p-6">
           <div className="relative">
             <Link to="/app/shops" className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition hover:text-[var(--text-primary)]">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
@@ -239,7 +238,7 @@ export default function ShopDetail() {
 
         <div className="grid gap-6 xl:grid-cols-[0.7fr_1.3fr]">
           {/* ── TEAM ─────────────────────────────────────────────────── */}
-          <div className="app-panel rounded-[1.5rem] border p-5 sm:p-6">
+          <div className="app-panel rounded-2xl border p-5 sm:p-6">
             <div className="border-b border-[var(--border-default)] pb-4">
               <h3 className="font-semibold text-[var(--text-primary)]">Team members</h3>
               <p className="mt-0.5 text-sm text-[var(--text-muted)]">{shop.team?.length || 0} people in this shop</p>
@@ -275,7 +274,7 @@ export default function ShopDetail() {
           </div>
 
           {/* ── AUDIT FEED ───────────────────────────────────────────── */}
-          <div className="app-panel rounded-[1.5rem] border p-5 sm:p-6">
+          <div className="app-panel rounded-2xl border p-5 sm:p-6">
             <div className="border-b border-[var(--border-default)] pb-4">
               <h3 className="font-semibold text-[var(--text-primary)]">Shop activity</h3>
               <p className="mt-0.5 text-sm text-[var(--text-muted)]">Recent audit trail for this shop</p>

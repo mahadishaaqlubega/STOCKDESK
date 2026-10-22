@@ -42,8 +42,8 @@ function StatCard({ label, value, helper, tone = 'default' }) {
   }[tone];
 
   return (
-    <div className={`app-panel rounded-[1.2rem] border border-l-[3px] ${borderAccent} p-4 transition hover:shadow-lg`}>
-      <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{label}</p>
+    <div className={`app-panel rounded-xl border ${borderAccent} p-4 transition`}>
+      <p className="text-xs font-medium text-[var(--text-muted)]">{label}</p>
       <p className={`mt-2 text-2xl font-bold tracking-tight ${valueClass}`}>{value}</p>
       <p className="mt-1.5 text-[12px] text-[var(--text-muted)]">{helper}</p>
     </div>
@@ -126,7 +126,7 @@ export default function Users() {
 
   return (
     <div className="space-y-6">
-      <section className="app-panel rounded-[2rem] border p-6">
+      <section className="app-panel rounded-2xl border p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">User Management</h2>
@@ -142,7 +142,7 @@ export default function Users() {
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="app-panel rounded-[2rem] border p-6">
+        <div className="app-panel rounded-2xl border p-6">
           <div className="app-alert-info mb-4 rounded-2xl px-4 py-3 text-sm">
             Passwords are shown once after account creation. Store them safely before closing the confirmation screen.
           </div>
@@ -210,7 +210,7 @@ export default function Users() {
           </div>
         </div>
 
-        <div className="app-panel rounded-[2rem] border p-6">
+        <div className="app-panel rounded-2xl border p-6">
           <h3 className="text-lg font-semibold text-[var(--text-primary)]">Create Team Account</h3>
           <p className="mt-1 text-sm text-[var(--text-muted)]">Set the user’s full name, username, password, and operational role.</p>
           <form className="mt-4 space-y-4" onSubmit={handleCreate}>
@@ -218,19 +218,19 @@ export default function Users() {
             <input
               value={form.name}
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              className="app-input w-full rounded-3xl border px-4 py-3"
+              className="app-input w-full rounded-xl border px-4 py-3"
             />
             <label className="block text-sm text-[var(--text-secondary)]">Username</label>
             <input
               value={form.username}
               onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
-              className="app-input w-full rounded-3xl border px-4 py-3"
+              className="app-input w-full rounded-xl border px-4 py-3"
             />
             <label className="block text-sm text-[var(--text-secondary)]">Role</label>
             <select
               value={form.displayRole}
               onChange={(e) => setForm((prev) => ({ ...prev, displayRole: e.target.value }))}
-              className="app-input w-full rounded-3xl border px-4 py-3"
+              className="app-input w-full rounded-xl border px-4 py-3"
             >
               {ROLE_OPTIONS.map((option) => (
                 <option key={option} value={option}>{option}</option>
@@ -242,7 +242,7 @@ export default function Users() {
                 type={showPassword ? 'text' : 'password'}
                 value={form.password}
                 onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                className="app-input w-full rounded-3xl border px-4 py-3 pr-11"
+                className="app-input w-full rounded-xl border px-4 py-3 pr-11"
               />
               <button
                 type="button"
@@ -253,12 +253,12 @@ export default function Users() {
                 {showPassword ? <EyeOffIcon /> : <EyeIcon />}
               </button>
             </div>
-            <button className="app-btn-primary w-full rounded-3xl px-4 py-3 transition">Create User</button>
+            <button className="app-btn-primary w-full rounded-xl px-4 py-3 transition">Create User</button>
           </form>
 
           {message && (
             <div
-              className={`mt-4 rounded-3xl px-4 py-3 text-sm ${
+              className={`mt-4 rounded-xl px-4 py-3 text-sm ${
                 message.includes('success') ? 'app-alert-success' : 'app-alert-danger'
               }`}
             >
@@ -271,7 +271,7 @@ export default function Users() {
       {/* Password Modal */}
       {showPasswordModal && (
         <div className="app-overlay fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
-          <div className="app-modal mx-4 w-full max-w-md rounded-[1.5rem] border p-6">
+          <div className="app-modal mx-4 w-full max-w-md rounded-2xl border p-6">
             <h3 className="mb-4 text-lg font-bold text-[var(--accent-strong)]">User Created Successfully</h3>
             <p className="mb-4 text-sm text-[var(--text-soft)]">
               Share these login details with the new user.

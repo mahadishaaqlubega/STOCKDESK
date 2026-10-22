@@ -79,7 +79,7 @@ function exportToCSV(data, summary) {
 function GlassCard({ children, className = '', accent = false, hover = true }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-[1.6rem] border transition-all duration-300 ${
+      className={`relative overflow-hidden rounded-2xl border transition-all duration-300 ${
         accent
           ? 'border-white/15 bg-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-xl'
           : 'border-white/10 bg-white/[0.05] shadow-[0_4px_24px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-lg'
@@ -183,8 +183,8 @@ export default function OwnerDashboard() {
   const activityRate = s.totalShops > 0 ? Math.round((s.recentlyActiveShops / s.totalShops) * 100) : 0;
 
   return (
-    <div className="relative min-h-dvh space-y-6 overflow-hidden rounded-3xl bg-[#09090b]">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+    <div className="relative min-h-dvh space-y-6 overflow-hidden rounded-xl bg-[#09090b]">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
         <div className="absolute -left-32 top-0 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-teal-500/20 to-emerald-500/10 blur-[120px]" />
         <div className="absolute -right-32 top-1/4 h-[400px] w-[400px] rounded-full bg-gradient-to-br from-violet-500/15 to-sky-500/10 blur-[100px]" />
         <div className="absolute bottom-0 left-1/3 h-[350px] w-[350px] rounded-full bg-gradient-to-br from-amber-500/10 to-orange-500/5 blur-[100px]" />

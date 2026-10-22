@@ -7,6 +7,15 @@ const userController = require('../controllers/userController');
 
 router.use(authenticate);
 
+// Reject non-numeric sale ids up front instead of letting Postgres raise a
+// type error (which surfaced as a 500).
+router.param('id', (req, res, next, id) => {
+  if (!/^\d+$/.test(String(id))) {
+    return res.status(404).json({ message: 'Sale not found' });
+  }
+  next();
+});
+
 router.get('/day-closures', authorize(['Admin']), saleController.listDayClosures);
 router.post('/close-day', authorize(['Admin']), saleController.closeBusinessDay);
 router.get('/returns', authorize(['Admin']), saleController.listReturns);

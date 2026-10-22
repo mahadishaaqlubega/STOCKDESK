@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchSales, fetchSale, createReturn, fetchReturns, fetchSettings } from '../utils/api';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
-
-function formatMoney(currency, value) {
-  return `${currency} ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { formatMoney } from '../utils/format';
 
 function SkeletonRow({ cols = 6 }) {
   return (
@@ -64,7 +61,7 @@ function ReturnModal({ sale, currency, onClose, onSubmit }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="app-panel relative z-10 w-full max-w-lg overflow-hidden rounded-[1.6rem] border shadow-2xl">
+      <div className="app-panel relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl">
         <div className="border-b border-[var(--border-default)] px-6 py-4">
           <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
             Process Return — #{sale.id}
@@ -84,7 +81,7 @@ function ReturnModal({ sale, currency, onClose, onSubmit }) {
                 return (
                   <div
                     key={item.productId}
-                    className="flex items-center gap-4 rounded-[1.1rem] border border-[var(--border-default)] px-4 py-3"
+                    className="flex items-center gap-4 rounded-xl border border-[var(--border-default)] px-4 py-3"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-[var(--text-primary)]">{name}</p>
@@ -120,7 +117,7 @@ function ReturnModal({ sale, currency, onClose, onSubmit }) {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Defective, wrong item, customer changed mind…"
-                className="app-input w-full rounded-[1rem] border px-4 py-2.5 text-sm"
+                className="app-input w-full rounded-xl border px-4 py-2.5 text-sm"
               />
             </div>
 
@@ -143,14 +140,14 @@ function ReturnModal({ sale, currency, onClose, onSubmit }) {
               <button
                 type="button"
                 onClick={onClose}
-                className="app-btn-secondary rounded-[1rem] border px-4 py-2 text-sm font-medium"
+                className="app-btn-secondary rounded-xl border px-4 py-2 text-sm font-medium"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting || selectedItems.length === 0}
-                className="app-btn-primary rounded-[1rem] px-4 py-2 text-sm font-semibold disabled:opacity-50"
+                className="app-btn-primary rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
               >
                 {submitting ? 'Processing…' : 'Process Return'}
               </button>
@@ -268,7 +265,7 @@ export default function Returns() {
   return (
     <div className="space-y-4">
       {/* Tab bar */}
-      <div className="app-panel flex items-center gap-1 rounded-[1.3rem] border p-1">
+      <div className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-1" role="tablist">
         {[
           { key: 'sales', label: 'Process Return', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg> },
           { key: 'returns', label: 'Returns History', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
@@ -277,10 +274,10 @@ export default function Returns() {
             key={key}
             type="button"
             onClick={() => setView(key)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-[1.1rem] px-4 py-2.5 text-sm font-medium transition-all duration-150 ${
+            className={`flex shrink-0 items-center justify-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all duration-150 ${
               view === key
-                ? 'bg-[var(--accent)] text-white shadow-sm'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                ? 'bg-[var(--surface-primary)] text-[var(--text-primary)] shadow-sm'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
             }`}
           >
             {icon}
@@ -292,7 +289,7 @@ export default function Returns() {
       {/* Toast */}
       {toast.text && (
         <div
-          className={`flex items-center gap-3 rounded-[1.1rem] border px-4 py-3 text-sm font-medium ${
+          className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium ${
             toast.type === 'success'
               ? 'border-[rgba(74,168,132,0.3)] bg-[rgba(74,168,132,0.08)] text-[var(--success)]'
               : 'border-[rgba(218,106,90,0.3)] bg-[rgba(218,106,90,0.08)] text-[var(--danger)]'
@@ -304,7 +301,7 @@ export default function Returns() {
 
       {/* Sales list */}
       {view === 'sales' && (
-        <section className="app-panel overflow-hidden rounded-[1.4rem] border">
+        <section className="app-panel overflow-hidden rounded-2xl border">
           <div className="border-b border-[var(--border-default)] px-5 py-4">
             <h2 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">Recent Sales</h2>
             <p className="mt-0.5 text-sm text-[var(--text-muted)]">
@@ -316,7 +313,7 @@ export default function Returns() {
               <thead>
                 <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
                   {['Receipt', 'Date', 'Cashier', 'Total', 'Payment', ''].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)]">
                       {h}
                     </th>
                   ))}
@@ -333,7 +330,7 @@ export default function Returns() {
                   </tr>
                 ) : (
                   sales.map((sale) => (
-                    <tr key={sale.id} className="border-l-[3px] border-l-[var(--accent)] transition hover:bg-[var(--surface-secondary)]">
+                    <tr key={sale.id} className=" transition hover:bg-[var(--surface-secondary)]">
                       <td data-label="Receipt" className="px-4 py-3 font-mono text-xs text-[var(--text-muted)]">
                         {sale.receipt?.receiptNumber || `#${sale.id}`}
                       </td>
@@ -372,7 +369,7 @@ export default function Returns() {
 
       {/* Returns history */}
       {view === 'returns' && (
-        <section className="app-panel overflow-hidden rounded-[1.4rem] border">
+        <section className="app-panel overflow-hidden rounded-2xl border">
           <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 py-4">
             <div>
               <h2 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">Returns & Refunds</h2>
@@ -389,7 +386,7 @@ export default function Returns() {
               <thead>
                 <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
                   {['Date', 'Original Sale', 'Items Returned', 'Refund', 'Reason', 'Processed By'].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)]">
                       {h}
                     </th>
                   ))}
@@ -409,7 +406,7 @@ export default function Returns() {
                   </tr>
                 ) : (
                   returns.map((ret) => (
-                    <tr key={ret.id} className="border-l-[3px] border-l-[var(--danger)] transition hover:bg-[var(--surface-secondary)]">
+                    <tr key={ret.id} className=" transition hover:bg-[var(--surface-secondary)]">
                       <td data-label="Date" className="whitespace-nowrap px-4 py-3">
                         <p className="text-xs text-[var(--text-secondary)]">{new Date(ret.createdAt).toLocaleDateString([], { dateStyle: 'medium' })}</p>
                         <p className="text-[11px] text-[var(--text-muted)]">{getRelativeTime(ret.createdAt)}</p>

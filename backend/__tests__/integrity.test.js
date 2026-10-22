@@ -102,3 +102,12 @@ describe('POST /api/sales/:id/return', () => {
     expect(tx.rollback).toHaveBeenCalled();
   });
 });
+
+describe('GET /api/sales/:id', () => {
+  it('returns 404 for a non-numeric id instead of a database error', async () => {
+    const res = await request(app)
+      .get('/api/sales/undefined/receipt')
+      .set('Authorization', `Bearer ${adminToken()}`);
+    expect(res.status).toBe(404);
+  });
+});

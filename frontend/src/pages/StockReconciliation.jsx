@@ -201,7 +201,7 @@ export default function StockReconciliation() {
   return (
     <div className="space-y-4">
       {/* Tab bar */}
-      <div className="app-panel flex items-center gap-1 rounded-[1.3rem] border p-1">
+      <div className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-1" role="tablist">
         {[
           { key: 'reconcile', label: 'Reconcile Stock', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="m3 7 9-4 9 4-9 4-9-4Z"/><path d="m3 7 9 4 9-4"/><path d="M12 11v10"/></svg> },
           { key: 'history', label: 'History & Summary', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
@@ -210,10 +210,10 @@ export default function StockReconciliation() {
             key={key}
             type="button"
             onClick={() => setView(key)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-[1.1rem] px-4 py-2.5 text-sm font-medium transition-all duration-150 ${
+            className={`flex shrink-0 items-center justify-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all duration-150 ${
               view === key
-                ? 'bg-[var(--accent)] text-white shadow-sm'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                ? 'bg-[var(--surface-primary)] text-[var(--text-primary)] shadow-sm'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
             }`}
           >
             {icon}
@@ -225,7 +225,7 @@ export default function StockReconciliation() {
       {/* Alert banner */}
       {message.text && (
         <div
-          className={`flex items-start gap-3 rounded-[1.15rem] border px-4 py-3 text-sm font-medium ${
+          className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm font-medium ${
             message.type === 'success'
               ? 'border-[rgba(74,168,132,0.3)] bg-[rgba(74,168,132,0.08)] text-[var(--success)]'
               : 'border-[rgba(218,106,90,0.3)] bg-[rgba(218,106,90,0.08)] text-[var(--danger)]'
@@ -247,7 +247,7 @@ export default function StockReconciliation() {
       {view === 'reconcile' ? (
         <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
           {/* Main form */}
-          <section className="app-panel rounded-[1.4rem] border p-5 sm:p-6">
+          <section className="app-panel rounded-2xl border p-5 sm:p-6">
             <div className="flex items-start gap-4 border-b border-[var(--border-default)] pb-5">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.9rem] bg-[rgba(30,167,189,0.14)] text-[var(--accent)] ring-1 ring-[rgba(30,167,189,0.12)]">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="m3 7 9-4 9 4-9 4-9-4Z"/><path d="m3 7 9 4 9-4"/><path d="M12 11v10"/></svg>
@@ -265,7 +265,7 @@ export default function StockReconciliation() {
               <div>
                 <label className="mb-1.5 block text-[13px] font-medium text-[var(--text-secondary)]">Product</label>
                 {selectedProduct ? (
-                  <div className="overflow-hidden rounded-[1.15rem] border border-[rgba(30,167,189,0.3)] bg-[rgba(30,167,189,0.05)]">
+                  <div className="overflow-hidden rounded-xl border border-[rgba(30,167,189,0.3)] bg-[rgba(30,167,189,0.05)]">
                     <div className="flex items-start justify-between gap-3 px-4 py-4">
                       <div className="flex items-start gap-3 min-w-0">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.8rem] bg-[rgba(30,167,189,0.15)] text-[var(--accent)]">
@@ -306,7 +306,7 @@ export default function StockReconciliation() {
                         placeholder="Filter by product name…"
                         value={searchQuery}
                         onChange={handleSearch}
-                        className="app-input w-full rounded-[1.1rem] border py-2.5 pl-10 pr-4 text-sm"
+                        className="app-input w-full rounded-xl border py-2.5 pl-10 pr-4 text-sm"
                       />
                       {loading && !selectedProduct && (
                         <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
@@ -315,7 +315,7 @@ export default function StockReconciliation() {
                       )}
                     </div>
                     {products.length > 0 && (
-                      <div className="overflow-hidden rounded-[1.1rem] border border-[var(--border-default)]">
+                      <div className="overflow-hidden rounded-xl border border-[var(--border-default)]">
                         <div className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)] px-4 py-2 flex items-center justify-between">
                           <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Select a product</span>
                           <span className="text-[11px] font-semibold text-[var(--text-muted)]">{products.length} available</span>
@@ -368,7 +368,7 @@ export default function StockReconciliation() {
                       </div>
                     )}
                     {products.length === 0 && !loading && (
-                      <div className="flex flex-col items-center justify-center rounded-[1.1rem] border border-dashed border-[var(--border-default)] bg-[var(--surface-secondary)] px-4 py-8 text-center">
+                      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--surface-secondary)] px-4 py-8 text-center">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" className="mb-2 h-8 w-8 text-[var(--text-muted)]"><path d="m3 7 9-4 9 4-9 4-9-4Z"/><path d="m3 7 9 4 9-4"/><path d="M12 11v10"/></svg>
                         <p className="text-sm font-medium text-[var(--text-primary)]">No products found</p>
                         <p className="mt-1 text-xs text-[var(--text-muted)]">Try a different search term</p>
@@ -399,7 +399,7 @@ export default function StockReconciliation() {
                       inputMode="decimal"
                       value={physicalQuantity}
                       onChange={(e) => setPhysicalQuantity(e.target.value)}
-                      className="app-input w-full rounded-[1.1rem] border px-4 py-2.5 text-sm"
+                      className="app-input w-full rounded-xl border px-4 py-2.5 text-sm"
                       placeholder="Enter actual quantity counted"
                     />
                     {variance !== null && (
@@ -436,7 +436,7 @@ export default function StockReconciliation() {
                     <select
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
-                      className="app-input w-full rounded-[1.1rem] border px-4 py-2.5 text-sm"
+                      className="app-input w-full rounded-xl border px-4 py-2.5 text-sm"
                     >
                       <option value="">Select a reason…</option>
                       {reconciliationReasons.map((r) => (
@@ -453,7 +453,7 @@ export default function StockReconciliation() {
                     <textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      className="app-input w-full resize-none rounded-[1.1rem] border px-4 py-2.5 text-sm"
+                      className="app-input w-full resize-none rounded-xl border px-4 py-2.5 text-sm"
                       rows={3}
                       placeholder="Any additional context about this count…"
                     />
@@ -462,7 +462,7 @@ export default function StockReconciliation() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="app-btn-primary w-full rounded-[1.1rem] py-2.5 text-sm font-semibold disabled:opacity-60"
+                    className="app-btn-primary w-full rounded-xl py-2.5 text-sm font-semibold disabled:opacity-60"
                   >
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">
@@ -480,10 +480,10 @@ export default function StockReconciliation() {
 
           {/* Sidebar stats */}
           <aside className="space-y-4">
-            <section className="app-panel rounded-[1.4rem] border p-5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Overview</p>
+            <section className="app-panel rounded-2xl border p-5">
+              <p className="text-xs font-medium text-[var(--text-muted)]">Overview</p>
               <div className="mt-4 space-y-3">
-                <div className="flex items-center gap-3 rounded-[1rem] border border-[var(--border-default)] bg-[var(--surface-secondary)] p-3.5">
+                <div className="flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-3.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-[0.8rem] bg-[rgba(30,167,189,0.15)] text-[var(--accent)]">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4.5 w-4.5"><path d="m3 7 9-4 9 4-9 4-9-4Z"/><path d="m3 7 9 4 9-4"/><path d="M12 11v10"/></svg>
                   </div>
@@ -494,7 +494,7 @@ export default function StockReconciliation() {
                     <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">Products available</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-[1rem] border border-[var(--border-default)] bg-[var(--surface-secondary)] p-3.5">
+                <div className="flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-3.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-[0.8rem] bg-[rgba(74,168,132,0.15)] text-[var(--success)]">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4.5 w-4.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                   </div>
@@ -506,7 +506,7 @@ export default function StockReconciliation() {
                   </div>
                 </div>
                 {summary.length > 0 && (
-                  <div className="flex items-center gap-3 rounded-[1rem] border border-[var(--border-default)] bg-[var(--surface-secondary)] p-3.5">
+                  <div className="flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-3.5">
                     <div className="flex h-9 w-9 items-center justify-center rounded-[0.8rem] bg-[rgba(216,155,73,0.15)] text-[var(--warning)]">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4.5 w-4.5"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                     </div>
@@ -521,8 +521,8 @@ export default function StockReconciliation() {
               </div>
             </section>
 
-            <section className="app-panel rounded-[1.4rem] border p-5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">How it works</p>
+            <section className="app-panel rounded-2xl border p-5">
+              <p className="text-xs font-medium text-[var(--text-muted)]">How it works</p>
               <ul className="mt-4 space-y-3 text-sm">
                 {[
                   { label: 'Search and select a product', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg> },
@@ -562,7 +562,7 @@ export default function StockReconciliation() {
                 return (
                   <div
                     key={item.productId}
-                    className={`app-panel rounded-[1.2rem] border border-l-[3px] p-4 transition duration-200 hover:shadow-lg ${colors[tone]}`}
+                    className={`app-panel rounded-xl border p-4 transition duration-200 ${colors[tone]}`}
                   >
                     <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.product?.name}</p>
                     <p
@@ -582,7 +582,7 @@ export default function StockReconciliation() {
           )}
 
           {/* Filters */}
-          <section className="app-panel rounded-[1.4rem] border p-5">
+          <section className="app-panel rounded-2xl border p-5">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">Reconciliation History</h3>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-secondary)] px-3 py-1 text-xs font-semibold text-[var(--text-muted)]">
@@ -598,7 +598,7 @@ export default function StockReconciliation() {
                     setHistoryFilters((prev) => ({ ...prev, productId: e.target.value }));
                     fetchReconciliations();
                   }}
-                  className="app-input w-full rounded-[1rem] border px-3 py-2 text-sm"
+                  className="app-input w-full rounded-xl border px-3 py-2 text-sm"
                 >
                   <option value="">All products</option>
                   {summary.map((item) => (
@@ -617,7 +617,7 @@ export default function StockReconciliation() {
                     setHistoryFilters((prev) => ({ ...prev, startDate: e.target.value }));
                     fetchReconciliations();
                   }}
-                  className="app-input w-full rounded-[1rem] border px-3 py-2 text-sm"
+                  className="app-input w-full rounded-xl border px-3 py-2 text-sm"
                 />
               </div>
               <div>
@@ -629,13 +629,13 @@ export default function StockReconciliation() {
                     setHistoryFilters((prev) => ({ ...prev, endDate: e.target.value }));
                     fetchReconciliations();
                   }}
-                  className="app-input w-full rounded-[1rem] border px-3 py-2 text-sm"
+                  className="app-input w-full rounded-xl border px-3 py-2 text-sm"
                 />
               </div>
             </div>
 
             {/* Table */}
-            <div className="mt-4 overflow-x-auto rounded-[1.1rem] border border-[var(--border-default)]">
+            <div className="mt-4 overflow-x-auto rounded-xl border border-[var(--border-default)]">
               <table className="table-cards w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
