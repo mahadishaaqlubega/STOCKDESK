@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { fetchReports, fetchBestSelling, fetchCashierReport, fetchDashboardSummary, fetchSettings, fetchRangeReport, fetchReturns, fetchSales, downloadReceipt } from '../utils/api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, AreaChart, Area, LineChart, Line, Legend } from 'recharts';
 import { formatMoney } from '../utils/format';
+import { TileEdge } from '../components/ui';
 
 const PALETTE = ['#1ea7bd', '#4aa884', '#da6a5a', '#8e7cc3', '#e8a838', '#5b8def', '#e06fa0', '#5bceae'];
 
@@ -26,7 +27,8 @@ function DeltaBadge({ value }) {
 
 function KPICard({ eyebrow, label, value, delta, icon }) {
   return (
-    <div className="app-panel rounded-2xl border p-4 sm:p-5">
+    <div className="app-panel relative overflow-hidden rounded-2xl border p-4 sm:p-5">
+      <TileEdge />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[13px] font-medium text-[var(--text-muted)]">{eyebrow}</p>

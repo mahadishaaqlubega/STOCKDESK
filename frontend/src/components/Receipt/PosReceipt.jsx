@@ -37,7 +37,7 @@ function formatDueDate(value) {
 function receiptModel(sale, settings, cashierName) {
   const currency = sale.currency || settings?.currency || 'UGX';
   const items = (sale.items || []).map((item) => ({
-    name: item.Product?.name || item.name || 'Item',
+    name: (item.Product?.name || item.name || '').trim() || 'Item',
     quantity: Number(item.quantity || 0),
     price: Number(item.price || 0),
   }));
@@ -164,6 +164,7 @@ function buildThermalHtml(m, paper) {
       <div class="thanks">${escapeHtml(m.footerNote)}</div>
       <div class="muted">Keep this receipt for returns and warranty.</div>
       <div class="powered">POWERED BY STOCKDESK</div>
+      <div class="powered">stockdeskinventory.com</div>
     </footer>
   </main>
 </body>
@@ -314,7 +315,7 @@ function buildA4Html(m) {
 
     <footer class="foot">
       <span><strong>${escapeHtml(m.footerNote)}</strong></span>
-      <span>${escapeHtml([m.shopName, m.phone].filter(Boolean).join(' · '))} · Powered by StockDesk</span>
+      <span>${escapeHtml([m.shopName, m.phone].filter(Boolean).join(' · '))} · Powered by StockDesk · stockdeskinventory.com</span>
     </footer>
   </main>
 </body>

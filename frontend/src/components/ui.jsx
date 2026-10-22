@@ -49,6 +49,22 @@ const washTones = {
   violet: 'bg-violet-500/10',
 };
 
+// Left edge on every stat tile, echoing the sidebar's active-link marker.
+const edgeTones = {
+  default: 'from-teal-400 to-teal-600',
+  accent: 'from-teal-400 to-teal-600',
+  success: 'from-emerald-400 to-emerald-600',
+  warning: 'from-amber-300 to-amber-500',
+  danger: 'from-rose-400 to-rose-600',
+  info: 'from-sky-400 to-sky-600',
+  violet: 'from-violet-400 to-violet-600',
+};
+
+// Parent needs `relative overflow-hidden`.
+export function TileEdge({ tone = 'default', active = false }) {
+  return <span className={`pointer-events-none absolute inset-y-0 left-0 bg-gradient-to-b ${active ? 'w-1' : 'w-[3px]'} ${edgeTones[tone] || edgeTones.default}`} aria-hidden="true" />;
+}
+
 export function IconChip({ tone = 'default', children, size = 'md' }) {
   const dims = size === 'sm' ? 'h-8 w-8 rounded-lg [&>svg]:h-4 [&>svg]:w-4' : 'h-10 w-10 rounded-xl [&>svg]:h-5 [&>svg]:w-5';
   return (
@@ -66,8 +82,9 @@ export function StatTile({ label, value, hint, tone = 'default', title, onClick,
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       aria-pressed={onClick ? Boolean(active) : undefined}
-      className={`app-panel relative min-w-0 overflow-hidden rounded-xl border px-4 py-3 text-left transition ${onClick ? 'hover:border-[var(--border-strong)]' : ''} ${active ? 'ring-2 ring-[var(--accent)]' : ''}`}
+      className={`app-panel relative min-w-0 overflow-hidden rounded-xl border px-4 py-3 text-left transition ${onClick ? 'hover:border-[var(--border-strong)]' : ''} ${active ? 'bg-[var(--accent-soft)] ring-2 ring-[var(--accent)]' : ''}`}
     >
+      <TileEdge tone={chip} active={active} />
       {icon ? <span className={`pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full blur-2xl ${washTones[chip] || washTones.default}`} aria-hidden="true" /> : null}
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">

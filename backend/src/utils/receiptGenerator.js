@@ -77,7 +77,7 @@ exports.generateReceiptPdf = async (stream, sale, settings) => {
   const customer = sale.customer && sale.customer.name !== 'Walk-in Customer' ? sale.customer : null;
 
   const items = (sale.items || []).map((item) => ({
-    name: item.Product?.name || 'Item',
+    name: item.Product?.name?.trim() || 'Item',
     quantity: Number(item.quantity || 0),
     price: Number(item.price || 0),
   }));
@@ -277,7 +277,9 @@ exports.generateReceiptPdf = async (stream, sale, settings) => {
     doc.font('Helvetica-Bold').fontSize(10).fillColor(COLORS.ink)
       .text(settings.receiptFooter || 'Thank you for your business!', margin, footerTop, { width: contentWidth / 2, lineBreak: false });
     doc.font('Helvetica').fontSize(8).fillColor(COLORS.muted)
-      .text(`${footerLine} · Powered by StockDesk${pageCount > 1 ? ` · Page ${i + 1} of ${pageCount}` : ''}`, margin, footerTop + 1.5, { width: contentWidth, align: 'right', lineBreak: false });
+      .text(`${footerLine}${pageCount > 1 ? ` · Page ${i + 1} of ${pageCount}` : ''}`, margin + contentWidth / 2, footerTop + 1.5, { width: contentWidth / 2, align: 'right', lineBreak: false, ellipsis: true });
+    doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.muted)
+      .text('Powered by StockDesk · stockdeskinventory.com', margin, footerTop + 16, { width: contentWidth, align: 'center', lineBreak: false, link: 'https://stockdeskinventory.com' });
   }
 
   doc.end();
