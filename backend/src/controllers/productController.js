@@ -96,7 +96,11 @@ exports.bulkRestockByCategory = async (req, res, next) => {
       return res.status(400).json({ message: 'quantity must be a positive number' });
     }
 
-    const items = await Product.findAll({ where: { shopId: req.user.shopId, category }, transaction });
+    const items = await Product.findAll({
+      where: { shopId: req.user.shopId, category },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
     if (!items || items.length === 0) {
       await transaction.rollback();
       return res.status(404).json({ message: 'No products found for this category' });
@@ -129,7 +133,7 @@ exports.bulkRestockByCategory = async (req, res, next) => {
     await transaction.commit();
     res.json({ updated: results.length, results });
   } catch (error) {
-    await transaction.rollback();
+    if (!transaction.finished) await transaction.rollback();
     next(error);
   }
 };

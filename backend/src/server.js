@@ -77,9 +77,7 @@ async function start() {
     console.log(`[startup] StockDesk backend listening on port ${PORT}`);
   });
 
-  let attempt = 0;
-  while (true) {
-    attempt += 1;
+  for (let attempt = 1; ; attempt += 1) {
     try {
       await sequelize.authenticate();
       console.log('[startup] Database connection verified');

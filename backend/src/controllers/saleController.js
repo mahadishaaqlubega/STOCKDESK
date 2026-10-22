@@ -8,12 +8,16 @@ function buildReceiptNumber(id) {
   return `SD-${String(id).padStart(6, '0')}`;
 }
 
+function httpError(status, message) {
+  return Object.assign(new Error(message), { status });
+}
+
 exports.createSale = async (req, res, next) => {
   const transaction = await Sale.sequelize.transaction();
   try {
     const { items, paymentMethod, paymentSplits, currency, discount = 0, discountType = 'fixed', customerId = null } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
-      throw new Error('Sale must include at least one item');
+      throw httpError(400, 'Sale must include at least one item');
     }
 
     // Validate payment method, discount and split payments before any writes.
@@ -54,7 +58,7 @@ exports.createSale = async (req, res, next) => {
     if (customerId) {
       customer = await Customer.findOne({ where: { id: customerId, shopId: req.user.shopId }, transaction });
       if (!customer) {
-        throw new Error('Selected customer not found');
+        throw httpError(404, 'Selected customer not found');
       }
     }
 
@@ -66,12 +70,18 @@ exports.createSale = async (req, res, next) => {
       if (!Number.isFinite(quantity) || quantity <= 0) {
         throw Object.assign(new Error('Item quantity must be a positive number'), { status: 400 });
       }
-      const product = await Product.findOne({ where: { id: item.productId, shopId: req.user.shopId }, transaction });
+      // Row lock serialises concurrent sales of the same product so two
+      // cashiers cannot both sell the last unit.
+      const product = await Product.findOne({
+        where: { id: item.productId, shopId: req.user.shopId },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
       if (!product) {
-        throw new Error(`Product ${item.productId} not found`);
+        throw httpError(404, `Product ${item.productId} not found`);
       }
       if (Number(product.quantity || 0) < quantity) {
-        throw new Error(`Insufficient stock for ${product.name}`);
+        throw httpError(409, `Insufficient stock for ${product.name} (only ${Number(product.quantity || 0)} left)`);
       }
       const lineTotal = parseFloat(product.sellPrice) * quantity;
       subtotal += lineTotal;
@@ -132,7 +142,7 @@ exports.createSale = async (req, res, next) => {
 
     res.status(201).json({ saleId: sale.id, receipt: receiptNumber, total, discount: discountAmount, taxAmount, currency: saleCurrency });
   } catch (error) {
-    await transaction.rollback();
+    if (!transaction.finished) await transaction.rollback();
     next(error);
   }
 };
@@ -278,43 +288,83 @@ exports.listDayClosures = async (req, res, next) => {
 
 exports.createReturn = async (req, res, next) => {
   const transaction = await Sale.sequelize.transaction();
+  // Every early exit must release the transaction, otherwise the pooled
+  // connection stays checked out and the API eventually stalls.
+  const reject = async (status, message) => {
+    await transaction.rollback();
+    return res.status(status).json({ message });
+  };
   try {
-    const sale = await Sale.findOne({
-      where: { id: req.params.id, shopId: req.user.shopId },
-      include: [{ model: SaleItem, as: 'items', required: false, include: [{ model: Product }] }],
-      transaction,
-    });
-    if (!sale) return res.status(404).json({ message: 'Sale not found' });
-
     const { items, reason } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ message: 'Return must include at least one item' });
+      return reject(400, 'Return must include at least one item');
+    }
+
+    // Lock the sale row so concurrent returns against the same sale are
+    // processed one at a time and cannot jointly exceed what was sold.
+    const sale = await Sale.findOne({
+      where: { id: req.params.id, shopId: req.user.shopId },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!sale) return reject(404, 'Sale not found');
+
+    const saleItems = await SaleItem.findAll({ where: { saleId: sale.id }, transaction });
+    const soldByProduct = new Map();
+    const priceByProduct = new Map();
+    for (const si of saleItems) {
+      soldByProduct.set(si.productId, (soldByProduct.get(si.productId) || 0) + Number(si.quantity));
+      if (!priceByProduct.has(si.productId)) priceByProduct.set(si.productId, parseFloat(si.price));
+    }
+
+    const previousReturns = await SaleReturn.findAll({ where: { saleId: sale.id }, attributes: ['id'], transaction });
+    const returnedByProduct = new Map();
+    if (previousReturns.length > 0) {
+      const previousItems = await SaleReturnItem.findAll({
+        where: { returnId: previousReturns.map((r) => r.id) },
+        attributes: ['productId', 'quantity'],
+        transaction,
+      });
+      for (const ri of previousItems) {
+        returnedByProduct.set(ri.productId, (returnedByProduct.get(ri.productId) || 0) + Number(ri.quantity));
+      }
+    }
+
+    // Merge duplicate lines for the same product before validating.
+    const requested = new Map();
+    for (const item of items) {
+      const productId = Number(item.productId);
+      const returnQty = Number(item.quantity);
+      if (!Number.isFinite(returnQty) || returnQty <= 0) {
+        return reject(400, `Return quantity must be a positive number for product ${item.productId}`);
+      }
+      requested.set(productId, (requested.get(productId) || 0) + returnQty);
     }
 
     let totalRefund = 0;
     const returnItems = [];
 
-    for (const item of items) {
-      const saleItem = sale.items.find((si) => si.productId === item.productId);
-      if (!saleItem) return res.status(400).json({ message: `Product ${item.productId} not in original sale` });
-      const returnQty = Number(item.quantity);
-      if (!Number.isFinite(returnQty) || returnQty <= 0) {
-        return res.status(400).json({ message: `Return quantity must be a positive number for product ${item.productId}` });
+    for (const [productId, returnQty] of requested) {
+      if (!soldByProduct.has(productId)) return reject(400, `Product ${productId} not in original sale`);
+      const remaining = soldByProduct.get(productId) - (returnedByProduct.get(productId) || 0);
+      if (returnQty > remaining) {
+        return reject(400, `Cannot return more than sold for product ${productId} (${remaining} returnable)`);
       }
-      if (returnQty > Number(saleItem.quantity)) {
-        return res.status(400).json({ message: `Cannot return more than sold for product ${item.productId}` });
-      }
-      const refundAmount = parseFloat(saleItem.price) * returnQty;
+      const refundAmount = priceByProduct.get(productId) * returnQty;
       totalRefund += refundAmount;
 
       // Restore stock
-      const product = await Product.findByPk(item.productId, { transaction });
+      const product = await Product.findOne({
+        where: { id: productId, shopId: req.user.shopId },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
       if (product) {
         product.quantity = Number(product.quantity || 0) + returnQty;
         await product.save({ transaction });
       }
 
-      returnItems.push({ productId: item.productId, quantity: returnQty, refundAmount, shopId: req.user.shopId });
+      returnItems.push({ productId, quantity: returnQty, refundAmount, shopId: req.user.shopId });
     }
 
     const saleReturn = await SaleReturn.create(
@@ -330,7 +380,7 @@ exports.createReturn = async (req, res, next) => {
     await transaction.commit();
     res.status(201).json({ returnId: saleReturn.id, totalRefund, message: 'Return processed successfully' });
   } catch (error) {
-    await transaction.rollback();
+    if (!transaction.finished) await transaction.rollback();
     next(error);
   }
 };

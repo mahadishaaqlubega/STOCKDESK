@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchSettings, restockProduct, fetchStockHistory } from '../utils/api';
+import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchSettings, restockProduct, restockCategory, fetchStockHistory } from '../utils/api';
 import { getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import ConfirmDialog from '../components/ConfirmDialog';

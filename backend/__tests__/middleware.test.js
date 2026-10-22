@@ -1,7 +1,9 @@
 require('./setup');
 const request = require('supertest');
 const app = require('../src/app');
-const { adminToken, staffToken, superAdminToken } = require('./helpers');
+const { adminToken, staffToken, superAdminToken, mockAuthUsers } = require('./helpers');
+
+beforeAll(() => mockAuthUsers());
 
 describe('Authentication middleware', () => {
   it('returns 401 when no token is provided', async () => {

@@ -3,6 +3,9 @@ const request = require('supertest');
 const app = require('../src/app');
 const { adminToken, staffToken } = require('./helpers');
 const { Product, Customer, Expense, Sale } = require('../src/models');
+const { mockAuthUsers } = require('./helpers');
+
+beforeAll(() => mockAuthUsers());
 
 describe('GET /api/products', () => {
   beforeEach(() => jest.clearAllMocks());

@@ -6,10 +6,15 @@ const { Op } = require('sequelize');
 exports.createReconciliation = async (req, res) => {
   try {
     const { shopId, id: userId } = req.user;
-    const { productId, physicalQuantity, reason, notes } = req.body;
+    const { productId, reason, notes } = req.body;
 
-    if (!productId || physicalQuantity === undefined) {
+    if (!productId || req.body.physicalQuantity === undefined || req.body.physicalQuantity === '') {
       return res.status(400).json({ message: 'Product ID and physical quantity are required' });
+    }
+
+    const physicalQuantity = Number(req.body.physicalQuantity);
+    if (!Number.isInteger(physicalQuantity) || physicalQuantity < 0) {
+      return res.status(400).json({ message: 'Physical quantity must be a whole number of 0 or more' });
     }
 
     const product = await Product.findOne({
