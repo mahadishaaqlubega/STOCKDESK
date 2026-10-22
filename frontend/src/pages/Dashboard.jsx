@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { fetchBestSelling, fetchDashboardStats, fetchDashboardSummary } from '../utils/api';
+import { Link } from 'react-router-dom';
+import { fetchBestSelling, fetchCreditSummary, fetchDashboardStats, fetchDashboardSummary } from '../utils/api';
 import { getUser } from '../utils/auth';
 
 function formatMoney(currency, value) {
@@ -91,17 +92,24 @@ export default function Dashboard() {
   const [dashboardStats, setDashboardStats] = useState(null);
   const [bestSelling, setBestSelling] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [credit, setCredit] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState([]);
 
   useEffect(() => {
     async function loadStats() {
       const errors = [];
-      const [statsResult, bestResult, summaryResult] = await Promise.allSettled([
+      const [statsResult, bestResult, summaryResult, creditResult] = await Promise.allSettled([
         fetchDashboardStats(),
         fetchBestSelling(),
         fetchDashboardSummary(),
+        fetchCreditSummary(),
       ]);
+
+      // Credit is supplementary; a failure here should not alarm the user.
+      if (creditResult.status === 'fulfilled') {
+        setCredit(creditResult.value);
+      }
 
       if (statsResult.status === 'fulfilled') {
         setDashboardStats(statsResult.value);
@@ -183,6 +191,28 @@ export default function Dashboard() {
             <p key={err} className="mt-1 text-xs text-red-600/80 dark:text-red-400/80">{err}</p>
           ))}
           <p className="mt-2 text-xs text-red-600/60 dark:text-red-400/60">Check the browser console for full details.</p>
+        </div>
+      )}
+
+      {/* Money owed by customers */}
+      {!loading && credit?.totalOutstanding > 0 && (
+        <div className="flex flex-col gap-2 rounded-[1.25rem] border border-sky-400/30 bg-sky-400/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">
+              {credit.debtorCount === 1 ? '1 customer owes' : `${credit.debtorCount} customers owe`} you {formatMoney(currency, credit.totalOutstanding)}
+            </p>
+            <p className="mt-0.5 text-xs text-sky-700/80 dark:text-sky-300/80">
+              {credit.totalOverdue > 0
+                ? `${formatMoney(currency, credit.totalOverdue)} is past its due date.`
+                : 'Nothing is overdue.'}
+              {Number(summary?.periods?.today?.creditCollected || 0) > 0
+                ? ` Collected today: ${formatMoney(currency, summary.periods.today.creditCollected)}.`
+                : ''}
+            </p>
+          </div>
+          <Link to="/app/customers" className="app-btn-secondary shrink-0 rounded-lg border px-3 py-2 text-center text-xs font-medium">
+            View who owes
+          </Link>
         </div>
       )}
 

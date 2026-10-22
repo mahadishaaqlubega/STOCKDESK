@@ -1,5 +1,5 @@
 /* StockDesk service worker — app-shell offline caching */
-const CACHE_NAME = 'stockdesk-v1';
+const CACHE_NAME = 'stockdesk-v2';
 const APP_SHELL = [
   '/',
   '/index.html',

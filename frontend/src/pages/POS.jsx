@@ -4,7 +4,10 @@ import { getToken, getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import PosReceipt from '../components/Receipt/PosReceipt';
 
-const paymentMethods = ['Cash', 'Card', 'Mobile Money'];
+// Money actually handed over at the till.
+const tenderMethods = ['Cash', 'Card', 'Mobile Money'];
+
+const isServiceProduct = (product) => product?.type === 'service';
 
 function formatMoney(currency, value) {
   return `${currency} ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -44,6 +47,9 @@ export default function POS() {
     try { return JSON.parse(localStorage.getItem('pos_held_sales') || '[]'); } catch { return []; }
   });
   const [useSplit, setUseSplit] = useState(false);
+  const [creditDeposit, setCreditDeposit] = useState('');
+  const [creditDepositMethod, setCreditDepositMethod] = useState('Cash');
+  const [creditDueDate, setCreditDueDate] = useState('');
   const [splitPayments, setSplitPayments] = useState([{ method: 'Cash', amount: '' }, { method: 'Card', amount: '' }]);
   const [showReturns, setShowReturns] = useState(false);
   const [returnSaleId, setReturnSaleId] = useState('');
@@ -110,10 +116,22 @@ export default function POS() {
       const existing = prev.find((item) => item.productId === product.id);
       if (existing) {
         return prev.map((item) =>
-          item.productId === product.id ? { ...item, quantity: Math.min(item.quantity + 1, product.quantity) } : item
+          item.productId === product.id
+            ? { ...item, quantity: item.isService ? item.quantity + 1 : Math.min(item.quantity + 1, product.quantity) }
+            : item
         );
       }
-      return [...prev, { productId: product.id, name: product.name, price: parseFloat(product.sellPrice), quantity: 1 }];
+      if (!isServiceProduct(product) && Number(product.quantity) <= 0) {
+        setMessage(`${product.name} is out of stock.`);
+        return prev;
+      }
+      return [...prev, {
+        productId: product.id,
+        name: product.name,
+        price: parseFloat(product.sellPrice),
+        quantity: 1,
+        isService: isServiceProduct(product),
+      }];
     });
   };
 
@@ -142,6 +160,13 @@ export default function POS() {
   const vatRate = Number(settings?.vat || 0);
   const taxAmount = (afterDiscount * vatRate) / 100;
   const total = afterDiscount + taxAmount;
+
+  const isCredit = paymentMethod === 'Credit' && !useSplit;
+  const depositValue = Math.max(0, parseFloat(creditDeposit) || 0);
+  const creditPortion = Math.max(0, total - depositValue);
+  const customerBalance = Number(selectedCustomer?.balance || 0);
+  const customerLimit = selectedCustomer?.creditLimit != null ? Number(selectedCustomer.creditLimit) : null;
+  const isWalkIn = !selectedCustomer || selectedCustomer.name === 'Walk-in Customer';
 
   const holdSale = () => {
     if (!cart.length) return;
@@ -244,7 +269,7 @@ export default function POS() {
       const outOfStockItems = [];
       for (const item of cart) {
         const product = products.find(p => p.id === item.productId);
-        if (product && product.quantity < item.quantity) {
+        if (product && !isServiceProduct(product) && product.quantity < item.quantity) {
           outOfStockItems.push(`${product.name} - Available: ${product.quantity}, Requested: ${item.quantity}`);
         }
       }
@@ -254,6 +279,21 @@ export default function POS() {
         return;
       }
       
+      if (isCredit) {
+        if (isWalkIn) {
+          setMessage('Choose a named customer to sell on credit, so you know who owes the money.');
+          return;
+        }
+        if (depositValue >= total) {
+          setMessage('The amount paid covers the full total. Choose Cash, Card or Mobile Money instead of credit.');
+          return;
+        }
+        if (customerLimit != null && customerBalance + creditPortion > customerLimit + 0.005) {
+          setMessage(`${selectedCustomer.name} would exceed their credit limit of ${formatMoney(currency, customerLimit)} (currently owes ${formatMoney(currency, customerBalance)}).`);
+          return;
+        }
+      }
+
       if (useSplit) {
         const splitTotal = splitPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
         if (Math.abs(splitTotal - total) > 0.01) {
@@ -271,6 +311,9 @@ export default function POS() {
         discount,
         discountType,
         customerId: customerId ? Number(customerId) : null,
+        ...(isCredit
+          ? { amountPaid: depositValue, depositMethod: creditDepositMethod, dueDate: creditDueDate || null }
+          : {}),
       });
       
       // Fetch the full sale data to display in receipt
@@ -283,7 +326,17 @@ export default function POS() {
       setDiscount(0);
       setDiscountType('fixed');
       setMobileSection('browse');
-      setMessage('Sale recorded successfully.');
+      setMessage(
+        response.balanceDue > 0
+          ? `Credit sale recorded. ${selectedCustomer?.name || 'Customer'} owes ${formatMoney(currency, response.balanceDue)} on this sale.`
+          : 'Sale recorded successfully.'
+      );
+      if (isCredit) {
+        setCreditDeposit('');
+        setCreditDueDate('');
+        setPaymentMethod('Cash');
+        loadCustomers();
+      }
       
       // Auto-print if enabled
       if (autoPrint) {
@@ -376,7 +429,13 @@ export default function POS() {
                     <div>
                       <p className="font-semibold text-[var(--text-primary)]">{product.name}</p>
                     <p className="mt-0.5 text-sm text-[var(--text-muted)]">{product.category || 'Uncategorized'}</p>
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">{product.quantity} units in stock</p>
+                    {isServiceProduct(product) ? (
+                      <p className="mt-1 inline-flex rounded-full bg-[var(--surface-secondary)] px-2 py-0.5 text-xs font-medium text-[var(--accent-strong)]">Service</p>
+                    ) : (
+                      <p className={`mt-1 text-xs ${Number(product.quantity) <= 0 ? 'font-semibold text-red-500' : 'text-[var(--text-muted)]'}`}>
+                        {Number(product.quantity) <= 0 ? 'Out of stock' : `${product.quantity} units in stock`}
+                      </p>
+                    )}
                     </div>
                   </div>
                   <div className="w-full text-left sm:w-auto sm:text-right">
@@ -485,6 +544,7 @@ export default function POS() {
                       {customers.map((customer) => (
                         <option key={customer.id} value={customer.id}>
                           {customer.name}{customer.phone ? ` - ${customer.phone}` : ''}
+                          {Number(customer.balance) > 0 ? ` (owes ${formatMoney(currency, customer.balance)})` : ''}
                         </option>
                       ))}
                     </select>
@@ -507,15 +567,74 @@ export default function POS() {
                     disabled={useSplit}
                     className="app-btn-secondary flex-1 rounded-lg border px-4 py-3 disabled:opacity-50"
                   >
-                    {paymentMethods.map((method) => (
+                    {tenderMethods.map((method) => (
                       <option key={method} value={method}>{method}</option>
                     ))}
+                    <option value="Credit">Credit (pay later)</option>
                   </select>
                   <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)] whitespace-nowrap">
-                    <input type="checkbox" checked={useSplit} onChange={(e) => setUseSplit(e.target.checked)} />
+                    <input
+                      type="checkbox"
+                      checked={useSplit}
+                      onChange={(e) => {
+                        setUseSplit(e.target.checked);
+                        if (e.target.checked && paymentMethod === 'Credit') setPaymentMethod('Cash');
+                      }}
+                    />
                     Split
                   </label>
                 </div>
+                {isCredit && (
+                  <div className="mt-2 space-y-3 rounded-lg border border-amber-400/40 bg-amber-500/5 p-3">
+                    {isWalkIn ? (
+                      <p className="text-sm font-medium text-amber-600">Select a named customer above to sell on credit.</p>
+                    ) : (
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        {selectedCustomer.name} currently owes <strong>{formatMoney(currency, customerBalance)}</strong>
+                        {customerLimit != null ? ` of a ${formatMoney(currency, customerLimit)} limit` : ' (no credit limit set)'}.
+                      </p>
+                    )}
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <label className="text-xs text-[var(--text-muted)]">
+                        Paid now (optional)
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={creditDeposit}
+                          onChange={(e) => setCreditDeposit(e.target.value)}
+                          className="app-input mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                        />
+                      </label>
+                      <label className="text-xs text-[var(--text-muted)]">
+                        Paid with
+                        <select
+                          value={creditDepositMethod}
+                          onChange={(e) => setCreditDepositMethod(e.target.value)}
+                          disabled={depositValue <= 0}
+                          className="app-btn-secondary mt-1 w-full rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+                        >
+                          {tenderMethods.map((m) => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-xs text-[var(--text-muted)] sm:col-span-2">
+                        Due date (optional)
+                        <input
+                          type="date"
+                          value={creditDueDate}
+                          onChange={(e) => setCreditDueDate(e.target.value)}
+                          className="app-input mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                        />
+                      </label>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[var(--text-muted)]">Goes on credit</span>
+                      <strong className="text-amber-600">{formatMoney(currency, creditPortion)}</strong>
+                    </div>
+                  </div>
+                )}
                 {useSplit && (
                   <div className="mt-2 space-y-2">
                     {splitPayments.map((sp, i) => (
@@ -525,7 +644,7 @@ export default function POS() {
                           onChange={(e) => setSplitPayments((prev) => prev.map((p, idx) => idx === i ? { ...p, method: e.target.value } : p))}
                           className="app-btn-secondary rounded-lg border px-3 py-2 text-sm"
                         >
-                          {paymentMethods.map((m) => <option key={m} value={m}>{m}</option>)}
+                          {tenderMethods.map((m) => <option key={m} value={m}>{m}</option>)}
                         </select>
                         <input
                           type="number"

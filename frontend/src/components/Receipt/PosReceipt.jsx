@@ -39,16 +39,21 @@ export default function PosReceipt({ sale, settings, cashierName, onClose }) {
       subtotal += parseFloat(item.price) * item.quantity;
     });
 
-    const vatRate = parseFloat(settings.vat || 0) / 100;
-    const vatAmount = (sale.total * vatRate / (1 + vatRate)).toFixed(2);
+    // Use the tax actually charged on this sale, not today's VAT setting.
+    const total = parseFloat(sale.total);
+    const balanceDue = parseFloat(sale.balanceDue || 0);
 
     setReceiptData({
       subtotal: subtotal,
       discount: parseFloat(sale.discount || 0),
-      total: parseFloat(sale.total),
-      vat: Number(vatAmount),
-      vatPercent: settings.vat || 0,
+      total,
+      vat: parseFloat(sale.taxAmount || 0),
+      vatPercent: parseFloat(sale.tax != null ? sale.tax : settings.vat || 0),
       currency: sale.currency || settings.currency || 'UGX',
+      isCredit: parseFloat(sale.creditAmount || 0) > 0,
+      paid: total - balanceDue,
+      balanceDue,
+      dueDate: sale.dueDate || null,
     });
   }, [sale, settings]);
 
@@ -76,9 +81,9 @@ export default function PosReceipt({ sale, settings, cashierName, onClose }) {
       .join('');
 
     const hasDiscount = parseFloat(sale.discount || 0) > 0;
-    const hasVat = parseFloat(settings.vat || 0) > 0;
+    const hasVat = receiptData.vat > 0;
     const discountRow = `<div class="summary-row ${hasDiscount ? 'discount' : 'muted-row'}"><span>Discount</span><span>${hasDiscount ? '- ' : ''}${escapeHtml(formatMoney(receiptData.currency, receiptData.discount))}</span></div>`;
-    const vatRow = `<div class="summary-row ${hasVat ? '' : 'muted-row'}"><span>VAT @ ${escapeHtml(settings.vat || 0)}%</span><span>${escapeHtml(formatMoney(receiptData.currency, receiptData.vat))}</span></div>`;
+    const vatRow = `<div class="summary-row ${hasVat ? '' : 'muted-row'}"><span>VAT @ ${escapeHtml(receiptData.vatPercent)}%</span><span>${escapeHtml(formatMoney(receiptData.currency, receiptData.vat))}</span></div>`;
     const footerText = settings.receiptFooter ? `<p class="footer-note">${escapeHtml(settings.receiptFooter)}</p>` : '';
 
     const printWindow = window.open('', '_blank', 'width=420,height=760');
@@ -257,6 +262,10 @@ export default function PosReceipt({ sale, settings, cashierName, onClose }) {
               ${discountRow}
               ${vatRow}
               <div class="total-row"><span>TOTAL</span><span class="money">${escapeHtml(formatMoney(receiptData.currency, receiptData.total))}</span></div>
+              ${receiptData.isCredit ? `
+              <div class="summary-row"><span>Paid</span><span class="money">${escapeHtml(formatMoney(receiptData.currency, receiptData.paid))}</span></div>
+              <div class="summary-row"><span><strong>BALANCE DUE</strong></span><span class="money"><strong>${escapeHtml(formatMoney(receiptData.currency, receiptData.balanceDue))}</strong></span></div>
+              ${receiptData.dueDate ? `<div class="summary-row"><span>Due by</span><span>${escapeHtml(receiptData.dueDate)}</span></div>` : ''}` : ''}
             </section>
 
             <div class="divider"></div>
@@ -381,8 +390,8 @@ export default function PosReceipt({ sale, settings, cashierName, onClose }) {
                   </span>
                 </div>
 
-                <div className={`flex justify-between px-4 py-3 text-sm ${parseFloat(settings.vat) > 0 ? 'text-slate-600' : 'text-slate-400'}`}>
-                  <span>VAT @ {settings.vat || 0}%</span>
+                <div className={`flex justify-between px-4 py-3 text-sm ${receiptData.vat > 0 ? 'text-slate-600' : 'text-slate-400'}`}>
+                  <span>VAT @ {receiptData.vatPercent}%</span>
                   <span className="font-semibold text-slate-900 font-mono tabular-nums">
                     {formatMoney(receiptData.currency, receiptData.vat)}
                   </span>
@@ -395,6 +404,18 @@ export default function PosReceipt({ sale, settings, cashierName, onClose }) {
                   {formatMoney(receiptData.currency, receiptData.total)}
                 </span>
               </div>
+              {receiptData.isCredit && (
+                <div className="mt-3 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-amber-300 bg-amber-50">
+                  <div className="flex justify-between px-4 py-3 text-sm">
+                    <span className="text-slate-600">Paid</span>
+                    <span className="font-semibold text-slate-900 font-mono tabular-nums">{formatMoney(receiptData.currency, receiptData.paid)}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-3 text-sm font-bold text-amber-800">
+                    <span>Balance due{receiptData.dueDate ? ` by ${receiptData.dueDate}` : ''}</span>
+                    <span className="font-mono tabular-nums">{formatMoney(receiptData.currency, receiptData.balanceDue)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

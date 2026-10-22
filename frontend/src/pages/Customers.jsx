@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createCustomer, deleteCustomer, fetchCustomers, updateCustomer, fetchCustomerSales, fetchSettings } from '../utils/api';
+import {
+  createCustomer,
+  deleteCustomer,
+  fetchCustomers,
+  updateCustomer,
+  fetchCustomerSales,
+  fetchSettings,
+  fetchCustomerCredit,
+  recordCreditPayment,
+} from '../utils/api';
 import { getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -11,8 +20,11 @@ const initialForm = {
   email: '',
   address: '',
   notes: '',
+  creditLimit: '',
   isActive: true,
 };
+
+const paymentMethods = ['Cash', 'Mobile Money', 'Card'];
 
 function StatCard({ label, value, helper, eyebrow = 'Customers', icon, tone = 'default' }) {
   const toneClasses = {
@@ -49,10 +61,18 @@ export default function Customers() {
   const [historyData, setHistoryData] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [owingOnly, setOwingOnly] = useState(false);
+  const [creditCustomer, setCreditCustomer] = useState(null);
+  const [creditData, setCreditData] = useState(null);
+  const [creditLoading, setCreditLoading] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'Cash', notes: '' });
+  const [paymentMessage, setPaymentMessage] = useState('');
+  const [paymentSaving, setPaymentSaving] = useState(false);
 
-  useBodyScrollLock(Boolean(historyCustomer) || Boolean(deleteTarget));
+  useBodyScrollLock(Boolean(historyCustomer) || Boolean(deleteTarget) || Boolean(creditCustomer));
 
-  const activeCustomers = useMemo(() => customers.filter((customer) => customer.isActive !== false).length, [customers]);
+  const owing = useMemo(() => customers.filter((customer) => Number(customer.balance || 0) > 0), [customers]);
+  const totalOwed = useMemo(() => owing.reduce((sum, customer) => sum + Number(customer.balance || 0), 0), [owing]);
   const repeatCustomers = useMemo(() => customers.filter((customer) => Number(customer.salesCount || 0) > 1).length, [customers]);
 
   useEffect(() => {
@@ -62,14 +82,15 @@ export default function Customers() {
 
   const filteredCustomers = useMemo(() => {
     const query = search.trim().toLowerCase();
+    const base = owingOnly ? owing : customers;
     if (!query) {
-      return customers;
+      return base;
     }
 
-    return customers.filter((customer) =>
+    return base.filter((customer) =>
       [customer.name, customer.phone, customer.email].filter(Boolean).some((value) => value.toLowerCase().includes(query))
     );
-  }, [customers, search]);
+  }, [customers, owing, owingOnly, search]);
 
   async function loadCustomers() {
     try {
@@ -133,6 +154,49 @@ export default function Customers() {
     }
   };
 
+  const openCredit = async (customer) => {
+    setCreditCustomer(customer);
+    setCreditData(null);
+    setPaymentMessage('');
+    setCreditLoading(true);
+    try {
+      const data = await fetchCustomerCredit(customer.id);
+      setCreditData(data);
+      setPaymentForm({ amount: data.balance > 0 ? String(data.balance) : '', method: 'Cash', notes: '' });
+    } catch (error) {
+      setPaymentMessage(error.message);
+    } finally {
+      setCreditLoading(false);
+    }
+  };
+
+  const submitPayment = async (event) => {
+    event.preventDefault();
+    if (!creditCustomer) return;
+    setPaymentSaving(true);
+    setPaymentMessage('');
+    try {
+      const result = await recordCreditPayment(creditCustomer.id, {
+        amount: Number(paymentForm.amount),
+        method: paymentForm.method,
+        notes: paymentForm.notes || undefined,
+      });
+      setPaymentMessage(
+        result.balance > 0
+          ? `Payment of ${formatMoney(result.amount)} recorded. Still owes ${formatMoney(result.balance)}.`
+          : `Payment of ${formatMoney(result.amount)} recorded. Account fully paid.`
+      );
+      const data = await fetchCustomerCredit(creditCustomer.id);
+      setCreditData(data);
+      setPaymentForm({ amount: data.balance > 0 ? String(data.balance) : '', method: paymentForm.method, notes: '' });
+      loadCustomers();
+    } catch (error) {
+      setPaymentMessage(error.message);
+    } finally {
+      setPaymentSaving(false);
+    }
+  };
+
   const formatMoney = (value) => `${currency} ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   return (
     <div className="space-y-6">
@@ -152,7 +216,7 @@ export default function Customers() {
           </div>
           <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:min-w-[460px]">
             <StatCard label="Total Customers" value={customers.length.toLocaleString()} helper="Profiles saved in your shop." eyebrow="Directory" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>} />
-            <StatCard label="Active" value={activeCustomers.toLocaleString()} helper="Customers available for new sales." eyebrow="Availability" tone="success" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="M20 6 9 17l-5-5"/></svg>} />
+            <StatCard label="Owed to you" value={formatMoney(totalOwed)} helper={`${owing.length} customer${owing.length === 1 ? '' : 's'} with unpaid credit.`} eyebrow="Credit" tone="warning" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>} />
             <StatCard label="Repeat Buyers" value={repeatCustomers.toLocaleString()} helper="Customers with more than one sale." eyebrow="Loyalty" tone="warning" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="M4 16l5-5 4 4 7-8"/><path d="M14 7h6v6"/></svg>} />
           </div>
         </div>
@@ -166,8 +230,13 @@ export default function Customers() {
               <p className="mt-1 text-sm text-[var(--text-muted)]">Search, review, and manage saved customer profiles for repeat buyers.</p>
             </div>
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-              <div className="app-panel-soft rounded-xl border px-3 py-2 text-sm text-[var(--text-muted)]">
-                {filteredCustomers.length} visible
+              <div className="app-panel-soft inline-grid grid-cols-2 rounded-xl border p-1 text-sm" role="tablist" aria-label="Customer filter">
+                <button type="button" role="tab" aria-selected={!owingOnly} onClick={() => setOwingOnly(false)} className={`rounded-lg px-3 py-1.5 ${!owingOnly ? 'app-btn-primary text-white' : 'app-btn-subtle'}`}>
+                  All
+                </button>
+                <button type="button" role="tab" aria-selected={owingOnly} onClick={() => setOwingOnly(true)} className={`rounded-lg px-3 py-1.5 ${owingOnly ? 'app-btn-primary text-white' : 'app-btn-subtle'}`}>
+                  Owing ({owing.length})
+                </button>
               </div>
               <input
                 type="search"
@@ -186,6 +255,7 @@ export default function Customers() {
                   <th className="px-4 py-3 font-medium">Customer</th>
                   <th className="px-4 py-3 font-medium">Contact</th>
                   <th className="px-4 py-3 font-medium">Sales</th>
+                  <th className="px-4 py-3 font-medium">Balance</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Actions</th>
                 </tr>
@@ -193,11 +263,11 @@ export default function Customers() {
               <tbody className="divide-y divide-[var(--border-default)]">
                 {loading ? (
                   <tr>
-                    <td className="px-4 py-6 text-[var(--text-muted)]" colSpan="5">Loading customers...</td>
+                    <td className="px-4 py-6 text-[var(--text-muted)]" colSpan="6">Loading customers...</td>
                   </tr>
                 ) : filteredCustomers.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8" colSpan="5">
+                    <td className="px-4 py-8" colSpan="6">
                       <div className="app-panel-soft rounded-lg border border-dashed px-4 py-8 text-center">
                         <p className="text-sm font-medium text-[var(--text-primary)]">No customers found</p>
                         <p className="mt-2 text-sm text-[var(--text-muted)]">Try a different search or create a new customer profile.</p>
@@ -223,6 +293,13 @@ export default function Customers() {
                         <p className="text-xs text-[var(--text-muted)]">{customer.email || 'No email'}</p>
                       </td>
                       <td data-label="Sales" className="px-4 py-4 font-medium text-[var(--text-primary)]">{Number(customer.salesCount || 0)}</td>
+                      <td data-label="Balance" className="px-4 py-4">
+                        {Number(customer.balance || 0) > 0 ? (
+                          <span className="font-semibold text-amber-600">{formatMoney(customer.balance)}</span>
+                        ) : (
+                          <span className="text-[var(--text-muted)]">—</span>
+                        )}
+                      </td>
                       <td data-label="Status" className="px-4 py-4">
                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${customer.isActive ? 'app-alert-success' : 'app-alert-info'}`}>
                           {customer.isActive ? 'Active' : 'Inactive'}
@@ -239,6 +316,7 @@ export default function Customers() {
                               email: customer.email || '',
                               address: customer.address || '',
                               notes: customer.notes || '',
+                              creditLimit: customer.creditLimit ?? '',
                               isActive: customer.isActive !== false,
                             })}
                             className="app-btn-secondary rounded-lg border px-3 py-2 text-xs font-medium transition"
@@ -251,6 +329,13 @@ export default function Customers() {
                             className="app-btn-secondary rounded-lg border px-3 py-2 text-xs font-medium transition"
                           >
                             History
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openCredit(customer)}
+                            className={`rounded-lg border px-3 py-2 text-xs font-medium transition ${Number(customer.balance || 0) > 0 ? 'app-btn-primary text-white' : 'app-btn-secondary'}`}
+                          >
+                            {Number(customer.balance || 0) > 0 ? 'Receive payment' : 'Credit'}
                           </button>
                           <button
                             type="button"
@@ -329,6 +414,22 @@ export default function Customers() {
                   className="app-input w-full rounded-lg border px-4 py-3"
                 />
               </label>
+              {canDelete ? (
+                <label className="space-y-2 text-sm text-[var(--text-secondary)] md:col-span-2">
+                  Credit limit ({currency})
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={form.creditLimit}
+                    onChange={(event) => setForm((prev) => ({ ...prev, creditLimit: event.target.value }))}
+                    placeholder="Leave empty for no limit"
+                    className="app-input w-full rounded-lg border px-4 py-3"
+                  />
+                  <span className="block text-xs text-[var(--text-muted)]">The most this customer may owe at any time when buying on credit.</span>
+                </label>
+              ) : null}
               <label className="space-y-2 text-sm text-[var(--text-secondary)] md:col-span-2">
                 Notes
                 <textarea
@@ -402,6 +503,124 @@ export default function Customers() {
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {creditCustomer && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={(e) => { if (e.target === e.currentTarget) setCreditCustomer(null); }}>
+          <div className="app-panel flex max-h-[92vh] w-full max-w-2xl flex-col rounded-[1.5rem] border p-6" role="dialog" aria-modal="true" aria-labelledby="credit-title">
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--border-default)] pb-4">
+              <div>
+                <h3 id="credit-title" className="text-lg font-semibold text-[var(--text-primary)]">{creditCustomer.name} · Credit account</h3>
+                {creditData ? (
+                  <p className="mt-1 text-sm text-[var(--text-muted)]">
+                    Owes <strong className={creditData.balance > 0 ? 'text-amber-600' : 'text-[var(--text-primary)]'}>{formatMoney(creditData.balance)}</strong>
+                    {creditData.creditLimit != null ? ` · limit ${formatMoney(creditData.creditLimit)} · ${formatMoney(creditData.availableCredit)} available` : ' · no credit limit'}
+                  </p>
+                ) : null}
+              </div>
+              <button type="button" onClick={() => setCreditCustomer(null)} className="app-btn-subtle rounded-full p-2" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4"><path d="M6 6l12 12M18 6L6 18" /></svg>
+              </button>
+            </div>
+
+            <div className="mt-4 flex-1 space-y-5 overflow-y-auto">
+              {creditLoading ? (
+                Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-[var(--surface-secondary)]" />)
+              ) : creditData ? (
+                <>
+                  {creditData.balance > 0 ? (
+                    <form onSubmit={submitPayment} className="app-panel-soft space-y-3 rounded-[1.2rem] border p-4">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">Receive a payment</p>
+                      <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          max={creditData.balance}
+                          inputMode="decimal"
+                          required
+                          value={paymentForm.amount}
+                          onChange={(e) => setPaymentForm((prev) => ({ ...prev, amount: e.target.value }))}
+                          className="app-input w-full rounded-lg border px-4 py-3"
+                          aria-label="Amount received"
+                        />
+                        <select
+                          value={paymentForm.method}
+                          onChange={(e) => setPaymentForm((prev) => ({ ...prev, method: e.target.value }))}
+                          className="app-btn-secondary rounded-lg border px-4 py-3"
+                          aria-label="Payment method"
+                        >
+                          {paymentMethods.map((m) => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <input
+                        value={paymentForm.notes}
+                        onChange={(e) => setPaymentForm((prev) => ({ ...prev, notes: e.target.value }))}
+                        placeholder="Note (optional), e.g. MoMo transaction ID"
+                        className="app-input w-full rounded-lg border px-4 py-3 text-sm"
+                      />
+                      <p className="text-xs text-[var(--text-muted)]">Payments clear the oldest unpaid sales first.</p>
+                      <button type="submit" disabled={paymentSaving} className="app-btn-primary w-full rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-60">
+                        {paymentSaving ? 'Saving…' : 'Record payment'}
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="app-alert-success rounded-xl px-4 py-3 text-sm">This customer has no unpaid credit.</div>
+                  )}
+
+                  {paymentMessage ? (
+                    <div className={`rounded-xl px-4 py-3 text-sm ${paymentMessage.startsWith('Payment of') ? 'app-alert-success' : 'app-alert-danger'}`}>{paymentMessage}</div>
+                  ) : null}
+
+                  {creditData.openSales.length > 0 ? (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Unpaid sales</p>
+                      <div className="space-y-2">
+                        {creditData.openSales.map((sale) => {
+                          const overdue = sale.dueDate && new Date(`${sale.dueDate}T23:59:59`) < new Date();
+                          return (
+                            <div key={sale.id} className="app-panel-soft flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm">
+                              <div className="min-w-0">
+                                <p className="font-medium text-[var(--text-primary)]">{sale.receipt?.receiptNumber || `#${sale.id}`} · {new Date(sale.createdAt).toLocaleDateString()}</p>
+                                <p className={`text-xs ${overdue ? 'font-semibold text-red-500' : 'text-[var(--text-muted)]'}`}>
+                                  Total {formatMoney(sale.total)}{sale.dueDate ? ` · due ${sale.dueDate}${overdue ? ' (overdue)' : ''}` : ''}
+                                </p>
+                              </div>
+                              <span className="shrink-0 font-semibold text-amber-600">{formatMoney(sale.balanceDue)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Payments received</p>
+                    {creditData.payments.length === 0 ? (
+                      <p className="text-sm text-[var(--text-muted)]">No payments recorded yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {creditData.payments.map((payment) => (
+                          <div key={payment.id} className="flex items-center justify-between gap-3 border-b border-[var(--border-default)] pb-2 text-sm last:border-0">
+                            <div className="min-w-0">
+                              <p className="text-[var(--text-primary)]">{new Date(payment.createdAt).toLocaleString()} · {payment.method}</p>
+                              <p className="text-xs text-[var(--text-muted)]">
+                                Sale #{payment.saleId}{payment.receivedBy ? ` · by ${payment.receivedBy.name}` : ''}{payment.notes ? ` · ${payment.notes}` : ''}
+                              </p>
+                            </div>
+                            <span className="shrink-0 font-semibold text-[var(--success)]">+{formatMoney(payment.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="app-alert-danger rounded-xl px-4 py-3 text-sm">{paymentMessage || 'Could not load this account.'}</div>
+              )}
             </div>
           </div>
         </div>

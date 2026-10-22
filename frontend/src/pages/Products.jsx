@@ -4,7 +4,9 @@ import { getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import ConfirmDialog from '../components/ConfirmDialog';
 
-const emptyForm = { name: '', category: '', buyPrice: '', sellPrice: '', quantity: 0, lowStock: 5 };
+const emptyForm = { name: '', category: '', buyPrice: '', sellPrice: '', quantity: 0, lowStock: 5, type: 'goods' };
+
+const isService = (product) => product?.type === 'service';
 
 function formatMoney(currency, value) {
   return `${currency} ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -137,6 +139,7 @@ export default function Products() {
       sellPrice: product.sellPrice,
       quantity: product.quantity,
       lowStock: product.lowStock,
+      type: product.type || 'goods',
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -201,7 +204,7 @@ export default function Products() {
 
   const totalUnits = useMemo(() => products.reduce((sum, product) => sum + Number(product.quantity || 0), 0), [products]);
   const lowStockCount = useMemo(
-    () => products.filter((product) => Number(product.quantity || 0) <= Math.max(5, Number(product.lowStock || 0))).length,
+    () => products.filter((product) => !isService(product) && Number(product.quantity || 0) <= Math.max(5, Number(product.lowStock || 0))).length,
     [products]
   );
   const stockValue = useMemo(
@@ -262,10 +265,31 @@ export default function Products() {
           </div>
 
           <form className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3" onSubmit={saveProduct}>
+            <div className="md:col-span-2 xl:col-span-3">
+              <p className="mb-2 text-sm text-[var(--text-secondary)]">What are you selling?</p>
+              <div className="app-panel-soft inline-grid grid-cols-2 rounded-xl border p-1" role="radiogroup" aria-label="Item type">
+                {[
+                  { value: 'goods', label: 'Goods', hint: 'Tracked in stock' },
+                  { value: 'service', label: 'Service', hint: 'Repairs, labour, fees' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.type === option.value}
+                    onClick={() => setForm((prev) => ({ ...prev, type: option.value }))}
+                    className={`rounded-lg px-4 py-2 text-left text-sm transition ${form.type === option.value ? 'app-btn-primary text-white' : 'app-btn-subtle'}`}
+                  >
+                    <span className="block font-medium">{option.label}</span>
+                    <span className={`block text-xs ${form.type === option.value ? 'text-white/80' : 'text-[var(--text-muted)]'}`}>{option.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <label className="space-y-2 text-sm text-[var(--text-secondary)]">
-              Product name
+              {form.type === 'service' ? 'Service name' : 'Product name'}
               <input
-                placeholder="Product name"
+                placeholder={form.type === 'service' ? 'e.g. Screen replacement' : 'Product name'}
                 value={form.name}
                 onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                 className="app-input w-full rounded-lg border px-4 py-3"
@@ -287,7 +311,7 @@ export default function Products() {
               </datalist>
             </label>
             <label className="space-y-2 text-sm text-[var(--text-secondary)]">
-              Buying price
+              {form.type === 'service' ? 'Cost to provide (optional)' : 'Buying price'}
               <input
                 placeholder="0.00"
                 type="number"
@@ -308,29 +332,37 @@ export default function Products() {
                 className="app-input w-full rounded-lg border px-4 py-3"
               />
             </label>
-            <label className="space-y-2 text-sm text-[var(--text-secondary)]">
-              Quantity
-              <input
-                placeholder="0"
-                type="number"
-                value={form.quantity}
-                onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value) }))}
-                className="app-input w-full rounded-lg border px-4 py-3"
-              />
-            </label>
-            <label className="space-y-2 text-sm text-[var(--text-secondary)]">
-              Low stock level
-              <input
-                placeholder="5"
-                type="number"
-                value={form.lowStock}
-                onChange={(e) => setForm((prev) => ({ ...prev, lowStock: Number(e.target.value) }))}
-                className="app-input w-full rounded-lg border px-4 py-3"
-              />
-            </label>
+            {form.type !== 'service' ? (
+              <>
+                <label className="space-y-2 text-sm text-[var(--text-secondary)]">
+                  Quantity
+                  <input
+                    placeholder="0"
+                    type="number"
+                    value={form.quantity}
+                    onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value) }))}
+                    className="app-input w-full rounded-lg border px-4 py-3"
+                  />
+                </label>
+                <label className="space-y-2 text-sm text-[var(--text-secondary)]">
+                  Low stock level
+                  <input
+                    placeholder="5"
+                    type="number"
+                    value={form.lowStock}
+                    onChange={(e) => setForm((prev) => ({ ...prev, lowStock: Number(e.target.value) }))}
+                    className="app-input w-full rounded-lg border px-4 py-3"
+                  />
+                </label>
+              </>
+            ) : (
+              <p className="app-panel-soft self-end rounded-lg border px-4 py-3 text-sm text-[var(--text-muted)]">
+                Services have no stock count — they can always be sold.
+              </p>
+            )}
             <div className="md:col-span-2 xl:col-span-3 flex flex-wrap gap-3 pt-2">
               <button className="app-btn-primary rounded-lg px-5 py-3 text-sm font-medium transition">
-                {editingId ? 'Update Product' : 'Add Product'}
+                {editingId ? 'Save Changes' : form.type === 'service' ? 'Add Service' : 'Add Product'}
               </button>
               <button
                 type="button"
@@ -425,7 +457,8 @@ export default function Products() {
               </thead>
               <tbody className="divide-y divide-[var(--border-default)] bg-[var(--surface-primary)]">
                 {products.map((product) => {
-                  const isLow = Number(product.quantity || 0) <= Math.max(5, Number(product.lowStock || 0));
+                  const service = isService(product);
+                  const isLow = !service && Number(product.quantity || 0) <= Math.max(5, Number(product.lowStock || 0));
                   return (
                     <tr key={product.id} className="app-row-hover transition">
                       <td data-label="Name" className="px-4 py-3 font-medium text-[var(--text-primary)]">
@@ -440,11 +473,15 @@ export default function Products() {
                       {isAdmin ? <td data-label="Buy" className="px-4 py-3 text-[var(--text-muted)]">{formatMoney(currency, product.buyPrice)}</td> : null}
                       <td data-label="Sell" className="px-4 py-3 text-[var(--text-primary)]">{formatMoney(currency, product.sellPrice)}</td>
                       <td data-label="Qty" className="px-4 py-3">
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${isLow ? 'app-alert-danger' : 'app-alert-success'}`}>
-                          {product.quantity}
-                        </span>
+                        {service ? (
+                          <span className="rounded-full bg-[var(--surface-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--accent-strong)]">Service</span>
+                        ) : (
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${isLow ? 'app-alert-danger' : 'app-alert-success'}`}>
+                            {product.quantity}
+                          </span>
+                        )}
                       </td>
-                      <td data-label="Low Stock" className="px-4 py-3 text-[var(--text-muted)]">{product.lowStock}</td>
+                      <td data-label="Low Stock" className="px-4 py-3 text-[var(--text-muted)]">{service ? '—' : product.lowStock}</td>
                       {isAdmin ? (
                         <td data-label="Actions" className="px-4 py-3">
                           <div className="flex flex-wrap justify-end gap-2 md:justify-start">
@@ -455,13 +492,15 @@ export default function Products() {
                             >
                               Edit
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => openRestock(product)}
-                              className="app-btn-secondary rounded-lg border px-3 py-1.5 text-sm transition"
-                            >
-                              Restock
-                            </button>
+                            {!service ? (
+                              <button
+                                type="button"
+                                onClick={() => openRestock(product)}
+                                className="app-btn-secondary rounded-lg border px-3 py-1.5 text-sm transition"
+                              >
+                                Restock
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               onClick={() => setDeleteTarget(product)}

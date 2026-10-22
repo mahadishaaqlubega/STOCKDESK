@@ -148,6 +148,9 @@ export const fetchCustomers = (query = '') => request(`/customers${query}`);
 export const createCustomer = (body) => request('/customers', { method: 'POST', body: JSON.stringify(body) });
 export const updateCustomer = (id, body) => request(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(body) });
 export const deleteCustomer = (id) => request(`/customers/${id}`, { method: 'DELETE' });
+export const fetchCustomerCredit = (id) => request(`/customers/${id}/credit`);
+export const recordCreditPayment = (id, body) => request(`/customers/${id}/payments`, { method: 'POST', body: JSON.stringify(body) });
+export const fetchCreditSummary = () => request('/credit/summary');
 export const downloadReceipt = async (saleId) => {
   try {
     const token = getToken();
