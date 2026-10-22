@@ -12,6 +12,20 @@ function httpError(status, message) {
   return Object.assign(new Error(message), { status });
 }
 
+const TENDER_METHODS = ['Cash', 'Card', 'Mobile Money'];
+
+function roundMoney(value) {
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
+
+function parseDueDate(value) {
+  if (value == null || value === '') return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value)) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
+    throw httpError(400, 'dueDate must be a date in YYYY-MM-DD format');
+  }
+  return String(value);
+}
+
 exports.createSale = async (req, res, next) => {
   const transaction = await Sale.sequelize.transaction();
   try {
@@ -21,31 +35,41 @@ exports.createSale = async (req, res, next) => {
     }
 
     // Validate payment method, discount and split payments before any writes.
-    const allowedPaymentMethods = ['Cash', 'Card', 'Mobile Money', 'Split'];
+    const allowedPaymentMethods = [...TENDER_METHODS, 'Split', 'Credit'];
     if (!allowedPaymentMethods.includes(paymentMethod)) {
-      throw Object.assign(new Error('Invalid payment method'), { status: 400 });
+      throw httpError(400, 'Invalid payment method');
     }
+    const isCredit = paymentMethod === 'Credit';
 
     const discountValue = Number(discount);
     if (!Number.isFinite(discountValue) || discountValue < 0) {
-      throw Object.assign(new Error('Discount must be a non-negative number'), { status: 400 });
+      throw httpError(400, 'Discount must be a non-negative number');
     }
     if (!['fixed', 'percentage'].includes(discountType)) {
-      throw Object.assign(new Error('discountType must be "fixed" or "percentage"'), { status: 400 });
+      throw httpError(400, 'discountType must be "fixed" or "percentage"');
     }
     const discountMode = discountType === 'percentage' ? 'percentage' : 'fixed';
+    if (discountMode === 'percentage' && discountValue > 100) {
+      throw httpError(400, 'Percentage discount cannot exceed 100');
+    }
 
-    if (paymentSplits != null) {
+    if (!isCredit && paymentSplits != null) {
       if (!Array.isArray(paymentSplits) || paymentSplits.length === 0) {
-        throw Object.assign(new Error('paymentSplits must be a non-empty array'), { status: 400 });
+        throw httpError(400, 'paymentSplits must be a non-empty array');
       }
       for (const split of paymentSplits) {
         const splitMethod = split && split.method;
         const splitAmount = Number(split && split.amount);
-        if (!allowedPaymentMethods.includes(splitMethod) || !Number.isFinite(splitAmount) || splitAmount <= 0) {
-          throw Object.assign(new Error('Each payment split must have a valid method and a positive amount'), { status: 400 });
+        if (!TENDER_METHODS.includes(splitMethod) || !Number.isFinite(splitAmount) || splitAmount <= 0) {
+          throw httpError(400, 'Each payment split must have a valid method and a positive amount');
         }
       }
+    }
+
+    const dueDate = isCredit ? parseDueDate(req.body.dueDate) : null;
+    const depositMethod = req.body.depositMethod || 'Cash';
+    if (isCredit && !TENDER_METHODS.includes(depositMethod)) {
+      throw httpError(400, 'depositMethod must be Cash, Card or Mobile Money');
     }
 
     const settings = await Setting.findOne({
@@ -56,10 +80,19 @@ exports.createSale = async (req, res, next) => {
 
     let customer = null;
     if (customerId) {
-      customer = await Customer.findOne({ where: { id: customerId, shopId: req.user.shopId }, transaction });
+      customer = await Customer.findOne({
+        where: { id: customerId, shopId: req.user.shopId },
+        transaction,
+        // Credit sales lock the customer so concurrent sales cannot both
+        // slip under the credit limit.
+        ...(isCredit ? { lock: transaction.LOCK.UPDATE } : {}),
+      });
       if (!customer) {
         throw httpError(404, 'Selected customer not found');
       }
+    }
+    if (isCredit && !customer) {
+      throw httpError(400, 'Select a customer to sell on credit');
     }
 
     let subtotal = 0;
@@ -67,8 +100,8 @@ exports.createSale = async (req, res, next) => {
 
     for (const item of items) {
       const quantity = Number(item.quantity);
-      if (!Number.isFinite(quantity) || quantity <= 0) {
-        throw Object.assign(new Error('Item quantity must be a positive number'), { status: 400 });
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw httpError(400, 'Item quantity must be a positive whole number');
       }
       // Row lock serialises concurrent sales of the same product so two
       // cashiers cannot both sell the last unit.
@@ -80,13 +113,17 @@ exports.createSale = async (req, res, next) => {
       if (!product) {
         throw httpError(404, `Product ${item.productId} not found`);
       }
-      if (Number(product.quantity || 0) < quantity) {
+      // Services (repairs, labour, fees) are not stock-tracked.
+      const isService = product.type === 'service';
+      if (!isService && Number(product.quantity || 0) < quantity) {
         throw httpError(409, `Insufficient stock for ${product.name} (only ${Number(product.quantity || 0)} left)`);
       }
       const lineTotal = parseFloat(product.sellPrice) * quantity;
       subtotal += lineTotal;
-      product.quantity = Number(product.quantity || 0) - quantity;
-      await product.save({ transaction });
+      if (!isService) {
+        product.quantity = Number(product.quantity || 0) - quantity;
+        await product.save({ transaction });
+      }
 
       itemRecords.push({ productId: product.id, quantity, price: product.sellPrice, costOfGoods: product.buyPrice || 0 });
     }
@@ -103,6 +140,39 @@ exports.createSale = async (req, res, next) => {
     const taxAmount = (afterDiscount * taxRate) / 100;
     const total = afterDiscount + taxAmount;
 
+    let creditAmount = 0;
+    let amountPaid = total;
+    let salePaymentSplits = paymentSplits || null;
+    if (isCredit) {
+      const deposit = roundMoney(Number(req.body.amountPaid || 0));
+      if (!Number.isFinite(deposit) || deposit < 0) {
+        throw httpError(400, 'Amount paid now must be 0 or more');
+      }
+      if (deposit >= roundMoney(total)) {
+        throw httpError(400, 'Amount paid covers the full total; use a normal payment method instead of credit');
+      }
+      creditAmount = roundMoney(total - deposit);
+      amountPaid = deposit;
+
+      if (customer.creditLimit != null) {
+        const outstanding = Number(
+          (await Sale.sum('balanceDue', { where: { shopId: req.user.shopId, customerId: customer.id }, transaction })) || 0
+        );
+        const limit = Number(customer.creditLimit);
+        if (outstanding + creditAmount > limit + 0.005) {
+          throw httpError(
+            409,
+            `Credit limit exceeded for ${customer.name}: owes ${outstanding.toFixed(2)}, limit ${limit.toFixed(2)}, this sale adds ${creditAmount.toFixed(2)}`
+          );
+        }
+      }
+
+      salePaymentSplits = [
+        ...(deposit > 0 ? [{ method: depositMethod, amount: deposit }] : []),
+        { method: 'Credit', amount: creditAmount },
+      ];
+    }
+
     const sale = await Sale.create(
       {
         total,
@@ -114,8 +184,11 @@ exports.createSale = async (req, res, next) => {
         customerId: customer ? customer.id : null,
         shopId: req.user.shopId,
         paymentMethod,
-        paymentSplits: paymentSplits || null,
+        paymentSplits: salePaymentSplits,
         currency: saleCurrency,
+        creditAmount,
+        balanceDue: creditAmount,
+        dueDate,
       },
       { transaction }
     );
@@ -124,7 +197,7 @@ exports.createSale = async (req, res, next) => {
     await SaleItem.bulkCreate(saleItems, { transaction });
 
     const receiptNumber = buildReceiptNumber(sale.id);
-    const receipt = await Receipt.create({ saleId: sale.id, receiptNumber, shopId: req.user.shopId }, { transaction });
+    await Receipt.create({ saleId: sale.id, receiptNumber, shopId: req.user.shopId }, { transaction });
 
     await transaction.commit();
 
@@ -135,12 +208,31 @@ exports.createSale = async (req, res, next) => {
         'CREATE',
         'SALE',
         sale.id,
-        { total, discount: discountAmount, taxAmount, paymentMethod, currency: saleCurrency, items: itemRecords.length },
+        {
+          total,
+          discount: discountAmount,
+          taxAmount,
+          paymentMethod,
+          currency: saleCurrency,
+          items: itemRecords.length,
+          ...(isCredit ? { creditAmount, customerId: customer.id } : {}),
+        },
         req
       );
     }
 
-    res.status(201).json({ saleId: sale.id, receipt: receiptNumber, total, discount: discountAmount, taxAmount, currency: saleCurrency });
+    res.status(201).json({
+      saleId: sale.id,
+      receipt: receiptNumber,
+      total,
+      discount: discountAmount,
+      taxAmount,
+      currency: saleCurrency,
+      amountPaid,
+      creditAmount,
+      balanceDue: creditAmount,
+      dueDate,
+    });
   } catch (error) {
     if (!transaction.finished) await transaction.rollback();
     next(error);
@@ -359,12 +451,22 @@ exports.createReturn = async (req, res, next) => {
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
-      if (product) {
+      if (product && product.type !== 'service') {
         product.quantity = Number(product.quantity || 0) + returnQty;
         await product.save({ transaction });
       }
 
       returnItems.push({ productId, quantity: returnQty, refundAmount, shopId: req.user.shopId });
+    }
+
+    // On a credit sale the refund first cancels what is still owed; only the
+    // remainder is handed back to the customer.
+    const owed = Number(sale.balanceDue || 0);
+    const creditReduction = roundMoney(Math.min(owed, totalRefund));
+    const cashRefund = roundMoney(totalRefund - creditReduction);
+    if (creditReduction > 0) {
+      sale.balanceDue = roundMoney(owed - creditReduction);
+      await sale.save({ transaction });
     }
 
     const saleReturn = await SaleReturn.create(
@@ -378,7 +480,7 @@ exports.createReturn = async (req, res, next) => {
     );
 
     await transaction.commit();
-    res.status(201).json({ returnId: saleReturn.id, totalRefund, message: 'Return processed successfully' });
+    res.status(201).json({ returnId: saleReturn.id, totalRefund, creditReduction, cashRefund, message: 'Return processed successfully' });
   } catch (error) {
     if (!transaction.finished) await transaction.rollback();
     next(error);

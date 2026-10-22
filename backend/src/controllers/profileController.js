@@ -11,6 +11,7 @@ const {
   SaleItem,
   SaleReturn,
   SaleReturnItem,
+  CreditPayment,
   Receipt,
   DayClosure,
   Expense,
@@ -270,6 +271,7 @@ exports.closeAccount = async (req, res, next) => {
       await SaleReturnItem.destroy({ where: { shopId }, transaction });
       await SaleReturn.destroy({ where: { shopId }, transaction });
       await Receipt.destroy({ where: { shopId }, transaction });
+      await CreditPayment.destroy({ where: { shopId }, transaction });
       await SaleItem.destroy({ where: { shopId }, transaction });
       await Sale.destroy({ where: { shopId }, transaction });
       await DayClosure.destroy({ where: { shopId }, transaction });

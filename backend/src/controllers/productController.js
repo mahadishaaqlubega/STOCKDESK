@@ -1,10 +1,28 @@
 const { Product, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
+const PRODUCT_TYPES = ['goods', 'service'];
+
+// Services are sold without a stock count, so their stock fields are pinned
+// to zero and can never trigger low-stock warnings.
+function applyTypeRules(fields) {
+  if (fields.type === undefined) return fields;
+  if (!PRODUCT_TYPES.includes(fields.type)) {
+    throw Object.assign(new Error('type must be "goods" or "service"'), { status: 400 });
+  }
+  if (fields.type === 'service') {
+    return { ...fields, quantity: 0, lowStock: 0 };
+  }
+  return fields;
+}
+
 exports.listProducts = async (req, res, next) => {
   try {
-    const { search, category } = req.query;
+    const { search, category, type } = req.query;
     const where = { shopId: req.user.shopId };
+    if (PRODUCT_TYPES.includes(type)) {
+      where.type = type;
+    }
 
     if (search) {
       where.name = { [Op.iLike]: `%${search}%` };
@@ -32,8 +50,9 @@ exports.getProduct = async (req, res, next) => {
 
 exports.createProduct = async (req, res, next) => {
   try {
-    const { name, sku, category, buyPrice, sellPrice, quantity, lowStock } = req.body;
-    const product = await Product.create({ name, sku: sku || null, category, buyPrice, sellPrice, quantity, lowStock, shopId: req.user.shopId });
+    const { name, sku, category, buyPrice, sellPrice, quantity, lowStock, type = 'goods' } = req.body;
+    const fields = applyTypeRules({ name, sku: sku || null, category, buyPrice, sellPrice, quantity, lowStock, type });
+    const product = await Product.create({ ...fields, shopId: req.user.shopId });
     res.status(201).json(product);
   } catch (error) {
     next(error);
@@ -47,13 +66,14 @@ exports.updateProduct = async (req, res, next) => {
 
     // Whitelist updatable fields — prevents mass-assignment of tenant-scoping
     // columns such as shopId/id from the request body.
-    const allowed = ['name', 'sku', 'category', 'buyPrice', 'sellPrice', 'quantity', 'lowStock'];
-    const updates = {};
+    const allowed = ['name', 'sku', 'category', 'buyPrice', 'sellPrice', 'quantity', 'lowStock', 'type'];
+    let updates = {};
     for (const field of allowed) {
       if (req.body[field] !== undefined) {
         updates[field] = req.body[field];
       }
     }
+    updates = applyTypeRules({ type: updates.type ?? product.type, ...updates });
     await product.update(updates);
     res.json(product);
   } catch (error) {
@@ -74,7 +94,7 @@ exports.deleteProduct = async (req, res, next) => {
 exports.lowStockAlerts = async (req, res, next) => {
   try {
     const products = await Product.findAll({
-      where: { shopId: req.user.shopId, quantity: { [Op.lte]: sequelize.col('lowStock') } },
+      where: { shopId: req.user.shopId, type: 'goods', quantity: { [Op.lte]: sequelize.col('lowStock') } },
     });
     res.json(products);
   } catch (error) {
@@ -97,7 +117,7 @@ exports.bulkRestockByCategory = async (req, res, next) => {
     }
 
     const items = await Product.findAll({
-      where: { shopId: req.user.shopId, category },
+      where: { shopId: req.user.shopId, category, type: 'goods' },
       transaction,
       lock: transaction.LOCK.UPDATE,
     });

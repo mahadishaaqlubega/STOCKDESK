@@ -1,8 +1,8 @@
 const { Customer, Sale } = require('../models');
 const { Op, fn, col } = require('sequelize');
 
-function normalizeCustomerPayload(body) {
-  return {
+function normalizeCustomerPayload(body, { allowCreditLimit = false } = {}) {
+  const payload = {
     name: String(body.name || '').trim(),
     phone: body.phone ? String(body.phone).trim() : null,
     email: body.email ? String(body.email).trim().toLowerCase() : null,
@@ -10,6 +10,21 @@ function normalizeCustomerPayload(body) {
     notes: body.notes ? String(body.notes).trim() : null,
     isActive: body.isActive !== false,
   };
+
+  // Only admins may set how much a customer can owe; empty means no limit.
+  if (allowCreditLimit && body.creditLimit !== undefined) {
+    if (body.creditLimit === null || body.creditLimit === '') {
+      payload.creditLimit = null;
+    } else {
+      const limit = Number(body.creditLimit);
+      if (!Number.isFinite(limit) || limit < 0) {
+        throw Object.assign(new Error('Credit limit must be 0 or more'), { status: 400 });
+      }
+      payload.creditLimit = limit;
+    }
+  }
+
+  return payload;
 }
 
 exports.listCustomers = async (req, res, next) => {
@@ -28,7 +43,10 @@ exports.listCustomers = async (req, res, next) => {
     const customers = await Customer.findAll({
       where,
       attributes: {
-        include: [[fn('COUNT', col('sales.id')), 'salesCount']],
+        include: [
+          [fn('COUNT', col('sales.id')), 'salesCount'],
+          [fn('COALESCE', fn('SUM', col('sales.balanceDue')), 0), 'balance'],
+        ],
       },
       include: [
         {
@@ -63,7 +81,7 @@ exports.getCustomer = async (req, res, next) => {
 
 exports.createCustomer = async (req, res, next) => {
   try {
-    const payload = normalizeCustomerPayload(req.body);
+    const payload = normalizeCustomerPayload(req.body, { allowCreditLimit: req.user.role === 'Admin' });
     if (!payload.name) {
       return res.status(400).json({ message: 'Customer name is required' });
     }
@@ -86,7 +104,7 @@ exports.updateCustomer = async (req, res, next) => {
       return res.status(404).json({ message: 'Customer not found' });
     }
 
-    const payload = normalizeCustomerPayload(req.body);
+    const payload = normalizeCustomerPayload(req.body, { allowCreditLimit: req.user.role === 'Admin' });
     if (!payload.name) {
       return res.status(400).json({ message: 'Customer name is required' });
     }

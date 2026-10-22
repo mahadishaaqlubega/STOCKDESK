@@ -15,6 +15,7 @@ const expenseRoutes = require('./routes/expenses');
 const auditRoutes = require('./routes/audit');
 const stockReconciliationRoutes = require('./routes/stockReconciliation');
 const profileRoutes = require('./routes/profile');
+const creditRoutes = require('./routes/credit');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -111,6 +112,16 @@ const authLimiter = rateLimit({
   message: { message: 'Too many requests. Please wait before trying again.' },
 });
 
+// server.js sets dbReady=false until migrations finish. (Left undefined in
+// tests, which use the app without a database.)
+app.use('/api', (req, res, next) => {
+  if (app.get('dbReady') === false) {
+    res.set('Retry-After', '5');
+    return res.status(503).json({ message: 'StockDesk is starting up. Please try again in a moment.', status: 'STARTING' });
+  }
+  next();
+});
+
 app.get('/api', (req, res) => {
   res.json({ message: 'Backend is running', status: 'OK' });
 });
@@ -121,12 +132,18 @@ app.post('/api/auth/login', loginLimiter);
 app.post('/api/auth/forgot-password', authLimiter);
 app.post('/api/auth/resend-verification', authLimiter);
 
-// CRUD rate limiter — protects all data endpoints
+// CRUD rate limiter — protects all data endpoints. Keyed per session token
+// (falling back to IP) because several tills in one shop usually share a
+// single public IP and would otherwise exhaust one shared budget.
 const crudLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 60,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    const auth = req.headers.authorization || '';
+    return auth.startsWith('Bearer ') ? `token:${auth.slice(7)}` : `ip:${req.ip}`;
+  },
   message: { message: 'Too many requests. Please slow down.' },
 });
 
@@ -137,6 +154,7 @@ app.use('/api/sales', crudLimiter);
 app.use('/api/expenses', crudLimiter);
 app.use('/api/audit', crudLimiter);
 app.use('/api/stock-reconciliation', crudLimiter);
+app.use('/api/credit', crudLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -152,6 +170,7 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/stock-reconciliation', stockReconciliationRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/credit', creditRoutes);
 
 app.use(errorHandler);
 

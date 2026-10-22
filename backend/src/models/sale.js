@@ -28,7 +28,7 @@ Sale.init(
       allowNull: true,
     },
     paymentMethod: {
-      type: DataTypes.ENUM('Cash', 'Card', 'Mobile Money', 'Split'),
+      type: DataTypes.ENUM('Cash', 'Card', 'Mobile Money', 'Split', 'Credit'),
       allowNull: false,
     },
     paymentSplits: {
@@ -62,6 +62,22 @@ Sale.init(
       type: DataTypes.ENUM('percentage', 'fixed'),
       allowNull: false,
       defaultValue: 'fixed',
+    },
+    creditAmount: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0,
+      comment: 'Amount put on credit when the sale was made (never changes)',
+    },
+    balanceDue: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0,
+      comment: 'Amount the customer still owes on this sale',
+    },
+    dueDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
     },
     shopId: {
       type: DataTypes.INTEGER,

@@ -24,6 +24,9 @@ exports.createReconciliation = async (req, res) => {
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
+    if (product.type === 'service') {
+      return res.status(400).json({ message: 'Services do not hold stock and cannot be counted' });
+    }
 
     const systemQuantity = product.quantity;
     const variance = physicalQuantity - systemQuantity;
@@ -90,7 +93,7 @@ exports.createReconciliation = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating reconciliation:', error);
-    res.status(500).json({ message: 'Failed to record reconciliation', error: error.message });
+    res.status(500).json({ message: 'Failed to record reconciliation' });
   }
 };
 
@@ -136,7 +139,7 @@ exports.getReconciliations = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching reconciliations:', error);
-    res.status(500).json({ message: 'Failed to fetch reconciliations', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch reconciliations' });
   }
 };
 
@@ -178,7 +181,7 @@ exports.getReconciliationSummary = async (req, res) => {
     res.json(summary);
   } catch (error) {
     console.error('Error fetching reconciliation summary:', error);
-    res.status(500).json({ message: 'Failed to fetch reconciliation summary', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch reconciliation summary' });
   }
 };
 
@@ -188,7 +191,7 @@ exports.getProductsForReconciliation = async (req, res) => {
     const { shopId } = req.user;
     const { search } = req.query;
 
-    const where = { shopId, isActive: true };
+    const where = { shopId, isActive: true, type: 'goods' };
 
     if (search) {
       where[Op.or] = [
@@ -207,6 +210,6 @@ exports.getProductsForReconciliation = async (req, res) => {
     res.json(products);
   } catch (error) {
     console.error('Error fetching products:', error);
-    res.status(500).json({ message: 'Failed to fetch products', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch products' });
   }
 };

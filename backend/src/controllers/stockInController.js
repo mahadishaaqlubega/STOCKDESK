@@ -12,6 +12,10 @@ exports.restockProduct = async (req, res, next) => {
       await transaction.rollback();
       return res.status(404).json({ message: 'Product not found' });
     }
+    if (product.type === 'service') {
+      await transaction.rollback();
+      return res.status(400).json({ message: 'Services do not hold stock and cannot be restocked' });
+    }
 
     const { quantity, costPrice, supplier, notes } = req.body;
     if (!quantity || Number(quantity) <= 0) {

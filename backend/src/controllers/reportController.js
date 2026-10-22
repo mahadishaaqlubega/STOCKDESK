@@ -1,5 +1,5 @@
 const { Sale, SaleItem, Product, User, Expense } = require('../models');
-const { fn, col, Op } = require('sequelize');
+const { fn, col, Op, literal } = require('sequelize');
 const { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getMetricsForRange } = require('../utils/businessMetrics');
 const sequelize = require('../config/db');
 
@@ -101,7 +101,7 @@ exports.dashboardStats = async (req, res, next) => {
            COALESCE(SUM("quantity"), 0)::int AS "totalStock",
            COUNT(*) FILTER (WHERE "quantity" < GREATEST(5, COALESCE("lowStock", 5)))::int AS "lowStockCount"
          FROM "products"
-         WHERE "shopId" = :shopId`,
+         WHERE "shopId" = :shopId AND COALESCE("type", 'goods') = 'goods'`,
         { replacements: { shopId }, type: sequelize.QueryTypes.SELECT }
       )),
       safe(() => sequelize.query(
@@ -207,7 +207,7 @@ exports.rangeReport = async (req, res, next) => {
       }),
       SaleItem.findAll({
         where: { shopId: req.user.shopId },
-        attributes: ['productId', [fn('SUM', col('SaleItem.quantity')), 'unitsSold'], [fn('SUM', col('SaleItem.price')), 'revenue']],
+        attributes: ['productId', [fn('SUM', col('SaleItem.quantity')), 'unitsSold'], [fn('SUM', literal('"SaleItem"."price" * "SaleItem"."quantity"')), 'revenue']],
         include: [
           { model: Sale, attributes: [], where: { shopId: req.user.shopId, createdAt: { [Op.gte]: rangeStart, [Op.lte]: rangeEnd } }, required: true },
           { model: Product, attributes: ['id', 'name', 'buyPrice'], required: false },

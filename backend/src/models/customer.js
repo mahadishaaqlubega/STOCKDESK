@@ -30,6 +30,11 @@ Customer.init(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    creditLimit: {
+      // Maximum total the customer may owe. NULL means no limit.
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
     isActive: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

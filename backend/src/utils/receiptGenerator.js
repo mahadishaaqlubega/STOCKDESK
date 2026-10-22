@@ -40,9 +40,13 @@ exports.generateReceiptPdf = async (stream, sale, settings) => {
   });
 
   const discount = parseFloat(sale.discount || 0);
-  const vatRate = parseFloat(settings.vat || 0) / 100;
-  const vatAmount = vatRate > 0 ? (parseFloat(sale.total) * vatRate / (1 + vatRate)) : 0;
+  // Use the tax actually charged on the sale, not today's settings.
+  const vatPercent = parseFloat(sale.tax != null ? sale.tax : settings.vat || 0);
+  const vatAmount = parseFloat(sale.taxAmount || 0);
   const total = parseFloat(sale.total || 0);
+  const creditAmount = parseFloat(sale.creditAmount || 0);
+  const balanceDue = parseFloat(sale.balanceDue || 0);
+  const isCreditSale = creditAmount > 0;
 
   const money = (value) => `${currency} ${parseFloat(value || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -167,7 +171,7 @@ exports.generateReceiptPdf = async (stream, sale, settings) => {
   const notesBodyWidth = notesWidth - 36;
   const notesBodyHeight = doc.heightOfString(notesText, { width: notesBodyWidth, lineGap: 2 }) + doc.heightOfString(footerText, { width: notesBodyWidth, lineGap: 2 }) + 28;
   const notesHeight = Math.max(118, notesBodyHeight + 40);
-  const summaryHeight = 184;
+  const summaryHeight = isCreditSale ? 240 : 184;
   const sectionHeight = Math.max(notesHeight, summaryHeight);
 
   ensureSpace(sectionHeight + 24, 'summary');
@@ -219,8 +223,12 @@ exports.generateReceiptPdf = async (stream, sale, settings) => {
 
   drawSummaryRow('Subtotal', money(subtotal), { color: dark });
   drawSummaryRow('Discount', `${discount > 0 ? '- ' : ''}${money(discount)}`, { color: discount > 0 ? '#C81E1E' : '#9AA5B1' });
-  drawSummaryRow(`VAT (${parseFloat(settings.vat || 0).toFixed(2)}%)`, money(vatAmount), { color: vatAmount > 0 ? dark : '#9AA5B1' });
+  drawSummaryRow(`VAT (${vatPercent.toFixed(2)}%)`, money(vatAmount), { color: vatAmount > 0 ? dark : '#9AA5B1' });
   drawSummaryRow('Total', money(total), { bold: true, size: 15, highlight: true });
+  if (isCreditSale) {
+    drawSummaryRow('Paid', money(total - balanceDue), { color: dark });
+    drawSummaryRow('Balance due', money(balanceDue), { bold: true, color: balanceDue > 0 ? '#C81E1E' : dark });
+  }
 
   doc.end();
 };

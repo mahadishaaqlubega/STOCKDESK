@@ -11,6 +11,7 @@ const {
   SaleItem,
   SaleReturn,
   SaleReturnItem,
+  CreditPayment,
   Setting,
   Shop,
   StockIn,
@@ -406,6 +407,7 @@ exports.deleteShop = async (req, res, next) => {
       await SaleReturnItem.destroy({ where: { shopId }, transaction: t });
       await SaleReturn.destroy({ where: { shopId }, transaction: t });
       await Receipt.destroy({ where: { shopId }, transaction: t });
+      await CreditPayment.destroy({ where: { shopId }, transaction: t });
       await SaleItem.destroy({ where: { shopId }, transaction: t });
       await Sale.destroy({ where: { shopId }, transaction: t });
       // Delete records that reference Products and Users before them
