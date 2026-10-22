@@ -1,6 +1,24 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const { User, Shop, Setting, Product, Sale, Customer, PendingSignup } = require('../models');
+const {
+  User,
+  Shop,
+  Setting,
+  Product,
+  Sale,
+  Customer,
+  PendingSignup,
+  SaleItem,
+  SaleReturn,
+  SaleReturnItem,
+  Receipt,
+  DayClosure,
+  Expense,
+  StockIn,
+  StockReconciliation,
+  Audit,
+  sequelize,
+} = require('../models');
 const { Op } = require('sequelize');
 const { sendVerificationEmail } = require('../services/emailService');
 
@@ -211,6 +229,68 @@ exports.updateProfile = async (req, res, next) => {
 
     res.json(profile);
   } catch (error) {
+    next(error);
+  }
+};
+
+// Delete the caller's own account after verifying their password and a
+// confirmation flag. If the account is the last user of a shop, the shop and
+// its data are removed as well so no orphaned tenant remains.
+exports.closeAccount = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const user = await User.findByPk(req.user.id, { transaction });
+    if (!user) {
+      await transaction.rollback();
+      return res.status(404).json({ message: 'Account not found' });
+    }
+
+    const { currentPassword, confirm } = req.body;
+    if (!currentPassword || confirm !== true) {
+      await transaction.rollback();
+      return res.status(400).json({ message: 'Password and confirmation are required to close the account.' });
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) {
+      await transaction.rollback();
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    // Only the last remaining user of a shop triggers shop cleanup. Other
+    // staff/team accounts are left intact.
+    let deleteShop = false;
+    if (user.shopId) {
+      const remainingUsers = await User.count({ where: { shopId: user.shopId, id: { [require('sequelize').Op.ne]: user.id } }, transaction });
+      deleteShop = remainingUsers === 0;
+    }
+
+    if (deleteShop) {
+      const shopId = user.shopId;
+      await SaleReturnItem.destroy({ where: { shopId }, transaction });
+      await SaleReturn.destroy({ where: { shopId }, transaction });
+      await Receipt.destroy({ where: { shopId }, transaction });
+      await SaleItem.destroy({ where: { shopId }, transaction });
+      await Sale.destroy({ where: { shopId }, transaction });
+      await DayClosure.destroy({ where: { shopId }, transaction });
+      await StockReconciliation.destroy({ where: { shopId }, transaction });
+      await StockIn.destroy({ where: { shopId }, transaction });
+      await Audit.destroy({ where: { shopId }, transaction });
+      await Expense.destroy({ where: { shopId }, transaction });
+      await Product.destroy({ where: { shopId }, transaction });
+      await Customer.destroy({ where: { shopId }, transaction });
+      await Setting.destroy({ where: { shopId }, transaction });
+      await Shop.destroy({ where: { id: shopId }, transaction });
+    }
+
+    await user.destroy({ transaction });
+    await transaction.commit();
+
+    res.json({ message: 'Your account has been closed.' });
+  } catch (error) {
+    if (!transaction.finished) {
+      await transaction.rollback();
+    }
     next(error);
   }
 };

@@ -111,7 +111,7 @@ router.post('/me/whatsapp/verify', authorize(['Admin']), verifyWhatsappLimiter, 
     res.json({ success: true, sid: result.sid || result.messageSid || null });
   } catch (err) {
     console.error('Verify whatsapp error:', err);
-    res.status(500).json({ error: 'Verification failed', message: err.message });
+    res.status(500).json({ error: 'Verification failed' });
   }
 });
 

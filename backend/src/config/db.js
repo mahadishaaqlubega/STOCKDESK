@@ -35,9 +35,18 @@ const useSsl =
   ['true', 'require', '1'].includes(String(process.env.DATABASE_SSL || '').toLowerCase()) ||
   Boolean(connectionString);
 
-const sslRejectUnauthorized = !['false', '0'].includes(
-  String(process.env.DB_SSL_REJECT_UNAUTHORIZED || '').toLowerCase()
-);
+// Certificate validation for Postgres over TLS. Managed providers (e.g.
+// Railway) present cert chains that Node does not trust by default, so we
+// accept self-signed/intermediate certs unless the operator explicitly opts
+// into strict validation via DB_SSL_REJECT_UNAUTHORIZED=true.
+const sslRejectUnauthorized =
+  String(process.env.DB_SSL_REJECT_UNAUTHORIZED || '').toLowerCase() === 'true';
+
+if (!sslRejectUnauthorized && useSsl) {
+  console.log(
+    'Database config: TLS certificate validation is relaxed (DB_SSL_REJECT_UNAUTHORIZED not set to true).'
+  );
+}
 
 const sequelize = connectionString
   ? new Sequelize(connectionString, {

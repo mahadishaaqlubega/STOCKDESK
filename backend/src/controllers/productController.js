@@ -45,7 +45,15 @@ exports.updateProduct = async (req, res, next) => {
     const product = await Product.findOne({ where: { id: req.params.id, shopId: req.user.shopId } });
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
-    const updates = req.body;
+    // Whitelist updatable fields — prevents mass-assignment of tenant-scoping
+    // columns such as shopId/id from the request body.
+    const allowed = ['name', 'sku', 'category', 'buyPrice', 'sellPrice', 'quantity', 'lowStock'];
+    const updates = {};
+    for (const field of allowed) {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    }
     await product.update(updates);
     res.json(product);
   } catch (error) {

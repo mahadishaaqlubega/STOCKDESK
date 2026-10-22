@@ -22,6 +22,29 @@ const {
 const ACTIVITY_WINDOW_HOURS = 24;
 const TREND_DAYS = 14;
 
+// Map of shopId -> earliest Admin account, fetched in a single query.
+async function fetchShopOwners() {
+  const admins = await User.findAll({
+    where: { role: 'Admin', shopId: { [Op.not]: null } },
+    attributes: ['id', 'name', 'username', 'email', 'isVerified', 'createdAt', 'shopId'],
+    order: [['createdAt', 'ASC']],
+  });
+  const owners = new Map();
+  for (const admin of admins) {
+    if (!owners.has(admin.shopId)) {
+      owners.set(admin.shopId, {
+        id: admin.id,
+        name: admin.name,
+        username: admin.username,
+        email: admin.email,
+        isVerified: admin.isVerified,
+        createdAt: admin.createdAt,
+      });
+    }
+  }
+  return owners;
+}
+
 exports.getAllShops = async (req, res, next) => {
   try {
     const shops = await Shop.findAll({
@@ -30,19 +53,22 @@ exports.getAllShops = async (req, res, next) => {
       order: [['createdAt', 'DESC']],
     });
 
-    const shopMetricsRows = await sequelize.query(
-      `SELECT
-         s.id AS "shopId",
-         COALESCE(u.cnt, 0) AS "userCount",
-         COALESCE(p.cnt, 0) AS "productCount",
-         COALESCE(sale.cnt, 0) AS "saleCount"
-       FROM "shops" s
-       LEFT JOIN (SELECT "shopId", COUNT(*) AS cnt FROM "users" GROUP BY "shopId") u ON u."shopId" = s.id
-       LEFT JOIN (SELECT "shopId", COUNT(*) AS cnt FROM "products" GROUP BY "shopId") p ON p."shopId" = s.id
-       LEFT JOIN (SELECT "shopId", COUNT(*) AS cnt FROM "sales" GROUP BY "shopId") sale ON sale."shopId" = s.id
-       ORDER BY s."createdAt" DESC`,
-      { type: sequelize.QueryTypes.SELECT }
-    );
+    const [shopMetricsRows, owners] = await Promise.all([
+      sequelize.query(
+        `SELECT
+           s.id AS "shopId",
+           COALESCE(u.cnt, 0) AS "userCount",
+           COALESCE(p.cnt, 0) AS "productCount",
+           COALESCE(sale.cnt, 0) AS "saleCount"
+         FROM "shops" s
+         LEFT JOIN (SELECT "shopId", COUNT(*) AS cnt FROM "users" GROUP BY "shopId") u ON u."shopId" = s.id
+         LEFT JOIN (SELECT "shopId", COUNT(*) AS cnt FROM "products" GROUP BY "shopId") p ON p."shopId" = s.id
+         LEFT JOIN (SELECT "shopId", COUNT(*) AS cnt FROM "sales" GROUP BY "shopId") sale ON sale."shopId" = s.id
+         ORDER BY s."createdAt" DESC`,
+        { type: sequelize.QueryTypes.SELECT }
+      ),
+      fetchShopOwners(),
+    ]);
 
     const metricsMap = new Map(shopMetricsRows.map((m) => [m.shopId, m]));
     const results = shops.map((shop) => {
@@ -54,6 +80,7 @@ exports.getAllShops = async (req, res, next) => {
         isActive: shop.isActive,
         createdAt: shop.createdAt,
         currency: shop.settings?.currency || 'USD',
+        owner: owners.get(shop.id) || null,
         metrics: { userCount: Number(m.userCount) || 0, productCount: Number(m.productCount) || 0, saleCount: Number(m.saleCount) || 0 },
       };
     });
@@ -71,7 +98,7 @@ exports.getOverview = async (req, res, next) => {
     todayStart.setHours(0, 0, 0, 0);
     const activityCutoff = new Date(now.getTime() - ACTIVITY_WINDOW_HOURS * 60 * 60 * 1000);
 
-    const [shops, shopMetrics] = await Promise.all([
+    const [shops, shopMetrics, owners] = await Promise.all([
       Shop.findAll({
         attributes: ['id', 'name', 'slug', 'isActive', 'createdAt'],
         include: [{ model: Setting, as: 'settings', attributes: ['currency'], required: false }],
@@ -103,6 +130,7 @@ exports.getOverview = async (req, res, next) => {
          ORDER BY s."createdAt" DESC`,
         { type: sequelize.QueryTypes.SELECT }
       ),
+      fetchShopOwners(),
     ]);
 
     const metricsMap = new Map(shopMetrics.map((m) => [m.shopId, m]));
@@ -116,7 +144,7 @@ exports.getOverview = async (req, res, next) => {
         isActive: shop.isActive,
         createdAt: shop.createdAt,
         currency: shop.settings?.currency || 'USD',
-        owner: null,
+        owner: owners.get(shop.id) || null,
         metrics: { userCount: Number(m.userCount) || 0, productCount: Number(m.productCount) || 0, saleCount: Number(m.saleCount) || 0 },
         activity: {
           lastLoginAt: m.lastSaleAt || null,

@@ -1,5 +1,5 @@
 const { Sale, SaleItem, Product, User, Expense } = require('../models');
-const { fn, col, Op, literal } = require('sequelize');
+const { fn, col, Op } = require('sequelize');
 const { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getMetricsForRange } = require('../utils/businessMetrics');
 const sequelize = require('../config/db');
 

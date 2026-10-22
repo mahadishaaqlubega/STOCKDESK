@@ -4,8 +4,8 @@ const { authenticate } = require('../middleware/auth');
 const reportController = require('../controllers/reportController');
 
 router.use(authenticate);
-router.get('/summary', reportController.summary);
 router.get('/dashboard-stats', reportController.dashboardStats);
+router.get('/summary', reportController.summary);
 router.get('/daily', reportController.dailySales);
 router.get('/monthly', reportController.monthlySales);
 router.get('/best-selling', reportController.bestSelling);

@@ -2,6 +2,7 @@ const { Sale, SaleItem, Product, Receipt, User, Setting, Shop, Customer, DayClos
 const { generateReceiptPdf } = require('../utils/receiptGenerator');
 const { startOfDay, endOfDay, getMetricsForRange } = require('../utils/businessMetrics');
 const { Op } = require('sequelize');
+const auditController = require('./auditController');
 
 function buildReceiptNumber(id) {
   return `SD-${String(id).padStart(6, '0')}`;
@@ -13,6 +14,34 @@ exports.createSale = async (req, res, next) => {
     const { items, paymentMethod, paymentSplits, currency, discount = 0, discountType = 'fixed', customerId = null } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       throw new Error('Sale must include at least one item');
+    }
+
+    // Validate payment method, discount and split payments before any writes.
+    const allowedPaymentMethods = ['Cash', 'Card', 'Mobile Money', 'Split'];
+    if (!allowedPaymentMethods.includes(paymentMethod)) {
+      throw Object.assign(new Error('Invalid payment method'), { status: 400 });
+    }
+
+    const discountValue = Number(discount);
+    if (!Number.isFinite(discountValue) || discountValue < 0) {
+      throw Object.assign(new Error('Discount must be a non-negative number'), { status: 400 });
+    }
+    if (!['fixed', 'percentage'].includes(discountType)) {
+      throw Object.assign(new Error('discountType must be "fixed" or "percentage"'), { status: 400 });
+    }
+    const discountMode = discountType === 'percentage' ? 'percentage' : 'fixed';
+
+    if (paymentSplits != null) {
+      if (!Array.isArray(paymentSplits) || paymentSplits.length === 0) {
+        throw Object.assign(new Error('paymentSplits must be a non-empty array'), { status: 400 });
+      }
+      for (const split of paymentSplits) {
+        const splitMethod = split && split.method;
+        const splitAmount = Number(split && split.amount);
+        if (!allowedPaymentMethods.includes(splitMethod) || !Number.isFinite(splitAmount) || splitAmount <= 0) {
+          throw Object.assign(new Error('Each payment split must have a valid method and a positive amount'), { status: 400 });
+        }
+      }
     }
 
     const settings = await Setting.findOne({
@@ -33,26 +62,30 @@ exports.createSale = async (req, res, next) => {
     const itemRecords = [];
 
     for (const item of items) {
+      const quantity = Number(item.quantity);
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        throw Object.assign(new Error('Item quantity must be a positive number'), { status: 400 });
+      }
       const product = await Product.findOne({ where: { id: item.productId, shopId: req.user.shopId }, transaction });
       if (!product) {
         throw new Error(`Product ${item.productId} not found`);
       }
-      if (product.quantity < item.quantity) {
+      if (Number(product.quantity || 0) < quantity) {
         throw new Error(`Insufficient stock for ${product.name}`);
       }
-      const lineTotal = parseFloat(product.sellPrice) * item.quantity;
+      const lineTotal = parseFloat(product.sellPrice) * quantity;
       subtotal += lineTotal;
-      product.quantity -= item.quantity;
+      product.quantity = Number(product.quantity || 0) - quantity;
       await product.save({ transaction });
 
-      itemRecords.push({ productId: product.id, quantity: item.quantity, price: product.sellPrice, costOfGoods: product.buyPrice || 0 });
+      itemRecords.push({ productId: product.id, quantity, price: product.sellPrice, costOfGoods: product.buyPrice || 0 });
     }
 
     let discountAmount = 0;
-    if (discountType === 'percentage') {
-      discountAmount = (subtotal * discount) / 100;
+    if (discountMode === 'percentage') {
+      discountAmount = (subtotal * discountValue) / 100;
     } else {
-      discountAmount = discount;
+      discountAmount = discountValue;
     }
 
     const afterDiscount = Math.max(0, subtotal - discountAmount);
@@ -64,7 +97,7 @@ exports.createSale = async (req, res, next) => {
       {
         total,
         discount: discountAmount,
-        discountType,
+        discountType: discountMode,
         tax: taxRate,
         taxAmount,
         cashierId: req.user.id,
@@ -84,6 +117,18 @@ exports.createSale = async (req, res, next) => {
     const receipt = await Receipt.create({ saleId: sale.id, receiptNumber, shopId: req.user.shopId }, { transaction });
 
     await transaction.commit();
+
+    if (req.user.shopId) {
+      await auditController.logAction(
+        req.user.id,
+        req.user.shopId,
+        'CREATE',
+        'SALE',
+        sale.id,
+        { total, discount: discountAmount, taxAmount, paymentMethod, currency: saleCurrency, items: itemRecords.length },
+        req
+      );
+    }
 
     res.status(201).json({ saleId: sale.id, receipt: receiptNumber, total, discount: discountAmount, taxAmount, currency: saleCurrency });
   } catch (error) {
@@ -252,20 +297,24 @@ exports.createReturn = async (req, res, next) => {
     for (const item of items) {
       const saleItem = sale.items.find((si) => si.productId === item.productId);
       if (!saleItem) return res.status(400).json({ message: `Product ${item.productId} not in original sale` });
-      if (item.quantity > saleItem.quantity) {
+      const returnQty = Number(item.quantity);
+      if (!Number.isFinite(returnQty) || returnQty <= 0) {
+        return res.status(400).json({ message: `Return quantity must be a positive number for product ${item.productId}` });
+      }
+      if (returnQty > Number(saleItem.quantity)) {
         return res.status(400).json({ message: `Cannot return more than sold for product ${item.productId}` });
       }
-      const refundAmount = parseFloat(saleItem.price) * item.quantity;
+      const refundAmount = parseFloat(saleItem.price) * returnQty;
       totalRefund += refundAmount;
 
       // Restore stock
       const product = await Product.findByPk(item.productId, { transaction });
       if (product) {
-        product.quantity += item.quantity;
+        product.quantity = Number(product.quantity || 0) + returnQty;
         await product.save({ transaction });
       }
 
-      returnItems.push({ productId: item.productId, quantity: item.quantity, refundAmount, shopId: req.user.shopId });
+      returnItems.push({ productId: item.productId, quantity: returnQty, refundAmount, shopId: req.user.shopId });
     }
 
     const saleReturn = await SaleReturn.create(

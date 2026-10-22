@@ -6,6 +6,7 @@ const { Op } = require('sequelize');
 const { normalizeUsername } = require('../utils/username');
 const { generateUniqueShopSlug } = require('../utils/shop');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
+const auditController = require('./auditController');
 
 function maskEmail(email) {
   const [local, domain] = email.split('@');
@@ -88,6 +89,7 @@ exports.login = async (req, res, next) => {
       // sign-in so the admin can add/verify their email from the Profile page.
       // New accounts never exist unverified (they are created only after the
       // verification link is clicked), so no new shop can sign in this way.
+      await auditController.logAction(user.id, user.shopId, 'LOGIN', 'USER', user.id, {}, req);
       return res.status(200).json({
         token: signToken(user),
         user: {
@@ -108,6 +110,8 @@ exports.login = async (req, res, next) => {
     }
 
     const token = signToken(user);
+
+    await auditController.logAction(user.id, user.shopId, 'LOGIN', 'USER', user.id, {}, req);
 
     res.json({
       token,
