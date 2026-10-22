@@ -1,10 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useRef } from 'react';
+import { currencyDecimals } from '../../utils/format';
 
 /**
- * POS Receipt Component
- * Fast, on-screen receipt optimized for thermal printing
- * Simple layout with monospace font, 80mm width simulation
+ * Sales receipt.
+ *
+ * One HTML document is generated per sale and used both for the on-screen
+ * preview (an iframe) and for printing (printing that same iframe), so what
+ * the cashier sees is exactly what comes out of the printer. The layout is
+ * monochrome and sized for 80mm thermal paper; it also prints cleanly on A4.
  */
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -14,478 +19,217 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function formatMoneyValue(value) {
-  return Number.parseFloat(value || 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+function amount(currency, value) {
+  const decimals = currencyDecimals(currency);
+  return Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-function formatMoney(currency, value) {
-  return `${currency} ${formatMoneyValue(value)}`;
+function formatDueDate(value) {
+  if (!value) return '';
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+export function buildReceiptHtml(sale, settings, cashierName) {
+  const currency = sale.currency || settings?.currency || 'UGX';
+  const money = (value) => amount(currency, value);
+  const shopName = settings?.shop?.name || settings?.shopName || 'StockDesk';
+  const createdAt = new Date(sale.createdAt);
+  const receiptNumber = sale.receipt?.receiptNumber || `SD-${String(sale.id).padStart(6, '0')}`;
+
+  const items = (sale.items || []).map((item) => ({
+    name: item.Product?.name || item.name || 'Item',
+    quantity: Number(item.quantity || 0),
+    price: Number(item.price || 0),
+  }));
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const units = items.reduce((sum, item) => sum + item.quantity, 0);
+  const discount = Number(sale.discount || 0);
+  const taxAmount = Number(sale.taxAmount || 0);
+  const taxRate = Number(sale.tax != null ? sale.tax : settings?.vat || 0);
+  const total = Number(sale.total || 0);
+  const balanceDue = Number(sale.balanceDue || 0);
+  const isCredit = Number(sale.creditAmount || 0) > 0;
+  const customer = sale.customer && sale.customer.name !== 'Walk-in Customer' ? sale.customer : null;
+  const splits = Array.isArray(sale.paymentSplits) ? sale.paymentSplits.filter((split) => Number(split.amount) > 0) : [];
+
+  const row = (label, value, cls = '') => `<div class="row ${cls}"><span>${label}</span><span class="n">${value}</span></div>`;
+
+  const itemsHtml = items
+    .map(
+      (item) => `
+        <div class="item">
+          <div class="item-name">${escapeHtml(item.name)}</div>
+          <div class="row sub"><span>${item.quantity} × ${money(item.price)}</span><span class="n">${money(item.price * item.quantity)}</span></div>
+        </div>`
+    )
+    .join('');
+
+  const paymentHtml = isCredit
+    ? `
+      ${splits.filter((s) => s.method !== 'Credit').map((s) => row(`Paid (${escapeHtml(s.method)})`, money(s.amount))).join('') || row('Paid', money(total - balanceDue))}
+      <div class="due">
+        <div class="row"><span>BALANCE DUE</span><span class="n">${currency} ${money(balanceDue)}</span></div>
+        ${sale.dueDate ? `<div class="due-date">Please pay by ${escapeHtml(formatDueDate(sale.dueDate))}</div>` : ''}
+      </div>`
+    : sale.paymentMethod === 'Split' && splits.length
+      ? splits.map((s) => row(escapeHtml(s.method), money(s.amount))).join('')
+      : row('Paid by', escapeHtml(sale.paymentMethod || '—'));
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Receipt ${escapeHtml(receiptNumber)}</title>
+<style>
+  @page { size: 80mm auto; margin: 4mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; color: #000; }
+  body {
+    font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif;
+    font-size: 12px;
+    line-height: 1.4;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .paper { width: 72mm; margin: 0 auto; padding: 14px 2px 18px; }
+  .center { text-align: center; }
+  .logo { max-width: 34mm; max-height: 18mm; object-fit: contain; display: block; margin: 0 auto 8px; }
+  .shop { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .muted { color: #444; font-size: 11px; }
+  .note { margin-top: 6px; font-size: 11px; color: #222; }
+  hr { border: 0; border-top: 1px dashed #000; margin: 10px 0; }
+  hr.solid { border-top: 1px solid #000; }
+  .row { display: flex; justify-content: space-between; gap: 8px; }
+  .row > span:first-child { min-width: 0; }
+  .n { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+  .meta .row { font-size: 11px; padding: 1px 0; }
+  .meta .row > span:first-child { color: #444; }
+  .item { padding: 4px 0; }
+  .item-name { font-weight: 600; word-break: break-word; }
+  .sub { color: #333; font-size: 11px; }
+  .totals .row { padding: 2px 0; }
+  .grand { font-size: 16px; font-weight: 700; padding: 6px 0 !important; }
+  .due { border: 1.5px solid #000; border-radius: 4px; padding: 6px 8px; margin-top: 6px; font-weight: 700; }
+  .due-date { font-weight: 500; font-size: 11px; margin-top: 2px; }
+  .thanks { font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .powered { margin-top: 10px; font-size: 9px; color: #666; letter-spacing: 0.04em; }
+  @media screen { body { padding: 8px 0; } }
+</style>
+</head>
+<body>
+  <main class="paper">
+    <header class="center">
+      ${settings?.shopLogoUrl ? `<img class="logo" src="${escapeHtml(settings.shopLogoUrl)}" alt="" />` : ''}
+      <div class="shop">${escapeHtml(shopName)}</div>
+      ${settings?.address ? `<div class="muted">${escapeHtml(settings.address)}</div>` : ''}
+      ${settings?.phone ? `<div class="muted">Tel: ${escapeHtml(settings.phone)}</div>` : ''}
+      ${settings?.receiptHeader ? `<div class="note">${escapeHtml(settings.receiptHeader)}</div>` : ''}
+    </header>
+
+    <hr />
+    <section class="meta">
+      ${row('Receipt', escapeHtml(receiptNumber))}
+      ${row('Date', escapeHtml(createdAt.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })))}
+      ${row('Time', escapeHtml(createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })))}
+      ${row('Served by', escapeHtml(cashierName || sale.cashier?.name || '—'))}
+      ${customer ? row('Customer', escapeHtml(customer.name)) : ''}
+      ${customer?.phone ? row('Phone', escapeHtml(customer.phone)) : ''}
+    </section>
+    <hr />
+
+    <section>${itemsHtml}</section>
+
+    <hr />
+    <section class="totals">
+      ${row(`Subtotal (${units} item${units === 1 ? '' : 's'})`, money(subtotal))}
+      ${discount > 0 ? row('Discount', `−${money(discount)}`) : ''}
+      ${taxAmount > 0 ? row(`VAT ${taxRate}%`, money(taxAmount)) : ''}
+      <hr class="solid" />
+      ${row('TOTAL', `${currency} ${money(total)}`, 'grand')}
+      ${paymentHtml}
+    </section>
+    <hr />
+
+    <footer class="center">
+      <div class="thanks">${escapeHtml(settings?.receiptFooter || 'Thank you for your business!')}</div>
+      <div class="muted">Keep this receipt for returns and warranty.</div>
+      <div class="powered">POWERED BY STOCKDESK</div>
+    </footer>
+  </main>
+</body>
+</html>`;
 }
 
 export default function PosReceipt({ sale, settings, cashierName, onClose }) {
-  const [receiptData, setReceiptData] = useState(null);
-  const shopName = settings?.shop?.name || settings?.shopName || 'StockDesk';
-  const shopSlug = settings?.shop?.slug || `shop-${settings?.shopId || 'legacy'}`;
+  const frameRef = useRef(null);
+  const html = useMemo(() => (sale && settings ? buildReceiptHtml(sale, settings, cashierName) : ''), [sale, settings, cashierName]);
 
-  useEffect(() => {
-    if (!sale || !settings) return;
+  if (!html) return null;
 
-    // Calculate values
-    let subtotal = 0;
-    sale.items.forEach((item) => {
-      subtotal += parseFloat(item.price) * item.quantity;
-    });
-
-    // Use the tax actually charged on this sale, not today's VAT setting.
-    const total = parseFloat(sale.total);
-    const balanceDue = parseFloat(sale.balanceDue || 0);
-
-    setReceiptData({
-      subtotal: subtotal,
-      discount: parseFloat(sale.discount || 0),
-      total,
-      vat: parseFloat(sale.taxAmount || 0),
-      vatPercent: parseFloat(sale.tax != null ? sale.tax : settings.vat || 0),
-      currency: sale.currency || settings.currency || 'UGX',
-      isCredit: parseFloat(sale.creditAmount || 0) > 0,
-      paid: total - balanceDue,
-      balanceDue,
-      dueDate: sale.dueDate || null,
-    });
-  }, [sale, settings]);
+  const receiptNumber = sale.receipt?.receiptNumber || sale.id;
+  const balanceDue = Number(sale.balanceDue || 0);
 
   const handlePrint = () => {
-    if (!receiptData) {
-      return;
-    }
-
-    const receiptNumber = sale.receipt?.receiptNumber || sale.id;
-    const createdAt = new Date(sale.createdAt).toLocaleString();
-    const itemsHtml = sale.items
-      .map((item) => {
-        const lineTotal = (parseFloat(item.price) * item.quantity).toFixed(2);
-        return `
-          <div class="item-row">
-            <div class="item-head">
-              <span class="qty">${escapeHtml(item.quantity)}</span>
-              <span class="desc">${escapeHtml(item.Product?.name || item.name || 'Item')}</span>
-              <span class="amount">${escapeHtml(formatMoney(receiptData.currency, lineTotal))}</span>
-            </div>
-            <div class="item-sub">@ ${escapeHtml(formatMoney(receiptData.currency, item.price))} ea</div>
-          </div>
-        `;
-      })
-      .join('');
-
-    const hasDiscount = parseFloat(sale.discount || 0) > 0;
-    const hasVat = receiptData.vat > 0;
-    const discountRow = `<div class="summary-row ${hasDiscount ? 'discount' : 'muted-row'}"><span>Discount</span><span>${hasDiscount ? '- ' : ''}${escapeHtml(formatMoney(receiptData.currency, receiptData.discount))}</span></div>`;
-    const vatRow = `<div class="summary-row ${hasVat ? '' : 'muted-row'}"><span>VAT @ ${escapeHtml(receiptData.vatPercent)}%</span><span>${escapeHtml(formatMoney(receiptData.currency, receiptData.vat))}</span></div>`;
-    const footerText = settings.receiptFooter ? `<p class="footer-note">${escapeHtml(settings.receiptFooter)}</p>` : '';
-
-    const printWindow = window.open('', '_blank', 'width=420,height=760');
-    if (!printWindow) {
-      return;
-    }
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Receipt ${escapeHtml(receiptNumber)}</title>
-          <meta charset="utf-8" />
-          <style>
-            :root {
-              color-scheme: light;
-            }
-            * { box-sizing: border-box; }
-            body {
-              margin: 0;
-              font-family: 'Segoe UI', Arial, sans-serif;
-              background: #ffffff;
-              color: #0f172a;
-            }
-            .sheet {
-              width: 80mm;
-              margin: 0 auto;
-              padding: 10mm 7mm 12mm;
-            }
-            .header, .shop, .payment, .footer {
-              text-align: center;
-            }
-            .title {
-              font-size: 20px;
-              font-weight: 700;
-              letter-spacing: 0.08em;
-              margin: 0;
-            }
-            .muted {
-              color: #64748b;
-              font-size: 11px;
-              margin-top: 4px;
-            }
-            .divider {
-              border-top: 1px dashed #cbd5e1;
-              margin: 12px 0;
-            }
-            .shop-name {
-              font-size: 14px;
-              font-weight: 700;
-            }
-            .table-head, .item-head, .summary-row, .total-row {
-              display: grid;
-              grid-template-columns: 34px 1fr auto;
-              gap: 8px;
-              align-items: start;
-            }
-            .table-head {
-              font-size: 10px;
-              font-weight: 700;
-              text-transform: uppercase;
-              color: #334155;
-              margin-bottom: 8px;
-            }
-            .item-row {
-              margin-bottom: 10px;
-              font-size: 11px;
-            }
-            .qty { font-weight: 700; }
-            .amount, .money {
-              text-align: right;
-              font-weight: 700;
-              font-variant-numeric: tabular-nums;
-              font-feature-settings: 'tnum' 1;
-              font-family: 'Consolas', 'SFMono-Regular', 'Liberation Mono', monospace;
-            }
-            .item-sub {
-              padding-left: 42px;
-              font-size: 10px;
-              color: #64748b;
-              margin-top: 2px;
-              font-variant-numeric: tabular-nums;
-            }
-            .summary-card {
-              border: 1px solid #dbe4ea;
-              border-radius: 16px;
-              background: linear-gradient(180deg, #ffffff 0%, #f8fbfc 100%);
-              padding: 14px;
-              box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
-            }
-            .summary-title {
-              margin: 0 0 10px;
-              font-size: 10px;
-              font-weight: 700;
-              text-transform: uppercase;
-              letter-spacing: 0.18em;
-              color: #64748b;
-            }
-            .summary-row {
-              grid-template-columns: 1fr auto;
-              font-size: 12px;
-              margin: 0;
-              padding: 8px 0;
-              border-bottom: 1px solid #e2e8f0;
-            }
-            .summary-row span:last-child {
-              font-variant-numeric: tabular-nums;
-              font-feature-settings: 'tnum' 1;
-              font-family: 'Consolas', 'SFMono-Regular', 'Liberation Mono', monospace;
-              font-weight: 700;
-            }
-            .discount { color: #b91c1c; }
-            .muted-row { color: #94a3b8; }
-            .total-row {
-              grid-template-columns: 1fr auto;
-              font-size: 18px;
-              font-weight: 800;
-              margin-top: 10px;
-              padding: 12px 14px;
-              border-radius: 14px;
-              background: #0f766e;
-              color: white;
-            }
-            .footer {
-              margin-top: 14px;
-              font-size: 11px;
-            }
-            .footer-title {
-              font-size: 16px;
-              font-weight: 800;
-              margin: 0 0 6px;
-            }
-            .footer-note {
-              color: #64748b;
-              margin: 0;
-            }
-            @media print {
-              body { margin: 0; }
-              .sheet { margin: 0 auto; }
-            }
-          </style>
-        </head>
-        <body>
-          <main class="sheet">
-            <section class="header">
-              <h1 class="title">RECEIPT</h1>
-              <div class="muted">#${escapeHtml(receiptNumber)}</div>
-              <div class="muted">${escapeHtml(createdAt)}</div>
-            </section>
-
-            <div class="divider"></div>
-
-            <section class="shop">
-              <div class="shop-name">${escapeHtml(shopName)}</div>
-              <div class="muted">Tenant: ${escapeHtml(shopSlug)}</div>
-              <div class="muted">${escapeHtml(settings.address || '')}</div>
-              ${settings.phone ? `<div class="muted">${escapeHtml(settings.phone)}</div>` : ''}
-            </section>
-
-            <div class="divider"></div>
-
-            <section>
-              <div class="table-head">
-                <span>Qty</span>
-                <span>Description</span>
-                <span>Amount</span>
-              </div>
-              ${itemsHtml}
-            </section>
-
-            <div class="divider"></div>
-
-            <section class="summary-card">
-              <p class="summary-title">Receipt Summary</p>
-              <div class="summary-row"><span>Subtotal</span><span class="money">${escapeHtml(formatMoney(receiptData.currency, receiptData.subtotal))}</span></div>
-              ${discountRow}
-              ${vatRow}
-              <div class="total-row"><span>TOTAL</span><span class="money">${escapeHtml(formatMoney(receiptData.currency, receiptData.total))}</span></div>
-              ${receiptData.isCredit ? `
-              <div class="summary-row"><span>Paid</span><span class="money">${escapeHtml(formatMoney(receiptData.currency, receiptData.paid))}</span></div>
-              <div class="summary-row"><span><strong>BALANCE DUE</strong></span><span class="money"><strong>${escapeHtml(formatMoney(receiptData.currency, receiptData.balanceDue))}</strong></span></div>
-              ${receiptData.dueDate ? `<div class="summary-row"><span>Due by</span><span>${escapeHtml(receiptData.dueDate)}</span></div>` : ''}` : ''}
-            </section>
-
-            <div class="divider"></div>
-
-            <section class="payment">
-              <div class="muted">Payment: ${escapeHtml(sale.paymentMethod)}</div>
-              <div class="muted">Cashier: ${escapeHtml(cashierName)}</div>
-            </section>
-
-            <div class="divider"></div>
-
-            <section class="footer">
-              <p class="footer-title">Thank you!</p>
-              ${footerText}
-            </section>
-          </main>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.onload = () => {
-      printWindow.print();
-      printWindow.onafterprint = () => printWindow.close();
-    };
+    // Print the preview frame itself: no pop-up window (often blocked on
+    // phones) and identical output to what is shown on screen.
+    const frameWindow = frameRef.current?.contentWindow;
+    if (!frameWindow) return;
+    frameWindow.focus();
+    frameWindow.print();
   };
 
-  if (!receiptData) return null;
-
-  const saleDate = new Date(sale.createdAt);
-  const receiptNumber = sale.receipt?.receiptNumber || sale.id;
+  const resizeFrame = () => {
+    const frame = frameRef.current;
+    const doc = frame?.contentDocument;
+    if (frame && doc?.body) {
+      frame.style.height = `${doc.documentElement.scrollHeight}px`;
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-3 sm:items-center sm:p-4 no-print" onClick={onClose}>
-      <div className="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
-        <div className="overflow-y-auto px-5 py-5 sm:px-7 sm:py-7 print:p-0 print:rounded-none print:shadow-none print:max-w-none">
-          {/* Receipt Header */}
-          <div className="mb-5 rounded-[24px] bg-[#1f7a8c] px-5 py-5 text-white">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-white/70">Sales Receipt</p>
-                <h2 className="mt-2 text-3xl font-bold">{shopName}</h2>
-                <div className="mt-3 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85">
-                  {shopSlug}
-                </div>
-                <p className="mt-2 text-sm text-white/80">{settings.address || 'Store Address'}</p>
-                {settings.phone && <p className="text-sm text-white/80">{settings.phone}</p>}
-              </div>
-              {settings.shopLogoUrl ? (
-                <img src={settings.shopLogoUrl} alt="Shop logo" className="h-14 w-14 rounded-2xl bg-white/10 object-cover p-1" />
-              ) : (
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/30 text-xl font-bold">SD</div>
-              )}
-            </div>
+    <div className="app-overlay fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <div
+        className="app-modal flex max-h-[94dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border sm:rounded-2xl"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="receipt-title"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--border-default)] px-5 py-4">
+          <div className="min-w-0">
+            <p id="receipt-title" className="text-base font-semibold text-[var(--text-primary)]">Sale complete</p>
+            <p className="mt-0.5 text-sm text-[var(--text-muted)]">
+              Receipt {receiptNumber}
+              {balanceDue > 0 ? <span className="font-medium text-[var(--warning)]"> · balance due</span> : null}
+            </p>
           </div>
-
-          <div className="grid grid-cols-2 gap-3 border-b border-slate-200 pb-5 text-sm sm:grid-cols-4">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Receipt</p>
-              <p className="mt-1 font-semibold text-slate-900">#{receiptNumber}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Date</p>
-              <p className="mt-1 font-semibold text-slate-900">{saleDate.toLocaleDateString()}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Time</p>
-              <p className="mt-1 font-semibold text-slate-900">{saleDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Cashier</p>
-              <p className="mt-1 font-semibold text-slate-900">{cashierName}</p>
-            </div>
-          </div>
-
-          {/* Items */}
-          <div className="mb-5 mt-5 rounded-[22px] border border-slate-200 bg-slate-50/60 p-4">
-            <div className="grid grid-cols-[40px_1fr_88px] gap-2 border-b border-slate-200 pb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-              <span>Qty</span>
-              <span>Description</span>
-              <span className="text-right">Amount</span>
-            </div>
-
-            {sale.items.map((item, index) => (
-              <div key={index} className="border-b border-slate-200/80 py-3 last:border-b-0 last:pb-0">
-                <div className="grid grid-cols-[40px_1fr_88px] gap-2 text-sm text-slate-800">
-                  <span className="font-semibold">{item.quantity}</span>
-                  <span className="pr-2 font-medium">{item.Product?.name}</span>
-                  <span className="text-right font-semibold font-mono tabular-nums">
-                    {formatMoney(receiptData.currency, parseFloat(item.price) * item.quantity)}
-                  </span>
-                </div>
-                <div className="pl-[48px] pt-1 text-xs text-slate-500 font-mono tabular-nums">
-                  @ {formatMoney(receiptData.currency, item.price)} ea
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-[1fr_220px]">
-            <div className="rounded-[22px] border border-slate-200 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Payment</p>
-              <p className="mt-2 text-sm font-semibold text-slate-900">{sale.paymentMethod}</p>
-              {settings.receiptHeader && <p className="mt-4 text-xs leading-5 text-slate-500">{settings.receiptHeader}</p>}
-              {settings.receiptFooter && <p className="mt-3 text-xs leading-5 text-slate-500">{settings.receiptFooter}</p>}
-            </div>
-
-            <div className="rounded-[22px] border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4 shadow-sm">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Summary</p>
-              <div className="mt-3 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <div className="flex justify-between px-4 py-3 text-sm">
-                  <span className="text-slate-600">Subtotal</span>
-                  <span className="font-semibold text-slate-900 font-mono tabular-nums">
-                    {formatMoney(receiptData.currency, receiptData.subtotal)}
-                  </span>
-                </div>
-
-                <div className={`flex justify-between px-4 py-3 text-sm ${parseFloat(sale.discount) > 0 ? 'text-rose-700' : 'text-slate-400'}`}>
-                  <span>Discount</span>
-                  <span className="font-semibold font-mono tabular-nums">
-                    {parseFloat(sale.discount) > 0 ? '- ' : ''}{formatMoney(receiptData.currency, receiptData.discount)}
-                  </span>
-                </div>
-
-                <div className={`flex justify-between px-4 py-3 text-sm ${receiptData.vat > 0 ? 'text-slate-600' : 'text-slate-400'}`}>
-                  <span>VAT @ {receiptData.vatPercent}%</span>
-                  <span className="font-semibold text-slate-900 font-mono tabular-nums">
-                    {formatMoney(receiptData.currency, receiptData.vat)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-3 flex justify-between rounded-2xl bg-[#0f766e] px-4 py-4 text-lg font-bold text-white shadow-sm">
-                <span>TOTAL</span>
-                <span className="font-mono tabular-nums">
-                  {formatMoney(receiptData.currency, receiptData.total)}
-                </span>
-              </div>
-              {receiptData.isCredit && (
-                <div className="mt-3 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-amber-300 bg-amber-50">
-                  <div className="flex justify-between px-4 py-3 text-sm">
-                    <span className="text-slate-600">Paid</span>
-                    <span className="font-semibold text-slate-900 font-mono tabular-nums">{formatMoney(receiptData.currency, receiptData.paid)}</span>
-                  </div>
-                  <div className="flex justify-between px-4 py-3 text-sm font-bold text-amber-800">
-                    <span>Balance due{receiptData.dueDate ? ` by ${receiptData.dueDate}` : ''}</span>
-                    <span className="font-mono tabular-nums">{formatMoney(receiptData.currency, receiptData.balanceDue)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="mt-5 text-center text-sm mb-6 border-t border-slate-200 pt-5">
-            <p className="text-slate-800 text-lg font-bold">Thank you!</p>
-            <p className="mt-1 text-xs text-slate-500">Please keep this receipt for your records.</p>
-          </div>
-
-        </div>
-
-        <div className="sticky bottom-0 flex justify-end gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:px-7 no-print">
-          <button
-            onClick={onClose}
-            className="rounded-2xl bg-slate-200 px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-300"
-          >
-            Close
-          </button>
-          <button
-            onClick={handlePrint}
-            className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
-          >
-            Print Receipt
+          <button type="button" onClick={onClose} className="app-btn-subtle rounded-full p-2" aria-label="Close receipt">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
 
-        {/* Print Styles */}
-        <style>{`
-          @media print {
-            * {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            body {
-              margin: 0;
-              padding: 0;
-              background: white;
-            }
-            .no-print {
-              display: none !important;
-            }
-            .print\\:p-0 {
-              padding: 0;
-            }
-            .print\\:rounded-none {
-              border-radius: 0;
-            }
-            .fixed {
-              position: static;
-              inset: auto;
-              background: white;
-            }
-            .bg-black\\/50 {
-              background: white;
-            }
-            .rounded-lg {
-              border-radius: 0;
-            }
-            .shadow-xl {
-              box-shadow: none;
-            }
-            .w-full {
-              width: 80mm;
-              margin: 0 auto;
-            }
-            .sticky {
-              position: static;
-            }
-          }
-        `}</style>
+        <div className="flex-1 overflow-y-auto bg-[var(--surface-secondary)] px-4 py-5">
+          <div className="mx-auto w-full max-w-[320px] rounded-sm bg-white shadow-[0_1px_2px_rgba(0,0,0,0.08),0_8px_24px_-8px_rgba(0,0,0,0.25)]">
+            <iframe
+              ref={frameRef}
+              title={`Receipt ${receiptNumber}`}
+              srcDoc={html}
+              onLoad={resizeFrame}
+              className="block w-full border-0"
+              style={{ height: 560 }}
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2 border-t border-[var(--border-default)] px-5 py-4">
+          <button type="button" onClick={onClose} className="app-btn-secondary flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium">
+            New sale
+          </button>
+          <button type="button" onClick={handlePrint} className="app-btn-primary flex-1 rounded-xl px-4 py-2.5 text-sm">
+            Print receipt
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,11 @@
 const PDFDocument = require('pdfkit');
 
+// Currencies written without a minor unit (ISO 4217 exponent 0), e.g. UGX.
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  'UGX', 'RWF', 'BIF', 'GNF', 'KMF', 'DJF', 'XOF', 'XAF', 'XPF',
+  'JPY', 'KRW', 'VND', 'CLP', 'PYG', 'ISK', 'VUV',
+]);
+
 async function loadRemoteImageBuffer(url) {
   if (!url || !/^https?:\/\//i.test(url)) {
     return null;
@@ -18,216 +24,205 @@ async function loadRemoteImageBuffer(url) {
   }
 }
 
+function formatDate(value, options) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value || '') : date.toLocaleDateString('en-GB', options);
+}
+
 exports.generateReceiptPdf = async (stream, sale, settings) => {
-  const doc = new PDFDocument({ size: 'A4', margin: 0, bufferPages: true });
+  const doc = new PDFDocument({ size: 'A4', margin: 0, bufferPages: true, info: { Title: 'Receipt', Producer: 'StockDesk' } });
   const pageWidth = doc.page.width;
   const pageHeight = doc.page.height;
-  const margin = 36;
+  const margin = 48;
   const contentWidth = pageWidth - margin * 2;
-  const accent = '#1F7A8C';
-  const accentSoft = '#EAF6F8';
-  const dark = '#102A43';
-  const muted = '#5C6B7A';
-  const border = '#D9E2EC';
-  const saleDate = new Date(sale.createdAt);
+  const right = pageWidth - margin;
+
+  const ink = '#0F172A';
+  const muted = '#64748B';
+  const hairline = '#E2E8F0';
+  const accent = '#0D9488';
+
   const currency = sale.currency || settings.currency || 'USD';
+  const decimals = ZERO_DECIMAL_CURRENCIES.has(String(currency).toUpperCase()) ? 0 : 2;
+  const num = (value) => Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const money = (value) => `${currency} ${num(value)}`;
+
   const shopName = settings.shop?.name || settings.shopName || 'StockDesk';
-  const shopSlug = settings.shop?.slug || `shop-${settings.shopId || 'legacy'}`;
-
-  let subtotal = 0;
-  sale.items.forEach((item) => {
-    subtotal += parseFloat(item.price) * item.quantity;
-  });
-
-  const discount = parseFloat(sale.discount || 0);
-  // Use the tax actually charged on the sale, not today's settings.
-  const vatPercent = parseFloat(sale.tax != null ? sale.tax : settings.vat || 0);
-  const vatAmount = parseFloat(sale.taxAmount || 0);
-  const total = parseFloat(sale.total || 0);
-  const creditAmount = parseFloat(sale.creditAmount || 0);
-  const balanceDue = parseFloat(sale.balanceDue || 0);
-  const isCreditSale = creditAmount > 0;
-
-  const money = (value) => `${currency} ${parseFloat(value || 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-  const logoBuffer = await loadRemoteImageBuffer(settings.shopLogoUrl);
-  const bottomLimit = pageHeight - margin - 36;
-  const paymentMethod = sale.paymentMethod || 'N/A';
-  const cashierName = sale.cashier?.name || 'N/A';
+  const saleDate = new Date(sale.createdAt);
   const receiptNumber = sale.receipt?.receiptNumber || `SD-${String(sale.id).padStart(6, '0')}`;
+  const cashierName = sale.cashier?.name || '—';
+  const customer = sale.customer && sale.customer.name !== 'Walk-in Customer' ? sale.customer : null;
 
-  let cursorY = 0;
+  const items = (sale.items || []).map((item) => ({
+    name: item.Product?.name || 'Item',
+    quantity: Number(item.quantity || 0),
+    price: Number(item.price || 0),
+  }));
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const discount = Number(sale.discount || 0);
+  const vatPercent = Number(sale.tax != null ? sale.tax : settings.vat || 0);
+  const vatAmount = Number(sale.taxAmount || 0);
+  const total = Number(sale.total || 0);
+  const balanceDue = Number(sale.balanceDue || 0);
+  const isCreditSale = Number(sale.creditAmount || 0) > 0;
+  const splits = Array.isArray(sale.paymentSplits) ? sale.paymentSplits.filter((s) => Number(s.amount) > 0) : [];
 
+  const logoBuffer = await loadRemoteImageBuffer(settings.shopLogoUrl);
+  const bottomLimit = pageHeight - margin - 40;
+
+  // Table columns
+  const col = {
+    item: margin,
+    qty: margin + 300,
+    price: margin + 340,
+    amount: right - 100,
+  };
+
+  let y = margin;
   doc.pipe(stream);
 
-  const drawHeader = (title = 'SALES RECEIPT') => {
-    doc.rect(0, 0, pageWidth, 104).fill(accent);
-    if (logoBuffer) {
-      try {
-        doc.roundedRect(margin, 22, 52, 52, 12).fillOpacity(0.18).fillAndStroke('#ffffff', '#ffffff');
-        doc.fillOpacity(1);
-        doc.image(logoBuffer, margin + 6, 28, { fit: [40, 40], align: 'center', valign: 'center' });
-      } catch (error) {
-        doc.fillOpacity(1);
-      }
-    }
-
-    doc.fillColor('white').font('Helvetica-Bold').fontSize(22).text(title, margin, 34, {
-      align: 'right',
-      width: contentWidth,
-    });
-    doc.font('Helvetica-Bold').fontSize(12).text(shopName, logoBuffer ? margin + 66 : margin, 28, { width: 240 });
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('#DFF6FB').text(shopSlug.toUpperCase(), logoBuffer ? margin + 66 : margin, 16, {
-      width: 240,
-      characterSpacing: 1,
-    });
-    doc.fillColor('white').font('Helvetica').fontSize(9);
-    if (settings.address) {
-      doc.text(settings.address, logoBuffer ? margin + 66 : margin, 44, { width: 250 });
-    }
-    if (settings.phone) {
-      doc.text(settings.phone, logoBuffer ? margin + 66 : margin, 68, { width: 250 });
-    }
-
-    cursorY = 126;
+  const label = (text, x, top, options = {}) => {
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor(muted).text(text.toUpperCase(), x, top, { characterSpacing: 0.8, ...options });
   };
 
-  const ensureSpace = (heightNeeded, nextSection = 'content') => {
-    if (cursorY + heightNeeded <= bottomLimit) {
-      return;
-    }
+  const drawTableHeader = () => {
+    label('Item', col.item, y);
+    label('Qty', col.qty, y, { width: 30, align: 'right' });
+    label('Price', col.price, y, { width: col.amount - col.price - 10, align: 'right' });
+    label('Amount', col.amount, y, { width: 100, align: 'right' });
+    y += 14;
+    doc.moveTo(margin, y).lineTo(right, y).lineWidth(1).strokeColor(ink).stroke();
+    y += 10;
+  };
 
+  const newPageIfNeeded = (height, withTableHeader) => {
+    if (y + height <= bottomLimit) return;
     doc.addPage();
-    drawHeader(nextSection === 'items' ? 'SALES RECEIPT' : 'RECEIPT DETAILS');
-    if (nextSection === 'items') {
-      drawItemsHeader();
+    y = margin;
+    doc.font('Helvetica').fontSize(9).fillColor(muted).text(`${shopName} · Receipt ${receiptNumber} (continued)`, margin, y);
+    y += 28;
+    if (withTableHeader) drawTableHeader();
+  };
+
+  // ---- Header -------------------------------------------------------------
+  let shopX = margin;
+  if (logoBuffer) {
+    try {
+      doc.image(logoBuffer, margin, y, { fit: [48, 48] });
+      shopX = margin + 60;
+    } catch (error) {
+      shopX = margin;
     }
-  };
+  }
+  doc.font('Helvetica-Bold').fontSize(16).fillColor(ink).text(shopName, shopX, y, { width: 280 });
+  doc.font('Helvetica').fontSize(9).fillColor(muted);
+  const contact = [settings.address, settings.phone ? `Tel: ${settings.phone}` : null].filter(Boolean);
+  if (contact.length) doc.text(contact.join('\n'), shopX, doc.y + 3, { width: 280, lineGap: 1.5 });
+  const shopBottom = Math.max(doc.y, y + (logoBuffer ? 48 : 0));
 
-  const drawLabelValue = (label, value, x, y, width = 150) => {
-    doc.fillColor(muted).font('Helvetica-Bold').fontSize(8).text(label.toUpperCase(), x, y, {
-      width,
-      characterSpacing: 0.5,
-    });
-    doc.fillColor(dark).font('Helvetica').fontSize(10.5).text(value, x, y + 12, { width });
-  };
+  doc.font('Helvetica-Bold').fontSize(22).fillColor(ink).text('Receipt', margin, y - 2, { width: contentWidth, align: 'right' });
+  doc.font('Helvetica').fontSize(9).fillColor(muted)
+    .text(receiptNumber, margin, y + 26, { width: contentWidth, align: 'right' })
+    .text(`${formatDate(saleDate, { day: 'numeric', month: 'long', year: 'numeric' })}, ${saleDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`, margin, y + 39, { width: contentWidth, align: 'right' });
 
-  const drawItemsHeader = () => {
-    doc.roundedRect(margin, cursorY, contentWidth, 28, 10).fill(accentSoft);
-    doc.fillColor(accent).font('Helvetica-Bold').fontSize(10);
-    doc.text('QTY', margin + 14, cursorY + 9, { width: 36 });
-    doc.text('ITEM DESCRIPTION', margin + 64, cursorY + 9, { width: 250 });
-    doc.text('RATE', margin + 352, cursorY + 9, { width: 82, align: 'right' });
-    doc.text('AMOUNT', margin + 444, cursorY + 9, { width: 78, align: 'right' });
-    cursorY += 42;
-  };
+  y = Math.max(shopBottom, y + 56) + 18;
+  doc.rect(margin, y, contentWidth, 2).fill(accent);
+  y += 22;
 
-  drawHeader();
+  // ---- Parties / details --------------------------------------------------
+  const detailTop = y;
+  label('Billed to', margin, y);
+  doc.font('Helvetica-Bold').fontSize(10.5).fillColor(ink).text(customer ? customer.name : 'Walk-in customer', margin, y + 13, { width: 220 });
+  if (customer?.phone) doc.font('Helvetica').fontSize(9).fillColor(muted).text(customer.phone, margin, doc.y + 2, { width: 220 });
+  const leftBottom = doc.y;
 
-  drawLabelValue('Receipt No.', receiptNumber, margin, cursorY, 140);
-  drawLabelValue('Date', saleDate.toLocaleDateString(), margin + 166, cursorY, 120);
-  drawLabelValue('Time', saleDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), margin + 332, cursorY, 120);
-  cursorY += 44;
-  drawLabelValue('Cashier', cashierName, margin, cursorY, 140);
-  drawLabelValue('Payment', paymentMethod, margin + 166, cursorY, 120);
-  drawLabelValue('Currency', currency, margin + 332, cursorY, 120);
-  cursorY += 44;
-  drawLabelValue('Shop', shopSlug, margin, cursorY, 180);
-  cursorY += 52;
+  const details = [
+    ['Served by', cashierName],
+    ['Payment', isCreditSale ? 'Credit' : sale.paymentMethod || '—'],
+    ...(isCreditSale && sale.dueDate ? [['Due date', formatDate(`${sale.dueDate}T00:00:00`, { day: 'numeric', month: 'short', year: 'numeric' })]] : []),
+  ];
+  let detailY = detailTop;
+  details.forEach(([key, value]) => {
+    label(key, margin + 300, detailY, { width: 80 });
+    doc.font('Helvetica').fontSize(9.5).fillColor(ink).text(value, margin + 380, detailY - 1.5, { width: contentWidth - 380, align: 'right' });
+    detailY += 16;
+  });
+  y = Math.max(leftBottom, detailY) + 26;
 
-  drawItemsHeader();
-  doc.font('Helvetica').fontSize(10).fillColor(dark);
+  // ---- Items --------------------------------------------------------------
+  drawTableHeader();
+  items.forEach((item) => {
+    doc.font('Helvetica').fontSize(10);
+    const nameHeight = doc.heightOfString(item.name, { width: col.qty - col.item - 16 });
+    const rowHeight = Math.max(18, nameHeight) + 12;
+    newPageIfNeeded(rowHeight, true);
 
-  sale.items.forEach((item, index) => {
-    const itemName = item.Product?.name || 'Item';
-    const lineTotal = parseFloat(item.price) * item.quantity;
-    const descriptionHeight = doc.heightOfString(itemName, {
-      width: 250,
-      align: 'left',
-    });
-    const rowHeight = Math.max(28, descriptionHeight + 10);
-    ensureSpace(rowHeight + 10, 'items');
-
-    if (index % 2 === 0) {
-      doc.rect(margin, cursorY - 6, contentWidth, rowHeight).fill('#FAFCFD');
-    }
-
-    doc.fillColor(dark);
-    doc.text(String(item.quantity), margin + 18, cursorY + 4, { width: 24 });
-    doc.text(itemName, margin + 64, cursorY + 4, { width: 250 });
-    doc.text(money(item.price), margin + 352, cursorY + 4, { width: 82, align: 'right' });
-    doc.font('Helvetica-Bold').text(money(lineTotal), margin + 444, cursorY + 4, { width: 78, align: 'right' });
-    doc.font('Helvetica');
-    cursorY += rowHeight;
+    doc.fillColor(ink).text(item.name, col.item, y, { width: col.qty - col.item - 16 });
+    doc.text(String(item.quantity), col.qty, y, { width: 30, align: 'right' });
+    doc.fillColor(muted).text(num(item.price), col.price, y, { width: col.amount - col.price - 10, align: 'right' });
+    doc.font('Helvetica-Bold').fillColor(ink).text(num(item.price * item.quantity), col.amount, y, { width: 100, align: 'right' });
+    y += rowHeight;
+    doc.moveTo(margin, y - 6).lineTo(right, y - 6).lineWidth(0.6).strokeColor(hairline).stroke();
   });
 
-  const notesText = settings.receiptHeader || 'Please keep this receipt for exchange, returns, or warranty support.';
-  const footerText = settings.receiptFooter || 'Thank you for shopping with us.';
-  const notesWidth = 270;
-  const gap = 16;
-  const summaryWidth = contentWidth - notesWidth - gap;
-  const notesBodyWidth = notesWidth - 36;
-  const notesBodyHeight = doc.heightOfString(notesText, { width: notesBodyWidth, lineGap: 2 }) + doc.heightOfString(footerText, { width: notesBodyWidth, lineGap: 2 }) + 28;
-  const notesHeight = Math.max(118, notesBodyHeight + 40);
-  const summaryHeight = isCreditSale ? 240 : 184;
-  const sectionHeight = Math.max(notesHeight, summaryHeight);
+  // ---- Totals -------------------------------------------------------------
+  const totalsX = margin + 300;
+  const totalsWidth = right - totalsX;
+  const rows = [
+    ['Subtotal', num(subtotal)],
+    ...(discount > 0 ? [['Discount', `-${num(discount)}`]] : []),
+    ...(vatAmount > 0 ? [[`VAT ${vatPercent}%`, num(vatAmount)]] : []),
+  ];
+  const paymentRows = isCreditSale
+    ? [['Paid', num(total - balanceDue)]]
+    : sale.paymentMethod === 'Split'
+      ? splits.map((s) => [`Paid (${s.method})`, num(s.amount)])
+      : [];
+  const totalsHeight = rows.length * 18 + 40 + paymentRows.length * 18 + (isCreditSale ? 50 : 0);
+  newPageIfNeeded(totalsHeight + 20, false);
+  y += 6;
 
-  ensureSpace(sectionHeight + 24, 'summary');
-  const sectionTop = cursorY + 18;
-  const summaryX = margin + notesWidth + gap;
-
-  doc.roundedRect(margin, sectionTop, notesWidth, sectionHeight, 12).strokeColor(border).lineWidth(1).stroke();
-  doc.fillColor(accent).font('Helvetica-Bold').fontSize(11).text('Terms & Notes', margin + 18, sectionTop + 16);
-  doc.fillColor(muted).font('Helvetica').fontSize(10).text(notesText, margin + 18, sectionTop + 40, {
-    width: notesWidth - 36,
-    lineGap: 2,
+  rows.forEach(([key, value]) => {
+    doc.font('Helvetica').fontSize(10).fillColor(muted).text(key, totalsX, y, { width: totalsWidth / 2 });
+    doc.fillColor(ink).text(value, totalsX, y, { width: totalsWidth, align: 'right' });
+    y += 18;
   });
-  const footerStartY = sectionTop + 40 + doc.heightOfString(notesText, { width: notesWidth - 36, lineGap: 2 }) + 18;
-  doc.text(footerText, margin + 18, footerStartY, {
-    width: notesWidth - 36,
-    lineGap: 2,
+  doc.moveTo(totalsX, y).lineTo(right, y).lineWidth(1).strokeColor(ink).stroke();
+  y += 10;
+  doc.font('Helvetica-Bold').fontSize(13).fillColor(ink).text('Total', totalsX, y, { width: totalsWidth / 2 });
+  doc.text(money(total), totalsX, y, { width: totalsWidth, align: 'right' });
+  y += 28;
+
+  paymentRows.forEach(([key, value]) => {
+    doc.font('Helvetica').fontSize(10).fillColor(muted).text(key, totalsX, y, { width: totalsWidth / 2 });
+    doc.fillColor(ink).text(value, totalsX, y, { width: totalsWidth, align: 'right' });
+    y += 18;
   });
-  doc.font('Helvetica').fontSize(9).fillColor(muted).text(`Payment: ${paymentMethod}`, margin + 18, sectionTop + sectionHeight - 34, {
-    width: notesWidth - 36,
-  });
-  doc.text(`Cashier: ${cashierName}`, margin + 18, sectionTop + sectionHeight - 20, { width: notesWidth - 36 });
 
-  doc.roundedRect(summaryX, sectionTop, summaryWidth, sectionHeight, 12).fillAndStroke('#FBFDFD', border);
-  let summaryY = sectionTop + 18;
-  doc.fillColor(muted).font('Helvetica-Bold').fontSize(8).text('RECEIPT SUMMARY', summaryX + 16, summaryY, {
-    width: summaryWidth - 32,
-    characterSpacing: 1,
-  });
-  summaryY += 24;
-
-  const drawSummaryRow = (label, value, options = {}) => {
-    if (options.highlight) {
-      doc.roundedRect(summaryX + 12, summaryY, summaryWidth - 24, 46, 8).fill(accent);
-      doc.fillColor('white');
-    } else {
-      doc.moveTo(summaryX + 16, summaryY - 6).lineTo(summaryX + summaryWidth - 16, summaryY - 6).strokeColor('#E7EEF3').lineWidth(1).stroke();
-      doc.fillColor(options.color || muted);
-    }
-
-    doc.font(options.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(options.size || 10);
-    doc.text(label, summaryX + 18, summaryY + (options.highlight ? 14 : 0), { width: 92 });
-    doc.font(options.highlight ? 'Helvetica-Bold' : 'Courier').fontSize(options.size || 10);
-    doc.text(value, summaryX + 118, summaryY + (options.highlight ? 11 : 0), {
-      width: summaryWidth - 138,
-      align: 'right',
-    });
-    summaryY += options.spacing || (options.highlight ? 58 : 28);
-  };
-
-  drawSummaryRow('Subtotal', money(subtotal), { color: dark });
-  drawSummaryRow('Discount', `${discount > 0 ? '- ' : ''}${money(discount)}`, { color: discount > 0 ? '#C81E1E' : '#9AA5B1' });
-  drawSummaryRow(`VAT (${vatPercent.toFixed(2)}%)`, money(vatAmount), { color: vatAmount > 0 ? dark : '#9AA5B1' });
-  drawSummaryRow('Total', money(total), { bold: true, size: 15, highlight: true });
   if (isCreditSale) {
-    drawSummaryRow('Paid', money(total - balanceDue), { color: dark });
-    drawSummaryRow('Balance due', money(balanceDue), { bold: true, color: balanceDue > 0 ? '#C81E1E' : dark });
+    y += 4;
+    doc.roundedRect(totalsX, y, totalsWidth, 34, 4).lineWidth(1.2).strokeColor(ink).stroke();
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(ink).text('Balance due', totalsX + 10, y + 11, { width: totalsWidth / 2 });
+    doc.text(money(balanceDue), totalsX, y + 11, { width: totalsWidth - 10, align: 'right' });
+    y += 46;
+  }
+
+  // ---- Notes & footer -----------------------------------------------------
+  const notes = [settings.receiptHeader, 'Please keep this receipt for returns and warranty claims.'].filter(Boolean).join('\n');
+  newPageIfNeeded(80, false);
+  y += 18;
+  label('Notes', margin, y);
+  doc.font('Helvetica').fontSize(9).fillColor(muted).text(notes, margin, y + 13, { width: 280, lineGap: 2 });
+
+  const footerY = pageHeight - margin - 14;
+  const pageCount = doc.bufferedPageRange().count;
+  for (let i = 0; i < pageCount; i += 1) {
+    doc.switchToPage(i);
+    doc.moveTo(margin, footerY - 12).lineTo(right, footerY - 12).lineWidth(0.6).strokeColor(hairline).stroke();
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(ink)
+      .text(settings.receiptFooter || 'Thank you for your business!', margin, footerY, { width: contentWidth / 2, lineBreak: false });
+    doc.font('Helvetica').fontSize(8).fillColor(muted)
+      .text(`Powered by StockDesk${pageCount > 1 ? `  ·  Page ${i + 1} of ${pageCount}` : ''}`, margin, footerY + 1, { width: contentWidth, align: 'right', lineBreak: false });
   }
 
   doc.end();
