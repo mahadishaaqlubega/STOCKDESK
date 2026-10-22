@@ -19,11 +19,22 @@ exports.updateSettings = async (req, res, next) => {
 
     // Whitelist updatable fields — prevents a shop admin from reassigning
     // shopId and taking over another tenant's settings row.
-    const allowed = ['shopName', 'address', 'phone', 'currency', 'vat', 'receiptHeader', 'receiptFooter', 'shopLogoUrl'];
+    const allowed = ['shopName', 'address', 'phone', 'currency', 'vat', 'receiptHeader', 'receiptFooter', 'shopLogoUrl', 'maxDiscountPercent'];
     const updates = {};
     for (const field of allowed) {
       if (req.body[field] !== undefined) {
         updates[field] = req.body[field];
+      }
+    }
+    if (updates.maxDiscountPercent !== undefined) {
+      if (updates.maxDiscountPercent === null || updates.maxDiscountPercent === '') {
+        updates.maxDiscountPercent = null;
+      } else {
+        const percent = Number(updates.maxDiscountPercent);
+        if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+          return res.status(400).json({ message: 'Staff discount limit must be between 0 and 100%.' });
+        }
+        updates.maxDiscountPercent = percent;
       }
     }
     if (updates.shopLogoUrl) {

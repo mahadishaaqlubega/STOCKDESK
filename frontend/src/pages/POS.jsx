@@ -44,6 +44,8 @@ export default function POS() {
   });
   const [useSplit, setUseSplit] = useState(false);
   const [showDiscount, setShowDiscount] = useState(false);
+  const [editingPriceId, setEditingPriceId] = useState(null);
+  const isAdmin = ['Admin', 'SuperAdmin'].includes(getUser()?.role);
   const [creditDeposit, setCreditDeposit] = useState('');
   const [creditDepositMethod, setCreditDepositMethod] = useState('Cash');
   const [creditDueDate, setCreditDueDate] = useState('');
@@ -156,13 +158,18 @@ export default function POS() {
         productId: product.id,
         name: product.name,
         price: parseFloat(product.sellPrice),
+        // Catalogue price and cost, so a typed-in price can be shown and
+        // checked as a discount.
+        listPrice: parseFloat(product.sellPrice) || 0,
+        buyPrice: parseFloat(product.buyPrice) || 0,
         quantity: 1,
         isService: isServiceProduct(product),
       }];
     });
   };
 
-  // Services can be charged at a price agreed at the counter.
+  // The price actually charged: an agreed amount for services, or a
+  // discounted price for goods.
   const updatePrice = (productId, value) => {
     if (value !== '' && !/^\d*\.?\d*$/.test(value)) return;
     setCart((prev) => prev.map((item) => (item.productId === productId ? { ...item, price: value === '' ? '' : Number(value), priceInput: value } : item)));
@@ -188,6 +195,9 @@ export default function POS() {
   };
 
   const subtotal = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * item.quantity, 0);
+  // What the cart would cost at catalogue prices; the gap is item discounts.
+  const listSubtotal = cart.reduce((sum, item) => sum + Math.max(Number(item.listPrice) || 0, Number(item.price) || 0) * item.quantity, 0);
+  const itemDiscounts = Math.max(0, listSubtotal - subtotal);
   const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
   const afterDiscount = Math.max(0, subtotal - discountAmount);
   const vatRate = Number(settings?.vat || 0);
@@ -243,6 +253,29 @@ export default function POS() {
         setMessage(`Enter the amount charged for ${unpriced.name}.`);
         return;
       }
+      const overpriced = cart.find((item) => !item.isService && Number(item.price) > item.listPrice + 0.005);
+      if (overpriced) {
+        setMessage(`${overpriced.name} can't be sold above its price of ${formatMoney(currency, overpriced.listPrice)}.`);
+        return;
+      }
+      const unpricedGoods = cart.find((item) => !item.isService && item.price === '');
+      if (unpricedGoods) {
+        setMessage(`Enter the price for ${unpricedGoods.name}.`);
+        return;
+      }
+      if (!isAdmin) {
+        const belowCost = cart.find((item) => !item.isService && Number(item.price) < item.listPrice && Number(item.price) < item.buyPrice);
+        if (belowCost) {
+          setMessage(`${belowCost.name} can't be sold below its cost price. Ask an admin.`);
+          return;
+        }
+        const limit = settings?.maxDiscountPercent != null ? Number(settings.maxDiscountPercent) : null;
+        const given = listSubtotal > 0 ? ((itemDiscounts + Math.min(discountAmount, subtotal)) / listSubtotal) * 100 : 0;
+        if (limit != null && given > limit + 0.01) {
+          setMessage(`That is a ${given.toFixed(1)}% discount; your limit is ${limit}%. Ask an admin.`);
+          return;
+        }
+      }
       
       // Pre-checkout validation: verify stock availability
       const outOfStockItems = [];
@@ -283,7 +316,13 @@ export default function POS() {
       setLoading(true);
       setMessage('');
       const response = await createSale({
-        items: cart.map(({ productId, quantity, price, isService }) => ({ productId, quantity, ...(isService ? { price: Number(price) } : {}) })),
+        // Send the price only when it differs from the catalogue (services
+        // always), so normal sales stay at the server's current price.
+        items: cart.map(({ productId, quantity, price, listPrice, isService }) => ({
+          productId,
+          quantity,
+          ...(isService || Number(price) !== listPrice ? { price: Number(price) } : {}),
+        })),
         paymentMethod: useSplit ? 'Split' : paymentMethod,
         paymentSplits: useSplit ? splitPayments.filter((p) => parseFloat(p.amount) > 0) : null,
         currency: currency || 'USD',
@@ -518,8 +557,45 @@ export default function POS() {
                             className={`app-input num w-24 rounded-md border px-2 py-0.5 text-xs ${!(Number(item.price) > 0) ? 'border-amber-500' : ''}`}
                           />
                         </label>
+                      ) : editingPriceId === item.productId ? (
+                        <label className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                          <span>Sold at</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            autoFocus
+                            value={item.priceInput ?? item.price}
+                            onChange={(e) => updatePrice(item.productId, e.target.value.trim())}
+                            onBlur={() => setEditingPriceId(null)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') setEditingPriceId(null);
+                              if (e.key === 'Escape') { updatePrice(item.productId, String(item.listPrice)); setEditingPriceId(null); }
+                            }}
+                            aria-label={`Price charged for ${item.name}`}
+                            className={`app-input num w-24 rounded-md border px-2 py-0.5 text-xs ${Number(item.price) > item.listPrice || item.price === '' ? 'border-amber-500' : ''}`}
+                          />
+                          <span className="whitespace-nowrap">of {formatAmount(currency, item.listPrice)}</span>
+                        </label>
                       ) : (
-                        <p className="num text-xs text-[var(--text-muted)]">{formatMoney(currency, item.price)}</p>
+                        <button
+                          type="button"
+                          onClick={() => setEditingPriceId(item.productId)}
+                          className="num group/price flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                          title="Change the price for this sale"
+                        >
+                          {Number(item.price) < item.listPrice ? (
+                            <>
+                              <span className="line-through">{formatAmount(currency, item.listPrice)}</span>
+                              <span className="whitespace-nowrap font-medium text-[var(--success)]">{formatAmount(currency, item.price)}</span>
+                              <span className="rounded bg-emerald-500/10 px-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                                −{Math.round(((item.listPrice - Number(item.price)) / item.listPrice) * 100)}%
+                              </span>
+                            </>
+                          ) : (
+                            <span>{formatMoney(currency, item.price)}</span>
+                          )}
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3 opacity-50 group-hover/price:opacity-100" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                        </button>
                       )}
                     </div>
                     <div className="flex items-center rounded-lg border border-[var(--border-strong)]">
@@ -601,7 +677,10 @@ export default function POS() {
             )}
 
             <div className="space-y-1 text-sm">
-              <div className="flex justify-between text-[var(--text-muted)]"><span>Subtotal</span><span className="num">{formatMoney(currency, subtotal)}</span></div>
+              <div className="flex justify-between text-[var(--text-muted)]"><span>Subtotal</span><span className="num">{formatMoney(currency, listSubtotal)}</span></div>
+              {itemDiscounts > 0 ? (
+                <div className="flex justify-between text-[var(--text-muted)]"><span>Item discounts</span><span className="num">−{formatMoney(currency, itemDiscounts)}</span></div>
+              ) : null}
               {discountAmount > 0 ? (
                 <div className="flex justify-between text-[var(--text-muted)]"><span>Discount</span><span className="num">−{formatMoney(currency, discountAmount)}</span></div>
               ) : null}

@@ -26,6 +26,12 @@ SaleItem.init(
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
     },
+    listPrice: {
+      // Catalogue price when sold; price below it means a per-item discount.
+      // NULL on sales made before discounts were recorded per item.
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
     costOfGoods: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: true,

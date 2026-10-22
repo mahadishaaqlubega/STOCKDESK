@@ -71,6 +71,14 @@ const STATEMENTS = [
     sql: `ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "lockedUntil" TIMESTAMPTZ;`,
   },
   {
+    name: 'sale_items.listPrice',
+    sql: `ALTER TABLE IF EXISTS "sale_items" ADD COLUMN IF NOT EXISTS "listPrice" NUMERIC(12, 2);`,
+  },
+  {
+    name: 'settings.maxDiscountPercent',
+    sql: `ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "maxDiscountPercent" NUMERIC(5, 2);`,
+  },
+  {
     name: 'index: open credit sales',
     sql: `CREATE INDEX IF NOT EXISTS "sales_open_credit_idx" ON "sales" ("shopId", "customerId") WHERE "balanceDue" > 0;`,
   },

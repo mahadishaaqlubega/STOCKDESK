@@ -88,7 +88,7 @@ function buildThermalHtml(m, paper) {
     .map((item) => `
         <div class="item">
           <div class="item-name">${escapeHtml(item.name)}</div>
-          <div class="row sub"><span>${item.quantity} × ${m.money(item.price)}</span><span class="n">${m.money(item.price * item.quantity)}</span></div>
+          <div class="row sub"><span>${item.quantity} × ${m.money(item.price)}${item.listPrice > item.price ? ` <s>${m.money(item.listPrice)}</s>` : ''}</span><span class="n">${m.money(item.price * item.quantity)}</span></div>
         </div>`)
     .join('');
 
@@ -160,7 +160,8 @@ function buildThermalHtml(m, paper) {
     <section>${itemsHtml}</section>
     <hr />
     <section class="totals">
-      ${row(`Subtotal (${m.units} item${m.units === 1 ? '' : 's'})`, m.money(m.subtotal))}
+      ${row(`Subtotal (${m.units} item${m.units === 1 ? '' : 's'})`, m.money(m.subtotal + m.itemSavings))}
+      ${m.itemSavings > 0 ? row('Item discounts', `−${m.money(m.itemSavings)}`) : ''}
       ${m.discount > 0 ? row('Discount', `−${m.money(m.discount)}`) : ''}
       ${m.taxAmount > 0 ? row(`VAT ${m.taxRate}%`, m.money(m.taxAmount)) : ''}
       <hr class="solid" />

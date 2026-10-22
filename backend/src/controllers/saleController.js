@@ -103,7 +103,9 @@ exports.createSale = async (req, res, next) => {
     }
 
     let subtotal = 0;
+    let listSubtotal = 0;
     const itemRecords = [];
+    const isAdmin = req.user.role === 'Admin' || req.user.role === 'SuperAdmin';
 
     // Lock rows in ascending product id so two sales touching the same
     // products always queue instead of deadlocking each other.
@@ -129,20 +131,33 @@ exports.createSale = async (req, res, next) => {
       if (!isService && Number(product.quantity || 0) < quantity) {
         throw httpError(409, `Insufficient stock for ${product.name} (only ${Number(product.quantity || 0)} left)`);
       }
-      // Goods always sell at the catalogue price. Services may be charged at a
-      // price agreed at the counter (e.g. a repair quoted per job); a service
+      // The cashier may type the price actually charged. For goods that is a
+      // discount off the catalogue price (never above it). Services may be
+      // charged any agreed amount (e.g. a repair quoted per job); a service
       // with no catalogue price must have one supplied.
-      let unitPrice = parseFloat(product.sellPrice);
-      if (isService && item.price !== undefined && item.price !== null && item.price !== '') {
-        const agreed = Number(item.price);
-        if (!Number.isFinite(agreed) || agreed < 0) {
+      const catalogPrice = parseFloat(product.sellPrice) || 0;
+      let unitPrice = catalogPrice;
+      if (item.price !== undefined && item.price !== null && item.price !== '') {
+        const charged = roundMoney(Number(item.price));
+        if (!Number.isFinite(charged) || charged < 0) {
           throw httpError(400, `Enter a valid amount for ${product.name}`);
         }
-        unitPrice = agreed;
+        if (!isService && charged > catalogPrice + 0.005) {
+          throw httpError(400, `${product.name} cannot be sold above its price of ${catalogPrice}. Change the product price instead.`);
+        }
+        unitPrice = charged;
       }
       if (isService && !(unitPrice > 0)) {
         throw httpError(400, `Enter the amount charged for ${product.name}`);
       }
+      const buyPrice = Number(product.buyPrice || 0);
+      if (!isService && !isAdmin && unitPrice < catalogPrice && unitPrice < buyPrice - 0.005) {
+        throw httpError(403, `${product.name} cannot be sold below its cost price. Ask an admin.`);
+      }
+      // A service charged above its listed price is an agreed price, not a
+      // negative discount.
+      const listPrice = Math.max(catalogPrice, unitPrice);
+      listSubtotal += listPrice * quantity;
       const lineTotal = unitPrice * quantity;
       subtotal += lineTotal;
       if (!isService) {
@@ -150,7 +165,7 @@ exports.createSale = async (req, res, next) => {
         await product.save({ transaction });
       }
 
-      itemRecords.push({ productId: product.id, quantity, price: unitPrice, costOfGoods: product.buyPrice || 0 });
+      itemRecords.push({ productId: product.id, quantity, price: unitPrice, listPrice, costOfGoods: product.buyPrice || 0 });
     }
 
     let discountAmount = 0;
@@ -158,6 +173,18 @@ exports.createSale = async (req, res, next) => {
       discountAmount = (subtotal * discountValue) / 100;
     } else {
       discountAmount = discountValue;
+    }
+
+    // Staff discount limit, set by the admin: item price cuts plus the
+    // sale-wide discount, as a share of the sale's catalogue value.
+    const itemDiscounts = roundMoney(listSubtotal - subtotal);
+    const totalDiscount = itemDiscounts + Math.min(discountAmount, subtotal);
+    const staffLimit = settings && settings.maxDiscountPercent != null ? Number(settings.maxDiscountPercent) : null;
+    if (!isAdmin && staffLimit != null && totalDiscount > 0 && listSubtotal > 0) {
+      const givenPercent = (totalDiscount / listSubtotal) * 100;
+      if (givenPercent > staffLimit + 0.01) {
+        throw httpError(403, `Discount of ${givenPercent.toFixed(1)}% is above your limit of ${staffLimit}%. Ask an admin.`);
+      }
     }
 
     const afterDiscount = Math.max(0, subtotal - discountAmount);
@@ -240,6 +267,7 @@ exports.createSale = async (req, res, next) => {
           paymentMethod,
           currency: saleCurrency,
           items: itemRecords.length,
+          ...(itemDiscounts > 0 ? { itemDiscounts } : {}),
           ...(isCredit ? { creditAmount, customerId: customer.id } : {}),
         },
         req
@@ -251,6 +279,7 @@ exports.createSale = async (req, res, next) => {
       receipt: receiptNumber,
       total,
       discount: discountAmount,
+      itemDiscounts,
       taxAmount,
       currency: saleCurrency,
       amountPaid,

@@ -395,6 +395,19 @@ export default function Settings() {
                     <Field label="VAT (%)" hint="Added on top of prices at checkout. Leave 0 if you don't charge VAT.">
                       <input type="number" min="0" max="100" step="0.01" value={settings.vat ?? 0} onChange={(e) => update('vat', parseFloat(e.target.value) || 0)} disabled={disabled} className={fieldInput} />
                     </Field>
+                    <Field label="Staff discount limit (%)" hint="Most a staff member may take off a sale. Empty = no limit, 0 = no discounts. Admins are not limited.">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        value={settings.maxDiscountPercent ?? ''}
+                        onChange={(e) => update('maxDiscountPercent', e.target.value === '' ? null : Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                        disabled={disabled}
+                        className={fieldInput}
+                        placeholder="No limit"
+                      />
+                    </Field>
                     <div className="sm:col-span-2">
                       <p className="text-sm font-medium text-[var(--text-secondary)]">Logo</p>
                       <div className="mt-1.5 flex items-center gap-4 rounded-xl border border-dashed border-[var(--border-strong)] p-3">

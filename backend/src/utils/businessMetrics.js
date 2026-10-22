@@ -65,7 +65,8 @@ async function getMetricsForRange(shopId, start, end) {
        ),
        sold AS (
          SELECT COALESCE(SUM(${LINE_UNIT_COST} * si."quantity"), 0) AS "cost",
-                COALESCE(SUM(si."quantity"), 0) AS "itemsSold"
+                COALESCE(SUM(si."quantity"), 0) AS "itemsSold",
+                COALESCE(SUM(GREATEST(COALESCE(si."listPrice", si."price") - si."price", 0) * si."quantity"), 0) AS "itemDiscounts"
          FROM "sale_items" si
          JOIN range_sales rs ON rs.id = si."saleId"
          LEFT JOIN "products" p ON p.id = si."productId"
@@ -94,8 +95,10 @@ async function getMetricsForRange(shopId, start, end) {
        )
        SELECT
          COALESCE((SELECT SUM("total" - "taxAmount") FROM range_sales), 0) AS "salesExTax",
-         COALESCE((SELECT SUM("total" + "discount" - "taxAmount") FROM range_sales), 0) AS "grossSales",
-         COALESCE((SELECT SUM("discount") FROM range_sales), 0) AS "discountTotal",
+         COALESCE((SELECT SUM("total" + "discount" - "taxAmount") FROM range_sales), 0)
+           + (SELECT "itemDiscounts" FROM sold) AS "grossSales",
+         COALESCE((SELECT SUM("discount") FROM range_sales), 0)
+           + (SELECT "itemDiscounts" FROM sold) AS "discountTotal",
          COALESCE((SELECT SUM("creditAmount") FROM range_sales), 0) AS "creditSales",
          (SELECT COUNT(*) FROM range_sales)::int AS "orderCount",
          (SELECT "cost" FROM sold) AS "costOfGoods",

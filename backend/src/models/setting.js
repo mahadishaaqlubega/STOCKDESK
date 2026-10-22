@@ -43,6 +43,12 @@ Setting.init(
       allowNull: true,
       comment: 'Custom receipt footer text',
     },
+    maxDiscountPercent: {
+      // Largest discount staff may give on a sale, as a % of its catalogue
+      // value. NULL = no limit. Admins are never limited.
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
     shopLogoUrl: {
       // TEXT: holds either an https URL or an uploaded logo as a data: URL.
       type: DataTypes.TEXT,
