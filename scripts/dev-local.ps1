@@ -10,9 +10,13 @@
   4. Opens two windows: the backend (http://localhost:4000) and the frontend
      (http://localhost:5173).
 
-  The backend is started with every database variable set explicitly, so the
-  DATABASE_URL in backend/.env (production) is never used. dotenv does not
-  override variables that are already set.
+  The backend gets DATABASE_URL pointing at the local copy (dotenv never
+  overrides a variable that is already set, so backend/.env is ignored) and
+  STOCKDESK_LOCAL_ONLY=1, which makes the backend refuse to start against
+  any database that is not on this machine.
+
+  Note: in PowerShell, assigning an empty string removes an environment
+  variable, so never "clear" DATABASE_URL with '' here.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\dev-local.ps1
@@ -83,8 +87,8 @@ if ($NoApps) {
 
 # 4. Apps
 $backendCmd = @"
-`$env:DATABASE_URL=''; `$env:DATABASE_HOST='localhost'; `$env:DATABASE_PORT='$Port'; `$env:DATABASE_NAME='$Database';
-`$env:DATABASE_USER='postgres'; `$env:DATABASE_PASSWORD=''; `$env:DATABASE_SSL='false';
+`$env:STOCKDESK_LOCAL_ONLY='1';
+`$env:DATABASE_URL='postgres://postgres@localhost:$Port/$Database'; `$env:DATABASE_SSL='false';
 `$env:PORT='4000'; `$env:JWT_SECRET='local-dev-secret'; `$env:NODE_ENV='development';
 `$env:CORS_ORIGINS='http://localhost:5173'; `$env:FRONTEND_URL='http://localhost:5173';
 `$env:EMAIL_PROVIDER=''; `$env:RESEND_API_KEY=''; `$env:SMTP_HOST='';
