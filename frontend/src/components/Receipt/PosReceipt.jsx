@@ -433,7 +433,7 @@ export default function PosReceipt({ sale, settings, cashierName, onClose, autoP
       >
         <div className="flex items-start justify-between gap-3 border-b border-[var(--border-default)] px-5 py-4">
           <div className="min-w-0">
-            <p id="receipt-title" className="text-base font-semibold text-[var(--text-primary)]">Sale complete</p>
+            <p id="receipt-title" className="text-base font-semibold text-[var(--text-primary)]">{sale.offline ? 'Sale saved offline' : 'Sale complete'}</p>
             <p className="mt-0.5 text-sm text-[var(--text-muted)]">
               Receipt {receiptNumber}
               {balanceDue > 0 ? <span className="font-medium text-[var(--warning)]"> · balance due</span> : null}
@@ -480,6 +480,7 @@ export default function PosReceipt({ sale, settings, cashierName, onClose, autoP
           <button type="button" onClick={onClose} className="app-btn-secondary flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium">
             New sale
           </button>
+          {sale.offline ? null : (
           <button
             type="button"
             onClick={sendWhatsApp}
@@ -489,6 +490,7 @@ export default function PosReceipt({ sale, settings, cashierName, onClose, autoP
             <WhatsAppIcon />
             WhatsApp
           </button>
+          )}
           <button type="button" onClick={handlePrint} className="app-btn-primary flex-1 rounded-xl px-4 py-2.5 text-sm">
             Print receipt
           </button>

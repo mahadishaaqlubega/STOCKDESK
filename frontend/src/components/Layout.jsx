@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import PageLoader from './PageLoader';
+import OfflineBar from './OfflineBar';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { logout, getUser } from '../utils/auth';
 
@@ -30,6 +31,7 @@ export default function Layout() {
             sidebarCollapsed={sidebarCollapsed}
           />
           <main className="mx-auto w-full max-w-[1440px]">
+            {user?.shopId ? <OfflineBar shopId={user.shopId} /> : null}
             <Suspense fallback={<PageLoader />}>
               <Outlet />
             </Suspense>

@@ -104,6 +104,14 @@ const STATEMENTS = [
   { name: 'index: supplier payments by supplier', sql: `CREATE INDEX IF NOT EXISTS "supplier_payments_supplier_idx" ON "supplier_payments" ("supplierId");` },
   { name: 'index: suppliers by shop', sql: `CREATE INDEX IF NOT EXISTS "suppliers_shop_name_idx" ON "suppliers" ("shopId", "name");` },
   {
+    name: 'sales.clientRef',
+    sql: `ALTER TABLE IF EXISTS "sales" ADD COLUMN IF NOT EXISTS "clientRef" VARCHAR(64);`,
+  },
+  {
+    name: 'index: sales by till reference',
+    sql: `CREATE UNIQUE INDEX IF NOT EXISTS "sales_shop_client_ref_idx" ON "sales" ("shopId", "clientRef") WHERE "clientRef" IS NOT NULL;`,
+  },
+  {
     name: 'index: open credit sales',
     sql: `CREATE INDEX IF NOT EXISTS "sales_open_credit_idx" ON "sales" ("shopId", "customerId") WHERE "balanceDue" > 0;`,
   },

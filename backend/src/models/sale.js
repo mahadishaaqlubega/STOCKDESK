@@ -79,6 +79,13 @@ Sale.init(
       type: DataTypes.DATEONLY,
       allowNull: true,
     },
+    clientRef: {
+      // Id the till generated for this sale. Makes checkout idempotent: a
+      // sale sent twice (offline queue retry, lost response) is stored once.
+      // Unique per shop (index in migrations).
+      type: DataTypes.STRING(64),
+      allowNull: true,
+    },
     shopId: {
       type: DataTypes.INTEGER,
       allowNull: true,

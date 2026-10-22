@@ -150,6 +150,30 @@ const stamp = Date.now().toString(36);
   check('sale detail loads with items', (await api('GET', `/sales/${cash.data.saleId}`, admin)).data.items?.length === 1);
   check('bad sale id → 404 not 500', (await api('GET', '/sales/abc/receipt', admin)).status === 404);
 
+  // ---------------------------------------------------------------- offline
+  group('Offline sales & sync');
+  const ref = `e2e-${stamp}-${Date.now().toString(36)}`;
+  const offlineSale = { items: [{ productId: lastUnit.data.id, quantity: 3 }], paymentMethod: 'Cash', clientRef: ref, offline: true, soldAt: new Date(Date.now() - 2 * 3600000).toISOString(), cashierId: 170 };
+  const first = await api('POST', '/sales', admin, offlineSale);
+  check('offline sale is accepted even when stock is short', first.status === 201, `${first.status} ${first.data.message || ''}`);
+  check('stock may go below zero for offline sales', (await api('GET', `/products/${lastUnit.data.id}`, admin)).data.quantity === -3);
+  const resent = await api('POST', '/sales', admin, offlineSale);
+  check('sending the same sale again stores it once', resent.status === 200 && resent.data.duplicate === true && resent.data.saleId === first.data.saleId);
+  const [raceA, raceB] = await Promise.all([
+    api('POST', '/sales', staff, { ...offlineSale, clientRef: `${ref}-race` }),
+    api('POST', '/sales', staff, { ...offlineSale, clientRef: `${ref}-race` }),
+  ]);
+  check('two copies arriving together still make one sale', raceA.data.saleId === raceB.data.saleId && [raceA.status, raceB.status].sort().join() === '200,201', `${raceA.status}/${raceB.status} ${raceA.data.saleId}/${raceB.data.saleId}`);
+  const offlineDetail = (await api('GET', `/sales/${first.data.saleId}`, admin)).data;
+  check('offline sale keeps the real cashier and time', offlineDetail.cashierId === 170 && Math.abs(new Date(offlineDetail.createdAt) - new Date(offlineSale.soldAt)) < 2000, `${offlineDetail.cashierId} ${offlineDetail.createdAt}`);
+  check('credit sales are refused offline', (await api('POST', '/sales', staff, { ...offlineSale, clientRef: `${ref}-cr`, paymentMethod: 'Credit', customerId: cust.data.id })).status === 400);
+  check('impossible offline time refused', (await api('POST', '/sales', staff, { ...offlineSale, clientRef: `${ref}-old`, soldAt: '2001-01-01T00:00:00Z' })).status === 400);
+  check('bad sale reference refused', (await api('POST', '/sales', staff, { ...offlineSale, clientRef: 'x' })).status === 400);
+  check('online sale with a reference is idempotent too', (await api('POST', '/sales', staff, { items: [{ productId: goodsId, quantity: 1 }], paymentMethod: 'Cash', clientRef: `${ref}-on` })).status === 201
+    && (await api('POST', '/sales', staff, { items: [{ productId: goodsId, quantity: 1 }], paymentMethod: 'Cash', clientRef: `${ref}-on` })).data.duplicate === true);
+  check('online sales still refuse short stock', (await api('POST', '/sales', staff, { items: [{ productId: lastUnit.data.id, quantity: 1 }], paymentMethod: 'Cash' })).status === 409);
+  await api('POST', '/stock-reconciliation/create', admin, { productId: lastUnit.data.id, physicalQuantity: 0, reason: 'e2e reset after offline sale' });
+
   // ---------------------------------------------------------------- receipts
   group('Receipts');
   for (const [label, id] of [['cash', cash.data.saleId], ['split', split.data.saleId], ['service', svcAgreed.data.saleId]]) {

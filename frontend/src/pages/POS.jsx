@@ -6,6 +6,17 @@ import { getPrintSettings, savePrintSettings } from '../utils/printSettings';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import PosReceipt from '../components/Receipt/PosReceipt';
 import { formatMoney, formatAmount } from '../utils/format';
+import { isOffline, subscribeConnectivity } from '../utils/connectivity';
+import { cacheGet, cacheSet } from '../utils/offlineStore';
+import {
+  discardQueuedSale,
+  newClientRef,
+  offlineReceiptNumber,
+  pendingSales,
+  queueSale,
+  retryQueuedSale,
+  subscribeQueue,
+} from '../utils/offlineSales';
 
 // Money actually handed over at the till.
 const tenderMethods = ['Cash', 'Card', 'Mobile Money'];
@@ -46,6 +57,10 @@ export default function POS() {
   const [showDiscount, setShowDiscount] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState(null);
   const isAdmin = ['Admin', 'SuperAdmin'].includes(getUser()?.role);
+  const shopId = getUser()?.shopId;
+  const [offline, setOffline] = useState(isOffline());
+  const [offlineQueue, setOfflineQueue] = useState([]);
+  const [usingSavedData, setUsingSavedData] = useState(false);
   const [creditDeposit, setCreditDeposit] = useState('');
   const [creditDepositMethod, setCreditDepositMethod] = useState('Cash');
   const [creditDueDate, setCreditDueDate] = useState('');
@@ -57,11 +72,41 @@ export default function POS() {
     loadProducts();
     loadSettings();
     loadCustomers();
+    const refreshQueue = async () => setOfflineQueue(shopId ? await pendingSales(shopId) : []);
+    refreshQueue();
+    const offQueue = subscribeQueue(refreshQueue);
+    const offConn = subscribeConnectivity(setOffline);
+    // After queued sales reach the server, reload real stock levels.
+    const onSynced = () => loadProducts();
+    window.addEventListener('stockdesk:sales-synced', onSynced);
+    return () => {
+      offQueue();
+      offConn();
+      window.removeEventListener('stockdesk:sales-synced', onSynced);
+    };
   }, []);
+
+  // Online: fetch and keep a copy on the device. Offline: use that copy, so
+  // the till keeps working with the last known catalogue.
+  const loadWithCache = async (key, fetcher) => {
+    const cacheKey = `${key}:${shopId}`;
+    try {
+      const data = await fetcher();
+      cacheSet(cacheKey, data);
+      return data;
+    } catch (error) {
+      const saved = await cacheGet(cacheKey);
+      if (saved) {
+        setUsingSavedData(true);
+        return saved.value;
+      }
+      throw error;
+    }
+  };
 
   const loadSettings = async () => {
     try {
-      const settingsData = await fetchSettings();
+      const settingsData = await loadWithCache('settings', fetchSettings);
       setSettingsState(settingsData);
       setCurrency(settingsData.currency || 'UGX');
     } catch (error) {
@@ -70,13 +115,16 @@ export default function POS() {
   };
 
   const loadProducts = async () => {
-    const data = await fetchProducts(search ? `?search=${encodeURIComponent(search)}` : '');
-    setProducts(data);
+    try {
+      setProducts(await loadWithCache('products', () => fetchProducts()));
+    } catch (error) {
+      setMessage(error.isNetworkError ? 'No connection, and no saved product list on this device yet. Connect once to download it.' : error.message);
+    }
   };
 
   const loadCustomers = async () => {
     try {
-      const data = await fetchCustomers();
+      const data = await loadWithCache('customers', fetchCustomers);
       setCustomers(data);
       const walkIn = data.find((customer) => customer.name === 'Walk-in Customer');
       if (walkIn) {
@@ -241,6 +289,66 @@ export default function POS() {
 
 
 
+  // Records the sale on this device and prints an offline receipt; the
+  // queue sends it to the server when the connection is back.
+  const saveOfflineSale = async (clientRef, salePayload) => {
+    if (isCredit) {
+      setLoading(false);
+      setMessage('Credit sales need an internet connection so the customer\'s balance can be checked. Take cash, card or mobile money, or wait for the connection.');
+      return;
+    }
+    const user = getUser();
+    const customer = customers.find((c) => String(c.id) === String(customerId));
+    const localSale = {
+      id: null,
+      offline: true,
+      createdAt: new Date().toISOString(),
+      currency,
+      total,
+      discount: discountAmount,
+      taxAmount,
+      tax: vatRate,
+      paymentMethod: useSplit ? 'Split' : paymentMethod,
+      paymentSplits: useSplit ? splitPayments.filter((p) => parseFloat(p.amount) > 0).map((p) => ({ ...p, amount: Number(p.amount) })) : null,
+      balanceDue: 0,
+      creditAmount: 0,
+      customer: customer ? { id: customer.id, name: customer.name, phone: customer.phone } : null,
+      cashier: { name: user?.name },
+      receipt: { receiptNumber: offlineReceiptNumber(clientRef) },
+      items: cart.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: Number(item.price),
+        listPrice: item.listPrice,
+        Product: { name: item.name, type: item.isService ? 'service' : 'goods' },
+      })),
+    };
+    try {
+      await queueSale({ clientRef, shopId, cashierId: user?.id, payload: salePayload, localSale });
+    } catch (error) {
+      setLoading(false);
+      setMessage(`Could not save the sale on this device: ${error.message}`);
+      return;
+    }
+    // Show the stock going down here too, and keep the saved list in step.
+    const sold = new Map(cart.filter((i) => !i.isService).map((i) => [i.productId, i.quantity]));
+    setProducts((prev) => {
+      const next = prev.map((p) => (sold.has(p.id) ? { ...p, quantity: Number(p.quantity || 0) - sold.get(p.id) } : p));
+      cacheSet(`products:${shopId}`, next);
+      return next;
+    });
+    setLastSaleId(null);
+    setLastSale(localSale);
+    setPrintOnOpen(autoPrint);
+    setShowReceipt(true);
+    setCart([]);
+    setDiscount(0);
+    setDiscountType('fixed');
+    setMobileSection('browse');
+    setMessage('Sale recorded offline. It is saved on this device and will sync automatically.');
+    setLoading(false);
+  };
+
   const handleCheckout = async () => {
     try {
       if (!cart.length) {
@@ -315,7 +423,10 @@ export default function POS() {
       }
       setLoading(true);
       setMessage('');
-      const response = await createSale({
+      // One id per checkout: if the connection drops after the server stored
+      // the sale, the offline copy carries the same id and is not stored twice.
+      const clientRef = newClientRef();
+      const salePayload = {
         // Send the price only when it differs from the catalogue (services
         // always), so normal sales stay at the server's current price.
         items: cart.map(({ productId, quantity, price, listPrice, isService }) => ({
@@ -332,11 +443,21 @@ export default function POS() {
         ...(isCredit
           ? { amountPaid: depositValue, depositMethod: creditDepositMethod, dueDate: creditDueDate || null }
           : {}),
-      });
-      
+      };
+
+      let response;
+      try {
+        if (isOffline()) throw Object.assign(new Error('offline'), { isNetworkError: true });
+        response = await createSale({ ...salePayload, clientRef });
+      } catch (error) {
+        if (!error.isNetworkError) throw error;
+        await saveOfflineSale(clientRef, salePayload);
+        return;
+      }
+
       // Fetch the full sale data to display in receipt
       const saleData = await fetchSale(response.saleId);
-      
+            
       setLastSaleId(response.saleId);
       setLastSale(saleData);
       setPrintOnOpen(autoPrint);
@@ -428,6 +549,7 @@ export default function POS() {
 
           <p className="mt-3 text-xs text-[var(--text-muted)]">
             {filteredProducts.length.toLocaleString()} item{filteredProducts.length === 1 ? '' : 's'}
+            {usingSavedData && offline ? <span className="ml-2 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">Saved list · prices and stock as of the last connection</span> : null}
           </p>
 
           {filteredProducts.length === 0 ? (
@@ -827,7 +949,7 @@ export default function POS() {
             </label>
 
             {message ? (
-              <div className={`rounded-lg px-3 py-2 text-sm ${/successfully|recorded/i.test(message) ? 'app-alert-success' : 'app-alert-danger'}`} role="status">
+              <div className={`rounded-lg px-3 py-2 text-sm ${/offline/i.test(message) && /recorded/i.test(message) ? 'app-alert-warning' : /successfully|recorded/i.test(message) ? 'app-alert-success' : 'app-alert-danger'}`} role="status">
                 <p>{message}</p>
                 {/successfully|recorded/i.test(message) && lastSaleId ? (
                   <div className="mt-1.5 flex gap-3 text-xs font-medium">
@@ -863,6 +985,40 @@ export default function POS() {
           autoPrint={printOnOpen}
         />
       )}
+
+      {offlineQueue.length > 0 ? (
+        <section className="app-panel rounded-2xl border" aria-label="Sales saved offline">
+          <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 py-3">
+            <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Saved offline</h2>
+            <span className="text-xs text-[var(--text-muted)]">{offline ? 'Will sync when the connection is back' : 'Syncing automatically'}</span>
+          </div>
+          <ul className="divide-y divide-[var(--border-default)]">
+            {offlineQueue.map((entry) => (
+              <li key={entry.clientRef} className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="num text-sm font-medium text-[var(--text-primary)]">
+                    {formatMoney(entry.localSale?.currency || currency, entry.localSale?.total)} · {entry.localSale?.receipt?.receiptNumber}
+                    {entry.status === 'failed' ? <span className="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold text-red-600 dark:text-red-300">Not saved</span> : <span className="ml-2 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Waiting</span>}
+                  </p>
+                  <p className="truncate text-xs text-[var(--text-muted)]">
+                    {new Date(entry.soldAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} · {(entry.localSale?.items || []).map((i) => i.Product?.name).join(', ')}
+                  </p>
+                  {entry.error ? <p className="text-xs text-red-600 dark:text-red-400">{entry.error}</p> : null}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button type="button" onClick={() => { setLastSale(entry.localSale); setLastSaleId(null); setShowReceipt(true); }} className="rounded-lg px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)]">Receipt</button>
+                  {entry.status === 'failed' ? (
+                    <>
+                      {isAdmin ? <button type="button" onClick={() => { if (window.confirm('Discard this sale? It will not be recorded.')) discardQueuedSale(entry.clientRef); }} className="rounded-lg px-3 py-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--danger)]">Discard</button> : null}
+                      <button type="button" onClick={() => retryQueuedSale(entry).then(() => loadProducts())} disabled={offline} className="app-btn-primary rounded-lg px-3 py-1.5 text-sm disabled:opacity-50">Retry</button>
+                    </>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {heldSales.length > 0 ? (
         <section className="app-panel rounded-2xl border" aria-label="Held sales">

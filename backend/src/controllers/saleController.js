@@ -31,15 +31,74 @@ function parseDueDate(value) {
   return String(value);
 }
 
+// The response for a sale that was already stored (same clientRef).
+async function existingSaleResponse(shopId, clientRef, transaction) {
+  const sale = await Sale.findOne({
+    where: { shopId, clientRef },
+    include: [{ model: Receipt, as: 'receipt', attributes: ['receiptNumber'] }],
+    transaction,
+  });
+  if (!sale) return null;
+  return {
+    saleId: sale.id,
+    receipt: sale.receipt?.receiptNumber || buildReceiptNumber(sale.id),
+    total: Number(sale.total),
+    discount: Number(sale.discount),
+    taxAmount: Number(sale.taxAmount),
+    currency: sale.currency,
+    creditAmount: Number(sale.creditAmount),
+    balanceDue: Number(sale.balanceDue),
+    dueDate: sale.dueDate,
+    duplicate: true,
+  };
+}
+
+// Offline sales carry the time they happened at the till. Accept up to 14
+// days back (a long outage) and a few minutes ahead (clock drift).
+function parseSoldAt(value) {
+  const soldAt = new Date(value);
+  const now = Date.now();
+  if (Number.isNaN(soldAt.getTime()) || soldAt.getTime() > now + 10 * 60000 || soldAt.getTime() < now - 14 * 86400000) {
+    throw httpError(400, 'The offline sale time is not valid. Check the date and time on this device.');
+  }
+  return soldAt;
+}
+
 exports.createSale = async (req, res, next) => {
   // Opened inside try: if the pool is exhausted the error must reach
   // next() instead of escaping as an unhandled rejection.
   let transaction;
+  const clientRef = req.body.clientRef == null || req.body.clientRef === '' ? null : String(req.body.clientRef);
   try {
+    if (clientRef !== null && !/^[A-Za-z0-9_-]{8,64}$/.test(clientRef)) {
+      throw httpError(400, 'Invalid sale reference');
+    }
     transaction = await Sale.sequelize.transaction();
     const { items, paymentMethod, paymentSplits, currency, discount = 0, discountType = 'fixed', customerId = null } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       throw httpError(400, 'Sale must include at least one item');
+    }
+
+    // Already stored (a retry from the offline queue, or a response that got
+    // lost on a bad connection): answer with the existing sale.
+    if (clientRef) {
+      const existing = await existingSaleResponse(req.user.shopId, clientRef, transaction);
+      if (existing) {
+        await transaction.commit();
+        return res.status(200).json(existing);
+      }
+    }
+    // A sale made while the till was offline: the goods have already left
+    // the shop, so it is recorded even if stock now looks too low (stock
+    // may go negative until the next count), at the time it happened.
+    const isOffline = req.body.offline === true && Boolean(clientRef);
+    const soldAt = isOffline ? parseSoldAt(req.body.soldAt) : null;
+    // Synced later, possibly from someone else's session: keep the cashier
+    // who actually made the sale, if they belong to this shop.
+    let saleCashierId = req.user.id;
+    if (isOffline && req.body.cashierId && Number(req.body.cashierId) !== req.user.id) {
+      const cashier = await User.findOne({ where: { id: Number(req.body.cashierId), shopId: req.user.shopId }, attributes: ['id'], transaction });
+      if (cashier) saleCashierId = cashier.id;
     }
 
     // Validate payment method, discount and split payments before any writes.
@@ -48,6 +107,9 @@ exports.createSale = async (req, res, next) => {
       throw httpError(400, 'Invalid payment method');
     }
     const isCredit = paymentMethod === 'Credit';
+    if (isCredit && isOffline) {
+      throw httpError(400, 'Credit sales need an internet connection so the customer\'s balance can be checked.');
+    }
 
     const discountValue = Number(discount);
     if (!Number.isFinite(discountValue) || discountValue < 0) {
@@ -133,7 +195,7 @@ exports.createSale = async (req, res, next) => {
       }
       // Services (repairs, labour, fees) are not stock-tracked.
       const isService = product.type === 'service';
-      if (!isService && Number(product.quantity || 0) < quantity) {
+      if (!isService && !isOffline && Number(product.quantity || 0) < quantity) {
         throw httpError(409, `Insufficient stock for ${product.name} (only ${Number(product.quantity || 0)} left)`);
       }
       // The cashier may type the price actually charged. For goods that is a
@@ -237,7 +299,7 @@ exports.createSale = async (req, res, next) => {
         discountType: discountMode,
         tax: taxRate,
         taxAmount,
-        cashierId: req.user.id,
+        cashierId: saleCashierId,
         customerId: customer ? customer.id : null,
         shopId: req.user.shopId,
         paymentMethod,
@@ -246,6 +308,8 @@ exports.createSale = async (req, res, next) => {
         creditAmount,
         balanceDue: creditAmount,
         dueDate,
+        clientRef,
+        ...(soldAt ? { date: soldAt, createdAt: soldAt } : {}),
       },
       { transaction }
     );
@@ -273,6 +337,7 @@ exports.createSale = async (req, res, next) => {
           currency: saleCurrency,
           items: itemRecords.length,
           ...(itemDiscounts > 0 ? { itemDiscounts } : {}),
+          ...(isOffline ? { offline: true, soldAt } : {}),
           ...(isCredit ? { creditAmount, customerId: customer.id } : {}),
         },
         req
@@ -294,6 +359,14 @@ exports.createSale = async (req, res, next) => {
     });
   } catch (error) {
     if (transaction && !transaction.finished) await transaction.rollback();
+    if (clientRef && error.name === 'SequelizeUniqueConstraintError') {
+      try {
+        const existing = await existingSaleResponse(req.user.shopId, clientRef);
+        if (existing) return res.status(200).json(existing);
+      } catch (lookupError) {
+        return next(lookupError);
+      }
+    }
     next(error);
   }
 };

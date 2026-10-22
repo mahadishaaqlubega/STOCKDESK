@@ -1,6 +1,8 @@
 import { getToken, logout } from './auth';
+import { NetworkError, configureConnectivity, markOffline, markOnline } from './connectivity';
 
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+configureConnectivity(API_BASE);
 const PRINTER_API_BASE = import.meta.env.VITE_PRINTER_API_URL || 'http://localhost:4000/api';
 const PRINTER_BRIDGE_KEY = import.meta.env.VITE_PRINTER_BRIDGE_KEY || '';
 
@@ -63,10 +65,29 @@ async function request(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  } catch {
+    // DNS failure, no route, CORS-less network drop: the server is unreachable.
+    markOffline();
+    throw new NetworkError();
+  }
+  // Gateway errors mean the server (or the link to it) is down, not that the
+  // request was wrong.
+  if ([502, 503, 504].includes(response.status) && !isAuthPath) {
+    markOffline();
+    throw new NetworkError('StockDesk is not reachable right now. Try again in a moment.');
+  }
+  markOnline();
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: response.ok ? null : `Request failed (${response.status})` };
+  }
 
   if (response.status === 401) {
     if (path === '/auth/login') {

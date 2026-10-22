@@ -1,6 +1,9 @@
+import { isOffline } from './connectivity';
+
 const STORAGE_KEY = 'stockdesk_token';
 const USER_KEY = 'stockdesk_user';
 const SESSION_NOTICE_KEY = 'stockdesk_session_notice';
+const OFFLINE_GRACE_MS = 24 * 60 * 60 * 1000;
 
 function setSessionNotice(message) {
   if (!message) {
@@ -63,6 +66,14 @@ export const getToken = () => {
   }
 
   if (isTokenExpired(token)) {
+    // Offline grace: with no connection nobody can sign in again, so an
+    // expired session keeps the till usable (sales queue on the device) for
+    // up to a day. The server still rejects the token; queued sales sync
+    // after the next sign-in.
+    const exp = parseTokenPayload(token)?.exp;
+    if (isOffline() && exp && Date.now() - exp * 1000 < OFFLINE_GRACE_MS) {
+      return token;
+    }
     clearSessionData();
     setSessionNotice('Session expired. Please log in again.');
     window.dispatchEvent(new Event('auth-changed'));
