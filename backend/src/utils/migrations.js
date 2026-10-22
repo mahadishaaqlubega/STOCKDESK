@@ -59,6 +59,18 @@ const STATEMENTS = [
       END $$;`,
   },
   {
+    name: 'users.tokenVersion',
+    sql: `ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "tokenVersion" INTEGER NOT NULL DEFAULT 0;`,
+  },
+  {
+    name: 'users.failedLoginCount',
+    sql: `ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "failedLoginCount" INTEGER NOT NULL DEFAULT 0;`,
+  },
+  {
+    name: 'users.lockedUntil',
+    sql: `ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "lockedUntil" TIMESTAMPTZ;`,
+  },
+  {
     name: 'index: open credit sales',
     sql: `CREATE INDEX IF NOT EXISTS "sales_open_credit_idx" ON "sales" ("shopId", "customerId") WHERE "balanceDue" > 0;`,
   },

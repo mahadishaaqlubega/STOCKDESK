@@ -21,6 +21,10 @@ const {
   sequelize,
 } = require('../models');
 const { Op } = require('sequelize');
+const { escapeLike } = require('../utils/sql');
+const { passwordProblem } = require('../utils/password');
+const { signToken } = require('../utils/token');
+const auditController = require('./auditController');
 const { sendVerificationEmail } = require('../services/emailService');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -103,11 +107,9 @@ exports.changePassword = async (req, res, next) => {
       return res.status(400).json({ message: 'Passwords do not match' });
     }
 
-    const strongPassword = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
-    if (!strongPassword.test(newPassword)) {
-      return res.status(400).json({
-        message: 'Password must be at least 8 characters and include letters, numbers, and a special character.',
-      });
+    const newPasswordProblem = passwordProblem(newPassword);
+    if (newPasswordProblem) {
+      return res.status(400).json({ message: newPasswordProblem });
     }
 
     const valid = await bcrypt.compare(currentPassword, user.password);
@@ -116,9 +118,26 @@ exports.changePassword = async (req, res, next) => {
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
+    // End every other session; this device gets a fresh token below.
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
 
-    res.json({ message: 'Password updated successfully.' });
+    res.json({ message: 'Password updated. Other devices have been signed out.', token: signToken(user) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/profile/sign-out-everywhere — ends every session of this user,
+// including this one (lost phone, shared computer).
+exports.signOutEverywhere = async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+    await auditController.logAction(user.id, user.shopId, 'SIGN_OUT_ALL', 'USER', user.id, {}, req);
+    res.json({ message: 'Signed out on every device.' });
   } catch (error) {
     next(error);
   }
@@ -154,13 +173,13 @@ exports.updateProfile = async (req, res, next) => {
         }
 
         const existing = await User.findOne({
-          where: { email: { [Op.iLike]: normalizedEmail }, id: { [Op.ne]: user.id } },
+          where: { email: { [Op.iLike]: escapeLike(normalizedEmail) }, id: { [Op.ne]: user.id } },
         });
         if (existing) {
           return res.status(409).json({ message: 'An account with this email already exists' });
         }
 
-        const pendingEmail = await PendingSignup.findOne({ where: { email: { [Op.iLike]: normalizedEmail } } });
+        const pendingEmail = await PendingSignup.findOne({ where: { email: { [Op.iLike]: escapeLike(normalizedEmail) } } });
         if (pendingEmail) {
           return res.status(409).json({ message: 'That email is pending verification on another signup. Please try a different email.' });
         }

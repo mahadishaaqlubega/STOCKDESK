@@ -138,6 +138,7 @@ export const deleteUser = (id) => request(`/users/${id}`, { method: 'DELETE' });
 export const fetchProfile = () => request('/profile');
 export const updateProfile = (body) => request('/profile', { method: 'PUT', body: JSON.stringify(body) });
 export const changePassword = (body) => request('/profile/change-password', { method: 'POST', body: JSON.stringify(body) });
+export const signOutEverywhere = () => request('/profile/sign-out-everywhere', { method: 'POST' });
 export const closeAccount = (body) => request('/profile/close-account', { method: 'POST', body: JSON.stringify(body) });
 export const fetchPlatformOverview = () => request('/admin/overview');
 export const fetchPlatformDashboard = (days) => request(`/admin/dashboard${days ? `?days=${days}` : ''}`);

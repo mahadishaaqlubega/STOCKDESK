@@ -66,6 +66,21 @@ User.init(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    tokenVersion: {
+      // Bumped to end every existing session (password change/reset).
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    failedLoginCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    lockedUntil: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     sequelize,

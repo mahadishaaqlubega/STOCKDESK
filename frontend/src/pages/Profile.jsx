@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { fetchProfile, updateProfile, resendVerification, changePassword, closeAccount } from '../utils/api';
+import { fetchProfile, updateProfile, resendVerification, changePassword, closeAccount, signOutEverywhere } from '../utils/api';
 import { getToken, updateToken, logout } from '../utils/auth';
 import { Link } from 'react-router-dom';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
@@ -193,6 +193,8 @@ export default function Profile() {
         throw new Error('Password must be at least 8 characters and include letters, numbers, and a special character.');
       }
       const data = await changePassword({ currentPassword, newPassword, confirmPassword });
+      // The change ends every other session; keep this one on the new token.
+      if (data.token) updateToken(data.token);
       setPwMessage(data.message || 'Password updated successfully.');
       setPwMessageType('success');
       setCurrentPassword('');
@@ -203,6 +205,17 @@ export default function Profile() {
       setPwMessageType('error');
     } finally {
       setPwSaving(false);
+    }
+  };
+
+  const handleSignOutEverywhere = async () => {
+    if (!window.confirm('Sign out on every device, including this one?')) return;
+    try {
+      await signOutEverywhere();
+      logout({ message: 'You were signed out on every device.' });
+    } catch (error) {
+      setPwMessage(error.message);
+      setPwMessageType('error');
     }
   };
 
@@ -373,6 +386,16 @@ export default function Profile() {
               <div className="flex justify-end border-t border-[var(--border-default)] px-5 py-4">
                 <button type="submit" disabled={pwSaving} className="app-btn-primary rounded-lg px-5 py-2.5 text-sm disabled:opacity-50">{pwSaving ? 'Updating…' : 'Update password'}</button>
               </div>
+            </Panel>
+          ) : null}
+
+          {activeTab === 'security' ? (
+            <Panel className="mt-4">
+              <PanelHeader
+                title="Signed-in devices"
+                description="Lost a phone or used a shared computer? End every session. Changing your password already signs out your other devices."
+                actions={<button type="button" onClick={handleSignOutEverywhere} className="app-btn-secondary rounded-lg px-4 py-2 text-sm">Sign out on all devices</button>}
+              />
             </Panel>
           ) : null}
 

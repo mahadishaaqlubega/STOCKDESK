@@ -93,6 +93,7 @@ describe('POST /api/auth/login', () => {
     User.findOne.mockResolvedValue({
       id: 1, name: 'Admin', username: 'admin', email: 'admin@test.com',
       password: hash, role: 'Admin', shopId: 10, isVerified: true,
+      failedLoginCount: 0, update: jest.fn(),
     });
 
     const res = await request(app)

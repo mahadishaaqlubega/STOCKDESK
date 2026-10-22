@@ -26,8 +26,9 @@ app.set('trust proxy', 1);
 // Gzip JSON responses: product and customer lists shrink ~85%, which matters
 // on mobile data.
 app.use(compression());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+// 3 MB covers the largest legitimate body (a 2 MB profile photo as base64).
+app.use(express.json({ limit: '3mb' }));
+app.use(express.urlencoded({ limit: '3mb', extended: true }));
 
 // Security headers: prevent common vulnerabilities
 app.use((req, res, next) => {
