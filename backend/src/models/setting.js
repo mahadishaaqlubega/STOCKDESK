@@ -44,7 +44,8 @@ Setting.init(
       comment: 'Custom receipt footer text',
     },
     shopLogoUrl: {
-      type: DataTypes.STRING,
+      // TEXT: holds either an https URL or an uploaded logo as a data: URL.
+      type: DataTypes.TEXT,
       allowNull: true,
       comment: 'URL to shop logo for receipts',
     },

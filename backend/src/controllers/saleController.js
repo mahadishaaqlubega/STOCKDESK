@@ -27,8 +27,11 @@ function parseDueDate(value) {
 }
 
 exports.createSale = async (req, res, next) => {
-  const transaction = await Sale.sequelize.transaction();
+  // Opened inside try: if the pool is exhausted the error must reach
+  // next() instead of escaping as an unhandled rejection.
+  let transaction;
   try {
+    transaction = await Sale.sequelize.transaction();
     const { items, paymentMethod, paymentSplits, currency, discount = 0, discountType = 'fixed', customerId = null } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       throw httpError(400, 'Sale must include at least one item');
@@ -72,9 +75,13 @@ exports.createSale = async (req, res, next) => {
       throw httpError(400, 'depositMethod must be Cash, Card or Mobile Money');
     }
 
+    // Every query in this handler runs on the transaction's connection. A
+    // query outside it needs a second pooled connection while the first is
+    // held, which starves the pool when many tills check out at once.
     const settings = await Setting.findOne({
       where: { shopId: req.user.shopId },
       include: [{ model: Shop, as: 'shop', attributes: ['id', 'name', 'slug'] }],
+      transaction,
     });
     const saleCurrency = currency || (settings && settings.currency) || 'USD';
 
@@ -98,7 +105,11 @@ exports.createSale = async (req, res, next) => {
     let subtotal = 0;
     const itemRecords = [];
 
-    for (const item of items) {
+    // Lock rows in ascending product id so two sales touching the same
+    // products always queue instead of deadlocking each other.
+    const orderedItems = [...items].sort((x, y) => Number(x.productId) - Number(y.productId));
+
+    for (const item of orderedItems) {
       const quantity = Number(item.quantity);
       if (!Number.isInteger(quantity) || quantity <= 0) {
         throw httpError(400, 'Item quantity must be a positive whole number');
@@ -118,14 +129,28 @@ exports.createSale = async (req, res, next) => {
       if (!isService && Number(product.quantity || 0) < quantity) {
         throw httpError(409, `Insufficient stock for ${product.name} (only ${Number(product.quantity || 0)} left)`);
       }
-      const lineTotal = parseFloat(product.sellPrice) * quantity;
+      // Goods always sell at the catalogue price. Services may be charged at a
+      // price agreed at the counter (e.g. a repair quoted per job); a service
+      // with no catalogue price must have one supplied.
+      let unitPrice = parseFloat(product.sellPrice);
+      if (isService && item.price !== undefined && item.price !== null && item.price !== '') {
+        const agreed = Number(item.price);
+        if (!Number.isFinite(agreed) || agreed < 0) {
+          throw httpError(400, `Enter a valid amount for ${product.name}`);
+        }
+        unitPrice = agreed;
+      }
+      if (isService && !(unitPrice > 0)) {
+        throw httpError(400, `Enter the amount charged for ${product.name}`);
+      }
+      const lineTotal = unitPrice * quantity;
       subtotal += lineTotal;
       if (!isService) {
         product.quantity = Number(product.quantity || 0) - quantity;
         await product.save({ transaction });
       }
 
-      itemRecords.push({ productId: product.id, quantity, price: product.sellPrice, costOfGoods: product.buyPrice || 0 });
+      itemRecords.push({ productId: product.id, quantity, price: unitPrice, costOfGoods: product.buyPrice || 0 });
     }
 
     let discountAmount = 0;
@@ -234,21 +259,39 @@ exports.createSale = async (req, res, next) => {
       dueDate,
     });
   } catch (error) {
-    if (!transaction.finished) await transaction.rollback();
+    if (transaction && !transaction.finished) await transaction.rollback();
     next(error);
   }
 };
 
+// Paged and searchable: a busy shop has tens of thousands of sales, and
+// returning them all at once was ~20 MB per request.
 exports.listSales = async (req, res, next) => {
   try {
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 100));
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    const q = String(req.query.q || '').trim();
+    const where = { shopId: req.user.shopId };
+    if (q) {
+      const receipt = /^(?:sd-?)?0*(\d+)$/i.exec(q);
+      if (receipt) {
+        where.id = Number(receipt[1]);
+      } else {
+        const like = { [Op.iLike]: `%${q}%` };
+        where[Op.or] = [{ '$customer.name$': like }, { '$customer.phone$': like }, { '$cashier.name$': like }];
+      }
+    }
     const sales = await Sale.findAll({
-      where: { shopId: req.user.shopId },
+      where,
       include: [
         { model: User, as: 'cashier', attributes: ['id', 'name'] },
         { model: Customer, as: 'customer', attributes: ['id', 'name', 'phone'] },
         { model: Receipt, as: 'receipt' },
       ],
-      order: [['createdAt', 'DESC']],
+      order: [['createdAt', 'DESC'], ['id', 'DESC']],
+      limit,
+      offset,
+      subQuery: false,
     });
     res.json(sales);
   } catch (error) {
@@ -379,7 +422,9 @@ exports.listDayClosures = async (req, res, next) => {
 };
 
 exports.createReturn = async (req, res, next) => {
-  const transaction = await Sale.sequelize.transaction();
+  // Opened inside try: if the pool is exhausted the error must reach
+  // next() instead of escaping as an unhandled rejection.
+  let transaction;
   // Every early exit must release the transaction, otherwise the pooled
   // connection stays checked out and the API eventually stalls.
   const reject = async (status, message) => {
@@ -387,6 +432,7 @@ exports.createReturn = async (req, res, next) => {
     return res.status(status).json({ message });
   };
   try {
+    transaction = await Sale.sequelize.transaction();
     const { items, reason } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       return reject(400, 'Return must include at least one item');
@@ -482,7 +528,7 @@ exports.createReturn = async (req, res, next) => {
     await transaction.commit();
     res.status(201).json({ returnId: saleReturn.id, totalRefund, creditReduction, cashRefund, message: 'Return processed successfully' });
   } catch (error) {
-    if (!transaction.finished) await transaction.rollback();
+    if (transaction && !transaction.finished) await transaction.rollback();
     next(error);
   }
 };

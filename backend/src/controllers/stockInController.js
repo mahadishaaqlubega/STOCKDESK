@@ -1,8 +1,11 @@
 const { StockIn, Product, User } = require('../models');
 
 exports.restockProduct = async (req, res, next) => {
-  const transaction = await Product.sequelize.transaction();
+  // Opened inside try: if the pool is exhausted the error must reach
+  // next() instead of escaping as an unhandled rejection.
+  let transaction;
   try {
+    transaction = await Product.sequelize.transaction();
     const product = await Product.findOne({
       where: { id: req.params.id, shopId: req.user.shopId },
       transaction,
@@ -45,7 +48,7 @@ exports.restockProduct = async (req, res, next) => {
     await transaction.commit();
     res.status(201).json({ stockIn, newQuantity: product.quantity });
   } catch (error) {
-    if (!transaction.finished) await transaction.rollback();
+    if (transaction && !transaction.finished) await transaction.rollback();
     next(error);
   }
 };

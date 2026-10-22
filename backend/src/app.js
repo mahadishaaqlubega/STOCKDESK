@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const authRoutes = require('./routes/auth');
@@ -22,6 +23,9 @@ const app = express();
 
 // Security middleware: trust proxy, limit request size
 app.set('trust proxy', 1);
+// Gzip JSON responses: product and customer lists shrink ~85%, which matters
+// on mobile data.
+app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 

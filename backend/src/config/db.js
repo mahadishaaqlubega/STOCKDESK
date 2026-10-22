@@ -74,10 +74,20 @@ if (!sslRejectUnauthorized && useSsl) {
   );
 }
 
+// Sequelize's default pool (5) queues requests once a few shops are busy at
+// the same time. Railway Postgres allows ~100 connections.
+const pool = {
+  max: Number(process.env.DB_POOL_MAX || 15),
+  min: 0,
+  idle: 10000,
+  acquire: 30000,
+};
+
 const sequelize = connectionString
   ? new Sequelize(connectionString, {
       dialect: 'postgres',
       logging: false,
+      pool,
       dialectOptions: useSsl
         ? {
             ssl: {
@@ -96,6 +106,7 @@ const sequelize = connectionString
         port: databasePort,
         dialect: 'postgres',
         logging: false,
+        pool,
         dialectOptions: useSsl
           ? {
               ssl: {

@@ -1,4 +1,6 @@
-const { Sale, SaleItem, Product, User, Expense } = require('../models');
+const { Sale, SaleItem, Product, User, Expense, Customer } = require('../models');
+
+const RANGE_SALES_LIMIT = 1000;
 const { fn, col, Op, literal } = require('sequelize');
 const { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getMetricsForRange } = require('../utils/businessMetrics');
 const sequelize = require('../config/db');
@@ -103,7 +105,7 @@ exports.dashboardStats = async (req, res, next) => {
            COUNT(*) FILTER (WHERE "quantity" > 0 AND "quantity" <= COALESCE("lowStock", 5))::int AS "lowStockCount",
            COUNT(*) FILTER (WHERE "quantity" <= 0)::int AS "outOfStockCount"
          FROM "products"
-         WHERE "shopId" = :shopId AND COALESCE("type", 'goods') = 'goods'`,
+         WHERE "shopId" = :shopId AND COALESCE("type", 'goods') = 'goods' AND "isActive" = true`,
         { replacements: { shopId }, type: sequelize.QueryTypes.SELECT }
       )),
       safe(() => sequelize.query(
@@ -199,13 +201,18 @@ exports.rangeReport = async (req, res, next) => {
 
     const [metrics, sales, topProducts] = await Promise.all([
       getMetricsForRange(req.user.shopId, rangeStart, rangeEnd),
+      // Sale headers only (no line items) and capped: a month of a busy shop
+      // was 31 MB and a minute of database time when every item was included.
+      // Totals come from `metrics`, which always covers the whole range.
       Sale.findAll({
         where: { shopId: req.user.shopId, createdAt: { [Op.gte]: rangeStart, [Op.lte]: rangeEnd } },
+        attributes: ['id', 'createdAt', 'total', 'taxAmount', 'discount', 'paymentMethod', 'balanceDue'],
         include: [
           { model: User, as: 'cashier', attributes: ['id', 'name'] },
-          { model: SaleItem, as: 'items', required: false, include: [{ model: Product, attributes: ['id', 'name', 'buyPrice'] }] },
+          { model: Customer, as: 'customer', attributes: ['id', 'name'] },
         ],
         order: [['createdAt', 'DESC']],
+        limit: RANGE_SALES_LIMIT,
       }),
       SaleItem.findAll({
         where: { shopId: req.user.shopId },
@@ -225,7 +232,7 @@ exports.rangeReport = async (req, res, next) => {
     });
     const totalExpenses = expensesInRange.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
 
-    res.json({ metrics, sales, topProducts, totalExpenses, start, end });
+    res.json({ metrics, sales, salesTruncated: sales.length === RANGE_SALES_LIMIT, topProducts, totalExpenses, start, end });
   } catch (error) {
     next(error);
   }

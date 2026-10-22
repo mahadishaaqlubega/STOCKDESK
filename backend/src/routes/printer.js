@@ -62,8 +62,16 @@ router.post('/configure', authenticate, authorize(['Admin']), async (req, res) =
  * GET /api/printer/status
  */
 router.get('/status', authenticate, (req, res) => {
+  // Direct ESC/POS printing needs optional native modules that the production
+  // image does not install (and a cloud server cannot reach a shop's printer
+  // anyway). Receipts print from the browser; report that plainly.
+  let printerService;
   try {
-    const printerService = getPrinterService();
+    printerService = getPrinterService();
+  } catch (error) {
+    return res.json({ connected: false, available: false, reason: 'Server printing is not available. Receipts print from this device.' });
+  }
+  try {
     const status = printerService.getStatus();
 
     res.json({

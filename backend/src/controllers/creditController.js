@@ -96,12 +96,15 @@ exports.customerStatement = async (req, res, next) => {
 // Body: { amount, method, notes?, saleId? }. Without saleId the payment
 // settles the customer's oldest debts first.
 exports.recordPayment = async (req, res, next) => {
-  const transaction = await sequelize.transaction();
+  // Opened inside try: if the pool is exhausted the error must reach next()
+  // instead of escaping as an unhandled rejection.
+  let transaction;
   const reject = async (status, message) => {
     await transaction.rollback();
     return res.status(status).json({ message });
   };
   try {
+    transaction = await sequelize.transaction();
     const amount = roundMoney(Number(req.body.amount));
     const method = req.body.method || 'Cash';
     const notes = req.body.notes ? String(req.body.notes).trim().slice(0, 500) : null;
@@ -181,7 +184,7 @@ exports.recordPayment = async (req, res, next) => {
       balance: roundMoney(outstanding - amount),
     });
   } catch (error) {
-    if (!transaction.finished) await transaction.rollback();
+    if (transaction && !transaction.finished) await transaction.rollback();
     next(error);
   }
 };

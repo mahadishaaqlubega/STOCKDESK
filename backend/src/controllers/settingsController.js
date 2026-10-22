@@ -26,6 +26,18 @@ exports.updateSettings = async (req, res, next) => {
         updates[field] = req.body[field];
       }
     }
+    if (updates.shopLogoUrl) {
+      const logo = String(updates.shopLogoUrl);
+      const isImageData = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(logo);
+      const isHttpsUrl = /^https:\/\/[^\s]+$/.test(logo) && logo.length <= 2048;
+      if (!isImageData && !isHttpsUrl) {
+        return res.status(400).json({ message: 'Logo must be a PNG, JPEG or WebP image, or an https link.' });
+      }
+      // ~300 KB of image data is plenty for a receipt logo.
+      if (isImageData && logo.length > 400000) {
+        return res.status(400).json({ message: 'Logo image is too large. Use an image under 300 KB.' });
+      }
+    }
     await settings.update(updates);
     res.json(settings);
   } catch (error) {

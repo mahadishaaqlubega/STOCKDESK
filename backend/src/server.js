@@ -9,6 +9,12 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+// Last line of defence: a stray async error must never take every shop
+// offline. Log it and keep serving (Node's default is to exit).
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+
 const app = require('./app');
 const { sequelize, initAppData } = require('./models');
 const { startAutoCloseScheduler } = require('./utils/autoCloseBusinessDay');

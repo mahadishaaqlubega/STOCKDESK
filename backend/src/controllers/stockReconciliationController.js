@@ -175,7 +175,9 @@ exports.getReconciliationSummary = async (req, res) => {
       group: ['productId', 'product.id', 'product.name', 'product.sku'],
       raw: true,
       subQuery: false,
-      order: [[require('sequelize').literal('totalVariance'), 'DESC']],
+      // Quoted: unquoted identifiers are lower-cased by Postgres and would not
+      // match the camelCase alias, failing every request.
+      order: [[require('sequelize').literal('"totalVariance"'), 'DESC']],
     });
 
     res.json(summary);

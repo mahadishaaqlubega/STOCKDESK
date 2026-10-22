@@ -238,8 +238,11 @@ exports.updateProfile = async (req, res, next) => {
 // confirmation flag. If the account is the last user of a shop, the shop and
 // its data are removed as well so no orphaned tenant remains.
 exports.closeAccount = async (req, res, next) => {
-  const transaction = await sequelize.transaction();
+  // Opened inside try: if the pool is exhausted the error must reach
+  // next() instead of escaping as an unhandled rejection.
+  let transaction;
   try {
+    transaction = await sequelize.transaction();
     const user = await User.findByPk(req.user.id, { transaction });
     if (!user) {
       await transaction.rollback();
@@ -290,7 +293,7 @@ exports.closeAccount = async (req, res, next) => {
 
     res.json({ message: 'Your account has been closed.' });
   } catch (error) {
-    if (!transaction.finished) {
+    if (transaction && !transaction.finished) {
       await transaction.rollback();
     }
     next(error);
