@@ -36,11 +36,18 @@ function formatDueDate(value) {
 // Everything both layouts need, derived once.
 function receiptModel(sale, settings, cashierName) {
   const currency = sale.currency || settings?.currency || 'UGX';
-  const items = (sale.items || []).map((item) => ({
-    name: (item.Product?.name || item.name || '').trim() || 'Item',
-    quantity: Number(item.quantity || 0),
-    price: Number(item.price || 0),
-  }));
+  const items = (sale.items || []).map((item) => {
+    const price = Number(item.price || 0);
+    const product = item.Product || {};
+    return {
+      name: (product.name || item.name || '').trim() || 'Item',
+      detail: product.type === 'service' ? 'Service' : (product.category || '').trim(),
+      quantity: Number(item.quantity || 0),
+      price,
+      // Catalogue price before a per-item discount (older sales: same as price).
+      listPrice: Math.max(price, Number(item.listPrice || 0)),
+    };
+  });
   const total = Number(sale.total || 0);
   const balanceDue = Number(sale.balanceDue || 0);
   return {
@@ -59,6 +66,7 @@ function receiptModel(sale, settings, cashierName) {
     items,
     units: items.reduce((sum, item) => sum + item.quantity, 0),
     subtotal: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    itemSavings: items.reduce((sum, item) => sum + (item.listPrice - item.price) * item.quantity, 0),
     discount: Number(sale.discount || 0),
     taxAmount: Number(sale.taxAmount || 0),
     taxRate: Number(sale.tax != null ? sale.tax : settings?.vat || 0),
@@ -171,29 +179,38 @@ function buildThermalHtml(m, paper) {
 </html>`;
 }
 
+// Full-page receipt for A4 printers: a calm, document-style layout (white
+// page, hairline rules, generous whitespace) that matches the PDF.
 function buildA4Html(m) {
-  const status = m.isCredit && m.balanceDue > 0
-    ? `<span class="stamp due">Balance due</span>`
-    : `<span class="stamp paid">Paid</span>`;
+  const cur = escapeHtml(m.currency);
+  const withCurrency = (value) => `${cur} ${m.money(value)}`;
+  const longDate = `${m.createdAt.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}, ${m.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
-  const paymentLines = m.isCredit
-    ? [`Credit sale`, m.dueDate ? `Due ${escapeHtml(formatDueDate(m.dueDate))}` : null]
+  const paymentMethod = m.isCredit
+    ? 'Credit'
     : m.paymentMethod === 'Split' && m.splits.length
-      ? m.splits.map((s) => `${escapeHtml(s.method)} · ${m.money(s.amount)}`)
-      : [escapeHtml(m.paymentMethod)];
+      ? m.splits.map((s) => `${escapeHtml(s.method)} ${withCurrency(s.amount)}`).join(' · ')
+      : escapeHtml(m.paymentMethod);
+  const owing = m.isCredit && m.balanceDue > 0;
+  const paymentStatus = owing ? (m.paid > 0 ? 'Part paid' : 'Unpaid') : 'Paid';
 
   const rows = m.items
-    .map((item, index) => `
+    .map((item) => {
+      const detail = [item.detail, item.listPrice > item.price ? `Was ${withCurrency(item.listPrice)}` : ''].filter(Boolean).join(' · ');
+      return `
       <tr>
-        <td class="idx">${index + 1}</td>
-        <td class="desc">${escapeHtml(item.name)}</td>
+        <td>
+          <div class="item">${escapeHtml(item.name)}</div>
+          ${detail ? `<div class="detail">${escapeHtml(detail)}</div>` : ''}
+        </td>
         <td class="num">${item.quantity}</td>
-        <td class="num muted">${m.money(item.price)}</td>
-        <td class="num strong">${m.money(item.price * item.quantity)}</td>
-      </tr>`)
+        <td class="num">${withCurrency(item.price)}</td>
+        <td class="num">${withCurrency(item.price * item.quantity)}</td>
+      </tr>`;
+    })
     .join('');
 
-  const totalRow = (label, value, cls = '') => `<div class="t-row ${cls}"><span>${label}</span><span>${value}</span></div>`;
+  const sumRow = (label, value, cls = '') => `<div class="sum ${cls}"><span>${label}</span><span>${value}</span></div>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -203,119 +220,121 @@ function buildA4Html(m) {
 <style>
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; background: #fff; color: #0f172a; }
-  body { font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif; font-size: 13px; line-height: 1.5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .page { position: relative; width: 210mm; min-height: 297mm; margin: 0 auto; padding: 0 0 28mm; background: #fff; }
-  .band { height: 8px; background: linear-gradient(90deg, #0d9488, #14b8a6 60%, #5eead4); }
-  .inner { padding: 14mm 16mm 0; }
-  .head { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; }
-  .brand { display: flex; gap: 14px; align-items: center; min-width: 0; }
-  .logo { width: 60px; height: 60px; object-fit: contain; border-radius: 10px; }
-  .mono { width: 56px; height: 56px; border-radius: 14px; background: #0d9488; color: #fff; font-weight: 700; font-size: 24px; display: flex; align-items: center; justify-content: center; }
-  .shop { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
-  .contact { color: #64748b; font-size: 12px; margin-top: 2px; }
-  .doc { text-align: right; }
-  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #0d9488; }
-  .number { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .date { color: #64748b; font-size: 12px; }
-  .stamp { display: inline-block; margin-top: 10px; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-  .stamp.paid { background: #dcfce7; color: #15803d; }
-  .stamp.due { background: #fef3c7; color: #b45309; }
-  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 26px; }
-  .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; }
-  .label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #94a3b8; }
-  .value { font-size: 14px; font-weight: 600; margin-top: 4px; }
-  .value small { display: block; font-size: 12px; font-weight: 400; color: #64748b; margin-top: 1px; }
-  table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 26px; }
-  thead th { background: #0f172a; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 10px 12px; text-align: left; }
-  thead th:first-child { border-radius: 10px 0 0 10px; }
-  thead th:last-child { border-radius: 0 10px 10px 0; }
-  thead th.num { text-align: right; }
-  tbody td { padding: 11px 12px; border-bottom: 1px solid #eef2f6; vertical-align: top; }
-  tbody tr:nth-child(even) td { background: #fafbfc; }
-  .idx { width: 32px; color: #94a3b8; }
-  .desc { font-weight: 500; }
-  .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .muted { color: #64748b; }
-  .strong { font-weight: 600; }
-  .bottom { display: grid; grid-template-columns: 1fr 300px; gap: 28px; margin-top: 22px; align-items: start; }
-  .notes p { margin: 4px 0 0; color: #475569; font-size: 12px; }
-  .totals { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-  .t-row { display: flex; justify-content: space-between; padding: 9px 16px; font-variant-numeric: tabular-nums; }
-  .t-row span:first-child { color: #64748b; }
-  .t-row.grand { background: #0d9488; color: #fff; font-size: 17px; font-weight: 700; padding: 13px 16px; }
-  .t-row.grand span:first-child { color: #ccfbf1; }
-  .t-row.paid span:last-child { font-weight: 600; }
-  .t-row.owe { background: #fffbeb; color: #b45309; font-weight: 700; }
-  .t-row.owe span:first-child { color: #b45309; }
-  .foot { position: absolute; left: 16mm; right: 16mm; bottom: 12mm; border-top: 1px solid #e2e8f0; padding-top: 12px; display: flex; justify-content: space-between; gap: 16px; font-size: 11.5px; color: #64748b; }
-  .foot strong { color: #0f172a; font-size: 13px; }
+  html, body { margin: 0; background: #fff; color: #111827; }
+  body { font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; line-height: 1.55; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 16mm 18mm 14mm; display: flex; flex-direction: column; }
+  .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+  .logo { display: block; max-width: 170px; max-height: 56px; object-fit: contain; margin-bottom: 14px; }
+  .wordmark { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #0d9488; margin-bottom: 6px; }
+  .shop { font-size: 15px; font-weight: 600; }
+  .line { color: #4b5563; }
+  .doc { text-align: right; white-space: nowrap; }
+  .doc h1 { margin: 0 0 6px; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; }
+  .doc .line strong { color: #111827; font-weight: 600; }
+  hr { border: 0; border-top: 1px solid #e5e7eb; margin: 22px 0; }
+  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .label { font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #6b7280; margin-bottom: 8px; }
+  .party-name { font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #374151; text-align: left; padding: 0 0 12px; border-bottom: 1px solid #e5e7eb; }
+  td { padding: 14px 0; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  th.num, td.num { text-align: right; white-space: nowrap; padding-left: 24px; font-variant-numeric: tabular-nums; }
+  .item { font-weight: 500; }
+  .detail { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .sums { margin: 18px 0 0 auto; width: 330px; font-variant-numeric: tabular-nums; }
+  .sum { display: flex; justify-content: space-between; padding: 4px 0; }
+  .sum span:first-child { color: #4b5563; }
+  .sum.total { border-top: 1px solid #e5e7eb; margin-top: 8px; padding-top: 12px; font-size: 19px; font-weight: 700; }
+  .sum.total span:first-child { color: #111827; }
+  .sum.owe { font-weight: 700; color: #b45309; }
+  .sum.owe span:first-child { color: #b45309; }
+  .pay { display: grid; grid-template-columns: repeat(${owing ? 3 : 2}, 1fr); gap: 20px; margin-top: 30px; padding: 16px 20px; background: #f6f7f9; border-radius: 14px; }
+  .pay .k { font-size: 13px; color: #4b5563; }
+  .pay .v { font-weight: 600; margin-top: 2px; }
+  .pay .v.ok { color: #047857; }
+  .pay .v.due { color: #b45309; }
+  .note { margin-top: 22px; color: #4b5563; }
+  .foot { margin-top: auto; padding-top: 18px; border-top: 1px solid #e5e7eb; text-align: center; color: #4b5563; font-size: 13px; }
+  .foot .thanks { color: #111827; font-weight: 500; }
+  .foot .brand { margin-top: 8px; font-size: 11px; color: #9ca3af; }
+  .spacer { height: 36px; }
   @media screen and (min-width: 641px) and (max-width: 800px) { .page { zoom: 0.9; } }
-  @media screen and (max-width: 640px) { .page { width: 100%; min-height: 0; padding-bottom: 90px; } .inner { padding: 20px 18px 0; } .cards { grid-template-columns: 1fr; } .bottom { grid-template-columns: 1fr; } .head { flex-direction: column; } .doc { text-align: left; } .foot { left: 18px; right: 18px; bottom: 18px; flex-direction: column; } }
+  @media screen and (max-width: 640px) {
+    .page { width: 100%; min-height: 0; padding: 22px 18px; }
+    .head { flex-direction: column; }
+    .doc { text-align: left; }
+    .parties, .pay { grid-template-columns: 1fr; }
+    .sums { width: 100%; }
+    th.num, td.num { padding-left: 10px; }
+  }
 </style>
 </head>
 <body>
   <main class="page">
-    <div class="band"></div>
-    <div class="inner">
-      <header class="head">
-        <div class="brand">
-          ${m.logo ? `<img class="logo" src="${escapeHtml(m.logo)}" alt="" />` : `<div class="mono">${escapeHtml(m.shopName.slice(0, 1).toUpperCase())}</div>`}
-          <div style="min-width:0">
-            <div class="shop">${escapeHtml(m.shopName)}</div>
-            ${m.address ? `<div class="contact">${escapeHtml(m.address)}</div>` : ''}
-            ${m.phone ? `<div class="contact">Tel ${escapeHtml(m.phone)}</div>` : ''}
-          </div>
-        </div>
-        <div class="doc">
-          <div class="eyebrow">Receipt</div>
-          <div class="number">${escapeHtml(m.receiptNumber)}</div>
-          <div class="date">${escapeHtml(m.createdAt.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }))} · ${escapeHtml(m.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</div>
-          ${status}
-        </div>
-      </header>
+    <header class="head">
+      <div>
+        ${m.logo
+          ? `<img class="logo" src="${escapeHtml(m.logo)}" alt="" /><div class="shop">${escapeHtml(m.shopName)}</div>`
+          : `<div class="wordmark">${escapeHtml(m.shopName)}</div>`}
+        ${m.address ? `<div class="line">${escapeHtml(m.address)}</div>` : ''}
+        ${m.phone ? `<div class="line">${escapeHtml(m.phone)}</div>` : ''}
+      </div>
+      <div class="doc">
+        <h1>Receipt</h1>
+        <div class="line">Receipt <strong>${escapeHtml(m.receiptNumber)}</strong></div>
+        <div class="line">${escapeHtml(longDate)}</div>
+      </div>
+    </header>
 
-      <section class="cards">
-        <div class="card">
-          <div class="label">Billed to</div>
-          <div class="value">${escapeHtml(m.customer ? m.customer.name : 'Walk-in customer')}${m.customer?.phone ? `<small>${escapeHtml(m.customer.phone)}</small>` : ''}</div>
-        </div>
-        <div class="card">
-          <div class="label">Served by</div>
-          <div class="value">${escapeHtml(m.cashier)}<small>${m.units} item${m.units === 1 ? '' : 's'}</small></div>
-        </div>
-        <div class="card">
-          <div class="label">Payment</div>
-          <div class="value">${paymentLines.filter(Boolean).map((line, i) => (i ? `<small>${line}</small>` : line)).join('')}</div>
-        </div>
-      </section>
+    <hr />
 
-      <table>
-        <thead>
-          <tr><th>#</th><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Amount (${escapeHtml(m.currency)})</th></tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
+    <section class="parties">
+      <div>
+        <div class="label">Customer</div>
+        ${m.customer
+          ? `<div class="party-name">${escapeHtml(m.customer.name)}</div>
+             ${m.customer.phone ? `<div>${escapeHtml(m.customer.phone)}</div>` : ''}
+             ${m.customer.email ? `<div>${escapeHtml(m.customer.email)}</div>` : ''}`
+          : '<div class="party-name">Walk-in customer</div>'}
+      </div>
+      <div>
+        <div class="label">Served by</div>
+        <div class="party-name">${escapeHtml(m.cashier)}</div>
+        <div>${m.units} item${m.units === 1 ? '' : 's'}</div>
+      </div>
+    </section>
 
-      <section class="bottom">
-        <div class="notes">
-          ${m.headerNote ? `<div class="label">Note</div><p>${escapeHtml(m.headerNote)}</p>` : ''}
-          <div class="label" style="margin-top:${m.headerNote ? 14 : 0}px">Returns</div>
-          <p>Please keep this receipt for returns and warranty claims.</p>
-        </div>
-        <div class="totals">
-          ${totalRow('Subtotal', m.money(m.subtotal))}
-          ${m.discount > 0 ? totalRow('Discount', `−${m.money(m.discount)}`) : ''}
-          ${m.taxAmount > 0 ? totalRow(`VAT ${m.taxRate}%`, m.money(m.taxAmount)) : ''}
-          ${totalRow('Total', `${escapeHtml(m.currency)} ${m.money(m.total)}`, 'grand')}
-          ${m.isCredit ? totalRow('Paid', m.money(m.paid), 'paid') + totalRow('Balance due', `${escapeHtml(m.currency)} ${m.money(m.balanceDue)}`, 'owe') : ''}
-        </div>
-      </section>
-    </div>
+    <hr />
 
+    <table>
+      <thead>
+        <tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <section class="sums">
+      ${sumRow('Subtotal', withCurrency(m.subtotal + m.itemSavings))}
+      ${m.itemSavings > 0 ? sumRow('Item discounts', `−${withCurrency(m.itemSavings)}`) : ''}
+      ${m.discount > 0 ? sumRow('Discount', `−${withCurrency(m.discount)}`) : ''}
+      ${m.taxAmount > 0 ? sumRow(`VAT ${m.taxRate}%`, withCurrency(m.taxAmount)) : ''}
+      ${sumRow('Total', withCurrency(m.total), 'total')}
+      ${m.isCredit ? sumRow('Paid', withCurrency(m.paid)) : ''}
+      ${owing ? sumRow('Balance due', withCurrency(m.balanceDue), 'owe') : ''}
+    </section>
+
+    <section class="pay">
+      <div><div class="k">Payment method</div><div class="v">${paymentMethod}</div></div>
+      <div><div class="k">Payment status</div><div class="v ${owing ? 'due' : 'ok'}">${paymentStatus}</div></div>
+      ${owing ? `<div><div class="k">${m.dueDate ? 'Due date' : 'Balance'}</div><div class="v">${m.dueDate ? escapeHtml(formatDueDate(m.dueDate)) : withCurrency(m.balanceDue)}</div></div>` : ''}
+    </section>
+
+    ${m.headerNote ? `<p class="note">${escapeHtml(m.headerNote)}</p>` : ''}
+
+    <div class="spacer"></div>
     <footer class="foot">
-      <span><strong>${escapeHtml(m.footerNote)}</strong></span>
-      <span>${escapeHtml([m.shopName, m.phone].filter(Boolean).join(' · '))} · Powered by StockDesk · stockdeskinventory.com</span>
+      <div class="thanks">${escapeHtml(m.footerNote)} Please keep this receipt for returns and warranty claims.</div>
+      <div class="brand">Powered by StockDesk · stockdeskinventory.com</div>
     </footer>
   </main>
 </body>
