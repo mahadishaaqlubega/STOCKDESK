@@ -4,6 +4,7 @@ import { getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatMoney, formatCompactMoney, formatAmount } from '../utils/format';
+import { StatTile, statIcons } from '../components/ui';
 
 const emptyForm = { name: '', sku: '', category: '', buyPrice: '', sellPrice: '', quantity: 0, lowStock: 5, type: 'goods' };
 const PAGE_SIZE = 50;
@@ -37,22 +38,6 @@ function marginPercent(product) {
   return Math.round(((sell - buy) / sell) * 100);
 }
 
-function Tile({ label, value, hint, active, onClick, tone = 'default' }) {
-  const toneClass = { default: 'text-[var(--text-primary)]', warning: 'text-amber-600 dark:text-amber-300', danger: 'text-red-600 dark:text-red-400' }[tone];
-  const Comp = onClick ? 'button' : 'div';
-  return (
-    <Comp
-      type={onClick ? 'button' : undefined}
-      onClick={onClick}
-      aria-pressed={onClick ? active : undefined}
-      className={`app-panel rounded-xl border px-4 py-3 text-left transition ${onClick ? 'hover:border-[var(--border-strong)]' : ''} ${active ? 'ring-2 ring-[var(--accent)]' : ''}`}
-    >
-      <p className="text-xs font-medium text-[var(--text-muted)]">{label}</p>
-      <p className={`num mt-1 text-xl font-semibold tracking-tight ${toneClass}`}>{value}</p>
-      {hint ? <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">{hint}</p> : null}
-    </Comp>
-  );
-}
 
 function IconButton({ label, onClick, danger, children }) {
   return (
@@ -221,7 +206,9 @@ export default function Products() {
     const errors = [];
     if (!form.name || !form.name.trim()) errors.push('Enter a name');
     if (!form.category || !String(form.category).trim()) errors.push('Choose or type a category');
-    if (form.sellPrice === '' || Number(form.sellPrice) < 0) errors.push('Enter a selling price');
+    const isServiceForm = form.type === 'service';
+    if (!isServiceForm && (form.sellPrice === '' || Number(form.sellPrice) <= 0)) errors.push('Enter a selling price');
+    if (form.sellPrice !== '' && Number(form.sellPrice) < 0) errors.push('Price cannot be negative');
     if (form.buyPrice !== '' && Number(form.buyPrice) < 0) errors.push('Cost cannot be negative');
     if (errors.length) {
       setFormError(`${errors.join(', ')}.`);
@@ -229,7 +216,7 @@ export default function Products() {
     }
     setSaving(true);
     try {
-      const body = { ...form, buyPrice: form.buyPrice === '' ? 0 : form.buyPrice };
+      const body = { ...form, buyPrice: form.buyPrice === '' ? 0 : form.buyPrice, sellPrice: form.sellPrice === '' ? 0 : form.sellPrice };
       if (editingId) {
         await updateProduct(editingId, body);
         showToast(`${form.name} updated.`);
@@ -324,14 +311,14 @@ export default function Products() {
     <div className="space-y-5">
       {/* Summary */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Tile label="Products" value={counts.all.toLocaleString()} hint={`${counts.units.toLocaleString()} units in stock`} active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} />
+        <StatTile label="Products" value={counts.all.toLocaleString()} hint={`${counts.units.toLocaleString()} units in stock`} active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} icon={statIcons.box} />
         {isAdmin ? (
-          <Tile label="Stock value at cost" value={formatCompactMoney(currency, counts.value)} hint={formatMoney(currency, counts.value)} />
+          <StatTile label="Stock value at cost" value={formatCompactMoney(currency, counts.value)} hint={formatMoney(currency, counts.value)} icon={statIcons.money} iconTone="success" />
         ) : (
-          <Tile label="Services" value={counts.service.toLocaleString()} hint="Sold without stock" active={statusFilter === 'service'} onClick={() => setStatusFilter('service')} />
+          <StatTile label="Services" value={counts.service.toLocaleString()} hint="Sold without stock" active={statusFilter === 'service'} onClick={() => setStatusFilter('service')} icon={statIcons.receipt} iconTone="info" />
         )}
-        <Tile label="Running low" value={counts.low.toLocaleString()} hint="At or below reorder level" tone={counts.low ? 'warning' : 'default'} active={statusFilter === 'low'} onClick={() => setStatusFilter('low')} />
-        <Tile label="Out of stock" value={counts.out.toLocaleString()} hint="Cannot be sold" tone={counts.out ? 'danger' : 'default'} active={statusFilter === 'out'} onClick={() => setStatusFilter('out')} />
+        <StatTile label="Running low" value={counts.low.toLocaleString()} hint="At or below reorder level" tone={counts.low ? 'warning' : 'default'} iconTone="warning" active={statusFilter === 'low'} onClick={() => setStatusFilter('low')} icon={statIcons.low} />
+        <StatTile label="Out of stock" value={counts.out.toLocaleString()} hint="Cannot be sold" tone={counts.out ? 'danger' : 'default'} iconTone="danger" active={statusFilter === 'out'} onClick={() => setStatusFilter('out')} icon={statIcons.alert} />
       </section>
 
       <section className="app-panel rounded-2xl border">
@@ -493,7 +480,7 @@ export default function Products() {
                         )}
                       </td>
                       {isAdmin ? <td data-label="Cost" className="num px-4 py-2.5 text-right text-[var(--text-muted)]">{formatAmount(currency, product.buyPrice)}</td> : null}
-                      <td data-label="Price" className="num px-4 py-2.5 text-right font-medium text-[var(--text-primary)]">{formatAmount(currency, product.sellPrice)}</td>
+                      <td data-label="Price" className="num px-4 py-2.5 text-right font-medium text-[var(--text-primary)]">{service && !(Number(product.sellPrice) > 0) ? <span className="font-normal text-[var(--text-muted)]">At checkout</span> : formatAmount(currency, product.sellPrice)}</td>
                       {isAdmin ? (
                         <td data-label="Margin" className={`num px-4 py-2.5 text-right ${margin == null ? 'text-[var(--text-muted)]' : margin < 0 ? 'text-red-600' : margin < 10 ? 'text-amber-600' : 'text-[var(--text-secondary)]'}`}>
                           {margin == null ? '—' : `${margin}%`}
@@ -580,8 +567,8 @@ export default function Products() {
                   <datalist id="categoryList">{uniqueCategories.map((cat) => <option key={cat} value={cat} />)}</datalist>
                 </label>
                 <label className={fieldLabel}>
-                  SKU / barcode <span className="font-normal text-[var(--text-muted)]">(optional)</span>
-                  <input value={form.sku} onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value }))} placeholder="Scan or type" className={fieldInput} />
+                  Item code <span className="font-normal text-[var(--text-muted)]">(optional)</span>
+                  <input value={form.sku} onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value }))} placeholder="e.g. A505-SB" className={fieldInput} />
                 </label>
               </div>
 
@@ -591,8 +578,8 @@ export default function Products() {
                   <input type="number" step="any" min="0" inputMode="decimal" value={form.buyPrice} onChange={(e) => setForm((prev) => ({ ...prev, buyPrice: e.target.value }))} placeholder="0" className={fieldInput} />
                 </label>
                 <label className={fieldLabel}>
-                  Selling price
-                  <input type="number" step="any" min="0" inputMode="decimal" value={form.sellPrice} onChange={(e) => setForm((prev) => ({ ...prev, sellPrice: e.target.value }))} placeholder="0" className={fieldInput} />
+                  {form.type === 'service' ? <>Price <span className="font-normal text-[var(--text-muted)]">(optional)</span></> : 'Selling price'}
+                  <input type="number" step="any" min="0" inputMode="decimal" value={form.sellPrice} onChange={(e) => setForm((prev) => ({ ...prev, sellPrice: e.target.value }))} placeholder={form.type === 'service' ? 'Set at checkout' : '0'} className={fieldInput} />
                 </label>
               </div>
               {formMargin != null ? (
@@ -613,7 +600,7 @@ export default function Products() {
                   </label>
                 </div>
               ) : (
-                <p className="rounded-lg bg-[var(--panel-soft-bg)] px-3 py-2.5 text-xs text-[var(--text-muted)]">Services have no stock count, so they can always be sold.</p>
+                <p className="rounded-lg bg-[var(--panel-soft-bg)] px-3 py-2.5 text-xs text-[var(--text-muted)]">Services have no stock count, so they can always be sold. Leave the price empty when it depends on the job — the cashier enters the amount at checkout.</p>
               )}
 
               {formError ? <p className="app-alert-danger rounded-lg px-3 py-2 text-sm" role="alert">{formError}</p> : null}

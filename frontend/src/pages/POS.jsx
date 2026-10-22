@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchProducts, createSale, fetchSettings, downloadReceipt, fetchSale, fetchCustomers, printReceiptToPrinter, createReturn } from '../utils/api';
-import { getToken, getUser } from '../utils/auth';
+import { fetchProducts, createSale, fetchSettings, downloadReceipt, fetchSale, fetchCustomers } from '../utils/api';
+import { Link } from 'react-router-dom';
+import { getUser } from '../utils/auth';
+import { getPrintSettings, savePrintSettings } from '../utils/printSettings';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import PosReceipt from '../components/Receipt/PosReceipt';
 import { formatMoney, formatAmount } from '../utils/format';
@@ -28,9 +30,11 @@ export default function POS() {
   const [loading, setLoading] = useState(false);
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState('fixed');
-  const [autoPrint, setAutoPrint] = useState(false);
-  const [printing, setPrinting] = useState(false);
+  // Per-device preference (see Settings → Printing).
+  const [autoPrint, setAutoPrint] = useState(() => getPrintSettings().autoPrint);
   const [showReceipt, setShowReceipt] = useState(false);
+  // Auto-print only the receipt of a sale that was just completed.
+  const [printOnOpen, setPrintOnOpen] = useState(false);
   const [mobileSection, setMobileSection] = useState('browse');
   const [category, setCategory] = useState('');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -44,13 +48,6 @@ export default function POS() {
   const [creditDepositMethod, setCreditDepositMethod] = useState('Cash');
   const [creditDueDate, setCreditDueDate] = useState('');
   const [splitPayments, setSplitPayments] = useState([{ method: 'Cash', amount: '' }, { method: 'Card', amount: '' }]);
-  const [showReturns, setShowReturns] = useState(false);
-  const [returnSaleId, setReturnSaleId] = useState('');
-  const [returnLookup, setReturnLookup] = useState(null);
-  const [returnItems, setReturnItems] = useState({});
-  const [returnReason, setReturnReason] = useState('');
-  const [returnMessage, setReturnMessage] = useState('');
-  const [returnLoading, setReturnLoading] = useState(false);
 
   useBodyScrollLock(showReceipt);
 
@@ -65,7 +62,6 @@ export default function POS() {
       const settingsData = await fetchSettings();
       setSettingsState(settingsData);
       setCurrency(settingsData.currency || 'UGX');
-      setAutoPrint(false);
     } catch (error) {
       console.error('Error loading settings:', error);
     }
@@ -166,6 +162,12 @@ export default function POS() {
     });
   };
 
+  // Services can be charged at a price agreed at the counter.
+  const updatePrice = (productId, value) => {
+    if (value !== '' && !/^\d*\.?\d*$/.test(value)) return;
+    setCart((prev) => prev.map((item) => (item.productId === productId ? { ...item, price: value === '' ? '' : Number(value), priceInput: value } : item)));
+  };
+
   const updateQuantity = (productId, amount) => {
     setCart((prev) =>
       prev
@@ -185,7 +187,7 @@ export default function POS() {
     setMobileSection('browse');
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * item.quantity, 0);
   const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
   const afterDiscount = Math.max(0, subtotal - discountAmount);
   const vatRate = Number(settings?.vat || 0);
@@ -226,73 +228,19 @@ export default function POS() {
     localStorage.setItem('pos_held_sales', JSON.stringify(newHeld));
   };
 
-  const lookupReturnSale = async () => {
-    if (!returnSaleId.trim()) return;
-    try {
-      setReturnLoading(true);
-      setReturnMessage('');
-      const sale = await fetchSale(returnSaleId.trim());
-      setReturnLookup(sale);
-      const initItems = {};
-      (sale.items || []).forEach((item) => { initItems[item.productId] = 0; });
-      setReturnItems(initItems);
-    } catch (e) {
-      setReturnMessage(e.message);
-      setReturnLookup(null);
-    } finally {
-      setReturnLoading(false);
-    }
-  };
 
-  const handleReturn = async () => {
-    try {
-      setReturnLoading(true);
-      setReturnMessage('');
-      const items = Object.entries(returnItems)
-        .filter(([, qty]) => Number(qty) > 0)
-        .map(([productId, quantity]) => ({ productId: Number(productId), quantity: Number(quantity) }));
-      if (!items.length) { setReturnMessage('Select at least one item to return.'); setReturnLoading(false); return; }
-      const result = await createReturn(returnLookup.id, { items, reason: returnReason });
-      setReturnMessage(`Return processed. Total refund: ${formatMoney(currency, result.totalRefund)}`);
-      setReturnLookup(null);
-      setReturnItems({});
-      setReturnSaleId('');
-      setReturnReason('');
-    } catch (e) {
-      setReturnMessage(e.message);
-    } finally {
-      setReturnLoading(false);
-    }
-  };
 
-  const printToThermalPrinter = async (saleId) => {
-    try {
-      setPrinting(true);
-      const token = getToken();
-      if (!token) {
-        setMessage('Not authenticated. Opening PDF instead.');
-        window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/sales/${saleId}/receipt`, '_blank');
-        setPrinting(false);
-        return;
-      }
-      await printReceiptToPrinter(saleId);
-      setMessage('Receipt printed to thermal printer.');
-    } catch (error) {
-      if (error.fallback) {
-        window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/sales/${saleId}/receipt`, '_blank');
-        setMessage('Thermal printer unavailable. Opened PDF in new tab.');
-      } else {
-        setMessage(`Print failed: ${error.message}`);
-      }
-    } finally {
-      setPrinting(false);
-    }
-  };
 
   const handleCheckout = async () => {
     try {
       if (!cart.length) {
         setMessage('Add at least one product to cart.');
+        return;
+      }
+
+      const unpriced = cart.find((item) => item.isService && !(Number(item.price) > 0));
+      if (unpriced) {
+        setMessage(`Enter the amount charged for ${unpriced.name}.`);
         return;
       }
       
@@ -335,7 +283,7 @@ export default function POS() {
       setLoading(true);
       setMessage('');
       const response = await createSale({
-        items: cart,
+        items: cart.map(({ productId, quantity, price, isService }) => ({ productId, quantity, ...(isService ? { price: Number(price) } : {}) })),
         paymentMethod: useSplit ? 'Split' : paymentMethod,
         paymentSplits: useSplit ? splitPayments.filter((p) => parseFloat(p.amount) > 0) : null,
         currency: currency || 'USD',
@@ -352,6 +300,7 @@ export default function POS() {
       
       setLastSaleId(response.saleId);
       setLastSale(saleData);
+      setPrintOnOpen(autoPrint);
       setShowReceipt(true);
       setCart([]);
       setDiscount(0);
@@ -369,13 +318,7 @@ export default function POS() {
         loadCustomers();
       }
       
-      // Auto-print if enabled
-      if (autoPrint) {
-        setTimeout(() => {
-          printToThermalPrinter(response.saleId);
-        }, 500);
-      }
-      
+
       setLoading(false);
     } catch (error) {
       setMessage(error.message);
@@ -417,14 +360,14 @@ export default function POS() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Search by name, SKU or category — or scan a barcode"
+              placeholder="Search by name, code or category — press Enter to add"
               aria-label="Search products"
               className="app-input w-full rounded-xl border py-3 pl-10 pr-4"
             />
           </div>
 
           {categories.length > 1 ? (
-            <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Categories">
+            <div className="no-scrollbar -mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Categories">
               {['', ...categories].map((name) => (
                 <button
                   key={name || 'all'}
@@ -481,7 +424,7 @@ export default function POS() {
                       <span className="line-clamp-2 pr-6 text-sm font-medium leading-snug text-[var(--text-primary)]">{product.name}</span>
                       <span className="mt-0.5 truncate text-[11px] uppercase tracking-wide text-[var(--text-muted)]">{product.category || 'Uncategorized'}</span>
                       <span className="mt-auto flex items-end justify-between gap-2 pt-2">
-                        <span className="num text-sm font-semibold text-[var(--text-primary)]">{formatMoney(currency, product.sellPrice)}</span>
+                        <span className="num text-sm font-semibold text-[var(--text-primary)]">{service && !(Number(product.sellPrice) > 0) ? 'Set price' : formatMoney(currency, product.sellPrice)}</span>
                         <span className={`num shrink-0 text-[11px] ${outOfStock ? 'font-semibold text-[var(--danger)]' : service ? 'text-[var(--accent)]' : stock <= Number(product.lowStock ?? 5) ? 'text-[var(--warning)]' : 'text-[var(--text-muted)]'}`}>
                           {service ? 'Service' : outOfStock ? 'Out' : `${stock} left`}
                         </span>
@@ -554,7 +497,7 @@ export default function POS() {
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="M6 2h12l2 6H4l2-6Z" /><path d="M4 8v12a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8" /></svg>
                 </div>
                 <p className="mt-3 text-sm font-medium text-[var(--text-primary)]">No items yet</p>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">Tap a product or scan a barcode to start.</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Tap a product to add it to the sale.</p>
               </div>
             ) : (
               <ul className="divide-y divide-[var(--border-default)]">
@@ -562,7 +505,22 @@ export default function POS() {
                   <li key={item.productId} className="group flex items-center gap-3 px-4 py-2.5">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-[var(--text-primary)]" title={item.name}>{item.name}</p>
-                      <p className="num text-xs text-[var(--text-muted)]">{formatMoney(currency, item.price)}{item.isService ? ' · service' : ''}</p>
+                      {item.isService ? (
+                        <label className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                          <span>Price</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={item.priceInput ?? (item.price || '')}
+                            onChange={(e) => updatePrice(item.productId, e.target.value.trim())}
+                            placeholder="Amount"
+                            aria-label={`Price charged for ${item.name}`}
+                            className={`app-input num w-24 rounded-md border px-2 py-0.5 text-xs ${!(Number(item.price) > 0) ? 'border-amber-500' : ''}`}
+                          />
+                        </label>
+                      ) : (
+                        <p className="num text-xs text-[var(--text-muted)]">{formatMoney(currency, item.price)}</p>
+                      )}
                     </div>
                     <div className="flex items-center rounded-lg border border-[var(--border-strong)]">
                       <button
@@ -583,7 +541,7 @@ export default function POS() {
                         +
                       </button>
                     </div>
-                    <p className="num w-20 text-right text-sm font-semibold text-[var(--text-primary)]">{formatAmount(currency, item.price * item.quantity)}</p>
+                    <p className="num w-20 text-right text-sm font-semibold text-[var(--text-primary)]">{formatAmount(currency, (Number(item.price) || 0) * item.quantity)}</p>
                     <button
                       type="button"
                       onClick={() => removeFromCart(item.productId)}
@@ -785,7 +743,7 @@ export default function POS() {
             </button>
 
             <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-              <input type="checkbox" checked={autoPrint} onChange={(event) => setAutoPrint(event.target.checked)} />
+              <input type="checkbox" checked={autoPrint} onChange={(event) => { setAutoPrint(event.target.checked); savePrintSettings({ autoPrint: event.target.checked }); }} />
               Print receipt automatically
             </label>
 
@@ -796,9 +754,6 @@ export default function POS() {
                   <div className="mt-1.5 flex gap-3 text-xs font-medium">
                     <button type="button" onClick={() => setShowReceipt(true)} className="underline">View receipt</button>
                     <button type="button" onClick={() => downloadReceipt(lastSaleId)} className="underline">Download PDF</button>
-                    <button type="button" onClick={() => printToThermalPrinter(lastSaleId)} disabled={printing} className="underline disabled:opacity-50">
-                      {printing ? 'Printing…' : 'Thermal printer'}
-                    </button>
                   </div>
                 ) : null}
               </div>
@@ -825,103 +780,41 @@ export default function POS() {
           sale={lastSale}
           settings={settings}
           cashierName={getUser()?.name || 'Unknown'}
-          onClose={() => setShowReceipt(false)}
+          onClose={() => { setShowReceipt(false); setPrintOnOpen(false); }}
+          autoPrint={printOnOpen}
         />
       )}
 
-      {/* Held Sales */}
-      {heldSales.length > 0 && (
-        <section className="app-panel rounded-2xl border p-5 sm:p-6">
-          <h3 className="text-lg font-semibold text-[var(--text-primary)]">Held Sales</h3>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">Saved carts waiting to be completed.</p>
-          <div className="mt-4 space-y-3">
+      {heldSales.length > 0 ? (
+        <section className="app-panel rounded-2xl border" aria-label="Held sales">
+          <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 py-3">
+            <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Held sales</h2>
+            <span className="text-xs text-[var(--text-muted)]">Saved on this device</span>
+          </div>
+          <ul className="divide-y divide-[var(--border-default)]">
             {heldSales.map((held) => {
               const heldTotal = held.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+              const units = held.cart.reduce((sum, item) => sum + item.quantity, 0);
               return (
-                <div key={held.id} className="app-panel-soft flex items-center justify-between gap-4 rounded-2xl border p-4">
-                  <div>
-                    <p className="text-sm font-medium text-[var(--text-primary)]">{held.cart.length} item{held.cart.length !== 1 ? 's' : ''} &middot; {formatMoney(currency, heldTotal)}</p>
-                    <p className="mt-0.5 text-xs text-[var(--text-muted)]">{new Date(held.savedAt).toLocaleTimeString()}</p>
+                <li key={held.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                  <div className="min-w-0">
+                    <p className="num text-sm font-medium text-[var(--text-primary)]">{formatMoney(currency, heldTotal)} · {units} item{units === 1 ? '' : 's'}</p>
+                    <p className="truncate text-xs text-[var(--text-muted)]">Held at {new Date(held.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {held.cart.map((i) => i.name).join(', ')}</p>
                   </div>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => restoreHeld(held)} className="app-btn-primary rounded-lg px-3 py-2 text-sm">Restore</button>
-                    <button type="button" onClick={() => deleteHeld(held.id)} className="app-btn-danger rounded-lg px-3 py-2 text-sm">Discard</button>
+                  <div className="flex shrink-0 gap-2">
+                    <button type="button" onClick={() => deleteHeld(held.id)} className="rounded-lg px-3 py-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--danger)]">Discard</button>
+                    <button type="button" onClick={() => restoreHeld(held)} className="app-btn-primary rounded-lg px-3 py-1.5 text-sm">Resume</button>
                   </div>
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </section>
-      )}
+      ) : null}
 
-      {/* Returns */}
-      <section className="app-panel rounded-2xl border p-5 sm:p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-[var(--text-primary)]">Process Return</h3>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">Look up a past sale by ID and refund items. Stock is restored automatically.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowReturns((v) => !v)}
-            className="app-btn-secondary rounded-xl border px-4 py-2 text-sm transition"
-          >
-            {showReturns ? 'Hide' : 'Open'}
-          </button>
-        </div>
-        {showReturns && (
-          <div className="mt-5 space-y-4">
-            {returnMessage && (
-              <div className={`rounded-xl px-4 py-3 text-sm ${returnMessage.includes('processed') ? 'app-alert-success' : 'app-alert-danger'}`}>{returnMessage}</div>
-            )}
-            <div className="flex gap-3">
-              <input
-                type="text"
-                placeholder="Sale ID (e.g. 42)"
-                value={returnSaleId}
-                onChange={(e) => setReturnSaleId(e.target.value)}
-                className="app-input flex-1 rounded-lg border px-4 py-3"
-              />
-              <button type="button" onClick={lookupReturnSale} disabled={returnLoading} className="app-btn-primary rounded-lg px-4 py-3 transition disabled:opacity-50">
-                {returnLoading && !returnLookup ? 'Looking...' : 'Lookup'}
-              </button>
-            </div>
-            {returnLookup && (
-              <div className="app-panel-soft rounded-2xl border p-4 space-y-3">
-                <p className="text-sm font-semibold text-[var(--text-primary)]">Sale #{returnLookup.id} &middot; {formatMoney(currency, returnLookup.total)} &middot; {new Date(returnLookup.createdAt).toLocaleDateString()}</p>
-                {(returnLookup.items || []).map((item) => (
-                  <div key={item.productId} className="flex items-center justify-between gap-4 text-sm">
-                    <span className="text-[var(--text-primary)]">{item.Product?.name || `Product #${item.productId}`}</span>
-                    <span className="text-[var(--text-muted)]">Sold: {item.quantity}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-[var(--text-muted)]">Return qty:</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max={item.quantity}
-                        inputMode="numeric"
-                        value={returnItems[item.productId] || 0}
-                        onChange={(e) => setReturnItems((prev) => ({ ...prev, [item.productId]: Number(e.target.value) }))}
-                        className="app-input w-20 rounded-lg border px-3 py-1.5 text-sm"
-                      />
-                    </div>
-                  </div>
-                ))}
-                <input
-                  type="text"
-                  placeholder="Reason (optional)"
-                  value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value)}
-                  className="app-input w-full rounded-lg border px-4 py-3 text-sm"
-                />
-                <button type="button" onClick={handleReturn} disabled={returnLoading} className="app-btn-primary w-full rounded-2xl px-4 py-3 text-sm transition disabled:opacity-50">
-                  {returnLoading ? 'Processing...' : 'Process Return'}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
+      <p className="text-center text-sm text-[var(--text-muted)]">
+        Customer bringing something back? <Link to="/app/returns" className="font-medium text-[var(--accent)] hover:underline">Process a return</Link>
+      </p>
     </div>
   );
 }

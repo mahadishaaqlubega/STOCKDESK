@@ -4,16 +4,10 @@ import { Link } from 'react-router-dom';
 import { fetchBestSelling, fetchCreditSummary, fetchDashboardStats, fetchDashboardSummary } from '../utils/api';
 import { getUser } from '../utils/auth';
 import { formatMoney, formatCompactMoney } from '../utils/format';
+import { IconChip } from '../components/ui';
 
 function DashboardIcon({ children, tone = 'default' }) {
-  const toneClasses = {
-    default: 'bg-[linear-gradient(135deg,rgba(30,167,189,0.18),rgba(30,167,189,0.08))] text-[var(--accent-strong)] ring-1 ring-[rgba(30,167,189,0.12)]',
-    success: 'bg-[linear-gradient(135deg,rgba(74,168,132,0.18),rgba(74,168,132,0.08))] text-[var(--success)] ring-1 ring-[rgba(74,168,132,0.12)]',
-    danger: 'bg-[linear-gradient(135deg,rgba(218,106,90,0.18),rgba(218,106,90,0.08))] text-[var(--danger)] ring-1 ring-[rgba(218,106,90,0.12)]',
-    warning: 'bg-[linear-gradient(135deg,rgba(216,155,73,0.18),rgba(216,155,73,0.08))] text-[var(--warning)] ring-1 ring-[rgba(216,155,73,0.12)]',
-  };
-
-  return <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg [&>svg]:h-4 [&>svg]:w-4 ${toneClasses[tone]}`}>{children}</div>;
+  return <IconChip tone={tone}>{children}</IconChip>;
 }
 
 function StatCard({ title, value, fullValue, helper, tone = 'default', icon }) {
@@ -25,15 +19,16 @@ function StatCard({ title, value, fullValue, helper, tone = 'default', icon }) {
   }[tone];
 
   return (
-    <div className="app-panel rounded-2xl border p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3">
+    <div className="app-panel relative overflow-hidden rounded-2xl border p-4 sm:p-5">
+      <span className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl ${{ default: 'bg-teal-500/10', success: 'bg-emerald-500/10', warning: 'bg-amber-500/15', danger: 'bg-rose-500/10' }[tone]}`} aria-hidden="true" />
+      <div className="relative flex items-center justify-between gap-3">
         <p className="truncate text-[13px] font-medium text-[var(--text-muted)]">{title}</p>
         <DashboardIcon tone={tone}>{icon}</DashboardIcon>
       </div>
-      <p className={`num mt-3 whitespace-nowrap text-2xl font-semibold tracking-tight ${valueClass}`} title={fullValue || undefined}>
+      <p className={`num relative mt-3 whitespace-nowrap text-2xl font-semibold tracking-tight ${valueClass}`} title={fullValue || undefined}>
         {value}
       </p>
-      <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{helper}</p>
+      <p className="relative mt-1 truncate text-xs text-[var(--text-muted)]">{helper}</p>
     </div>
   );
 }
@@ -162,7 +157,7 @@ export default function Dashboard() {
   }, [dashboardStats]);
 
   const bestProductData = useMemo(
-    () => bestSelling.slice(0, 5).map((item) => ({
+    () => bestSelling.slice(0, 6).map((item) => ({
       name: item.Product?.name || 'Item',
       value: Number(item.unitsold || 0),
     })),
@@ -171,7 +166,7 @@ export default function Dashboard() {
   const todayRevenue = Number(summary?.periods?.today?.netSales || 0);
   const weeklySalesTotal = useMemo(() => salesTrend.reduce((sum, item) => sum + Number(item.sales || 0), 0), [salesTrend]);
   const weeklyAverageSales = salesTrend.length ? weeklySalesTotal / salesTrend.length : 0;
-  const topProductsPreview = bestProductData.slice(0, 4);
+  const topProductsPreview = bestProductData.slice(0, 6);
   const bestDay = salesTrend.length ? salesTrend.reduce((best, current) => (current.sales > best.sales ? current : best), salesTrend[0]).label : '-';
 
   return (
@@ -285,9 +280,9 @@ export default function Dashboard() {
 
           <section className="grid gap-4 xl:grid-cols-[1.55fr_0.95fr]">
             <SectionCard
-              title="Sales Overview"
-              subtitle="Net sales across the last 7 days."
-              action={<div className="app-panel-accent rounded-xl px-3 py-2 text-sm font-medium">Today: {formatMoney(currency, todayRevenue)}</div>}
+              title="Sales this week"
+              subtitle="Net sales per day, last 7 days"
+              action={<div className="num rounded-lg bg-[var(--accent-soft)] px-3 py-1.5 text-sm font-medium text-[var(--accent-strong)]">Today {formatMoney(currency, todayRevenue)}</div>}
             >
               <div className="mb-4 grid gap-3 sm:grid-cols-3">
                 <div className="app-panel-soft rounded-xl border p-3.5">
@@ -328,75 +323,47 @@ export default function Dashboard() {
             </SectionCard>
 
             <SectionCard
-              title="Operations Snapshot"
-              subtitle="Top products, and inventory health in one compact view."
-              action={<div className="app-panel-soft rounded-xl border px-3 py-2 text-sm text-[var(--text-muted)]">{summary?.periods?.thisMonth?.orderCount || 0} orders this month</div>}
+              title="Best sellers"
+              subtitle="Units sold, all time"
+              action={<Link to="/app/reports" className="text-sm font-medium text-[var(--accent)] hover:underline">Reports</Link>}
             >
-              <div className="space-y-4">
-                <div>
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">Low Stock</h3>
-                    <span className="text-xs font-medium text-[var(--text-muted)]">{lowStockCount} flagged</span>
-                  </div>
-                  {lowStockCount > 0 ? (
-                    <div className="app-panel-soft rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-4 text-center">
-                      <p className="text-sm font-medium text-amber-600">{lowStockCount} products need restocking</p>
-                      <p className="mt-1 text-xs text-amber-600/70">Visit Products &rsaquo; Restock to replenish inventory.</p>
-                    </div>
-                  ) : (
-                    <EmptyState title="Inventory looks healthy" message="No products are currently below the low stock threshold." />
-                  )}
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr] xl:grid-cols-1 2xl:grid-cols-[1.05fr_0.95fr]">
-                  <div>
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <h3 className="text-sm font-semibold text-[var(--text-primary)]">Top Products</h3>
-                      <span className="text-xs font-medium text-[var(--text-muted)]">Best sellers</span>
-                    </div>
-                    {topProductsPreview.length ? (
-                      <div className="overflow-hidden rounded-xl border border-[var(--border-default)]">
-                        {topProductsPreview.map((item, index) => (
-                          <div key={item.name} className="app-row-hover grid grid-cols-[minmax(0,1fr)_90px] border-t border-[var(--border-default)] px-3 py-2.5 text-sm first:border-t-0 transition">
-                            <span className="flex items-center gap-2.5 truncate font-medium text-[var(--text-primary)]">
-                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--surface-secondary)] text-[11px] font-semibold text-[var(--accent-strong)]">{index + 1}</span>
-                              <span className="truncate">{item.name}</span>
-                            </span>
-                            <span className="text-right text-[var(--text-muted)]">{item.value}</span>
+              {topProductsPreview.length ? (
+                <ol className="space-y-3">
+                  {topProductsPreview.map((item, index) => {
+                    const top = topProductsPreview[0]?.value || 1;
+                    return (
+                      <li key={item.name} className="flex items-start gap-3">
+                        <span className={`num mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${index === 0 ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-sm' : 'bg-[var(--surface-secondary)] text-[var(--text-secondary)]'}`}>{index + 1}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline justify-between gap-3">
+                            <p className="line-clamp-2 text-sm font-medium text-[var(--text-primary)]" title={item.name}>{item.name}</p>
+                            <span className="num shrink-0 text-sm text-[var(--text-secondary)]">{item.value.toLocaleString()}</span>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <EmptyState title="No product sales yet" message="Top-selling products will appear here once sales are recorded." />
-                    )}
-                  </div>
-
-                  <div>
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <h3 className="text-sm font-semibold text-[var(--text-primary)]">Stock Summary</h3>
-                      <span className="text-xs font-medium text-[var(--text-muted)]">Quick health check</span>
-                    </div>
-                    <div className="grid gap-2.5 sm:grid-cols-2">
-                      <div className="app-panel-soft rounded-xl border p-3">
-                        <p className="text-[12px] font-medium text-[var(--text-muted)]">Products In Stock</p>
-                        <p className="mt-1.5 text-xl font-semibold text-[var(--text-primary)]">{totalStock.toLocaleString()}</p>
-                      </div>
-                      <div className="app-panel-soft rounded-xl border p-3">
-                        <p className="text-[12px] font-medium text-[var(--text-muted)]">Low Stock Alerts</p>
-                        <p className="mt-1.5 text-xl font-semibold text-[var(--danger)]">{lowStockCount.toLocaleString()}</p>
-                      </div>
-                      <div className="app-panel-soft rounded-xl border p-3">
-                        <p className="text-[12px] font-medium text-[var(--text-muted)]">Today's Revenue</p>
-                        <p className="mt-1.5 text-[13px] font-bold leading-tight text-[var(--success)] break-words">{formatMoney(currency, todayRevenue)}</p>
-                      </div>
-                      <div className="app-panel-soft rounded-xl border p-3">
-                        <p className="text-[12px] font-medium text-[var(--text-muted)]">This Week Units</p>
-                        <p className="mt-1.5 text-xl font-semibold text-[var(--text-primary)]">{Number(summary?.periods?.thisWeek?.itemsSold || 0).toLocaleString()}</p>
-                      </div>
-                    </div>
-                  </div>
+                          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                            <div className="h-full rounded-full bg-gradient-to-r from-teal-500 to-emerald-400" style={{ width: `${Math.max(6, Math.round((item.value / top) * 100))}%` }} />
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              ) : (
+                <EmptyState title="No product sales yet" message="Your best sellers will appear here once you start selling." />
+              )}
+              <dl className="mt-5 grid grid-cols-3 gap-2 border-t border-[var(--border-default)] pt-4 text-center">
+                <div>
+                  <dt className="text-xs text-[var(--text-muted)]">Week orders</dt>
+                  <dd className="num mt-0.5 text-base font-semibold text-[var(--text-primary)]">{Number(summary?.periods?.thisWeek?.orderCount || 0).toLocaleString()}</dd>
                 </div>
-              </div>
+                <div>
+                  <dt className="text-xs text-[var(--text-muted)]">Week units</dt>
+                  <dd className="num mt-0.5 text-base font-semibold text-[var(--text-primary)]">{Number(summary?.periods?.thisWeek?.itemsSold || 0).toLocaleString()}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-[var(--text-muted)]">Month orders</dt>
+                  <dd className="num mt-0.5 text-base font-semibold text-[var(--text-primary)]">{Number(summary?.periods?.thisMonth?.orderCount || 0).toLocaleString()}</dd>
+                </div>
+              </dl>
             </SectionCard>
           </section>
         </>

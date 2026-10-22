@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchProfile, updateProfile, resendVerification, changePassword, closeAccount } from '../utils/api';
 import { getToken, updateToken, logout } from '../utils/auth';
+import { Link } from 'react-router-dom';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import { Alert, Badge, Field, Modal, Panel, PanelHeader, fieldInput } from '../components/ui';
 
 function resizeImage(file, maxSize = 512) {
   return new Promise((resolve, reject) => {
@@ -36,98 +38,13 @@ function CameraIcon() {
   );
 }
 
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-3.5 w-3.5">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
 
-function AlertIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  );
-}
 
-function EyeIcon({ on = false }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-      {on ? (
-        <>
-          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-          <circle cx="12" cy="12" r="3" />
-        </>
-      ) : (
-        <>
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-          <path d="m1 1 22 22" />
-          <path d="M10.73 10.73a3 3 0 0 0 4.1 4.1" />
-        </>
-      )}
-    </svg>
-  );
-}
 
-function ShieldIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    </svg>
-  );
-}
 
-function ShopIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-      <path d="M3 21h18" />
-      <path d="M5 21V8l7-4 7 4v13" />
-      <path d="M9 21v-4h6v4" />
-    </svg>
-  );
-}
 
-function UserIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
-    </svg>
-  );
-}
 
-function TrashIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-    </svg>
-  );
-}
 
-function SectionCard({ icon, title, subtitle, children, className = '', accent = 'accent' }) {
-  const isDanger = accent === 'danger';
-  return (
-    <section className={`app-panel rounded-xl border p-6 ${isDanger ? 'border-[var(--danger-border)] bg-[var(--danger-soft)]' : ''} ${className}`}>
-      <div className="flex items-center gap-2.5">
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isDanger ? 'bg-[var(--danger)] text-white' : 'bg-[var(--accent-soft)] text-[var(--accent)]'}`}>{icon}</span>
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
-          {subtitle ? <p className="text-xs text-[var(--text-muted)]">{subtitle}</p> : null}
-        </div>
-      </div>
-      <div className="mt-5">{children}</div>
-    </section>
-  );
-}
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
@@ -323,363 +240,213 @@ export default function Profile() {
   };
 
   const initials = String(profile?.name || 'S').slice(0, 1).toUpperCase();
-  const roleLabel = profile?.role === 'SuperAdmin' ? 'Platform Administrator' : profile?.displayRole || profile?.role || 'User';
-  const memberSince = profile?.createdAt
-    ? new Date(profile.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
-    : '';
+  const roleLabel = profile?.role === 'SuperAdmin' ? 'Platform administrator' : profile?.displayRole || profile?.role || 'User';
+  const memberSince = profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '';
   const isSuperAdmin = profile?.role === 'SuperAdmin';
   const pwInputType = showPw ? 'text' : 'password';
+  const stats = profile?.stats;
 
-  const tabs = [
-    { key: 'account', label: 'Account', icon: <UserIcon /> },
-    { key: 'security', label: 'Security', icon: <ShieldIcon /> },
-    { key: 'shop', label: isSuperAdmin ? 'Platform Scope' : 'Shop', icon: <ShopIcon /> },
-    { key: 'danger', label: 'Close Account', icon: <TrashIcon /> },
+  const sections = [
+    { key: 'account', label: 'Profile' },
+    { key: 'security', label: 'Password' },
+    { key: 'shop', label: isSuperAdmin ? 'Access' : 'Shop' },
+    { key: 'danger', label: 'Close account' },
   ];
 
   const shopFields = isSuperAdmin
-    ? [
-        { label: 'Access', value: 'All registered shops' },
-        { label: 'Username', value: profile?.username || '—' },
-      ]
+    ? [['Access', 'All registered shops'], ['Username', profile?.username || '—']]
     : [
-        { label: 'Shop Name', value: profile?.shopDetails?.shopName || profile?.shop?.name || '—' },
-        { label: 'Shop Slug', value: profile?.shop?.slug || '—' },
-        { label: 'Phone', value: profile?.shopDetails?.phone || '—' },
-        { label: 'Currency', value: profile?.shopDetails?.currency || '—' },
-        { label: 'Address', value: profile?.shopDetails?.address || '—' },
+        ['Shop name', profile?.shopDetails?.shopName || profile?.shop?.name || '—'],
+        ['Phone', profile?.shopDetails?.phone || '—'],
+        ['Address', profile?.shopDetails?.address || '—'],
+        ['Currency', profile?.shopDetails?.currency || '—'],
+        ['Shop ID', profile?.shop?.slug || '—'],
       ];
 
-  const statCards = profile?.stats
-    ? [
-        { label: 'Products', value: profile.stats.products, color: 'var(--accent)', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="m3 7 9-4 9 4-9 4-9-4Z" /><path d="m3 7 9 4 9-4" /><path d="M12 11v10" /></svg> },
-        { label: 'Sales', value: profile.stats.sales, color: 'var(--success)', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="M4 5h16v14H4z" /><path d="M8 9h8" /><path d="M8 13h3" /><path d="M14 13h2" /></svg> },
-        { label: 'Customers', value: profile.stats.customers, color: 'var(--warning)', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" /><path d="M9.5 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8Z" /><path d="M21 21v-2a4 4 0 0 0-3-3.9" /><path d="M16 3.1a4 4 0 0 1 0 7.8" /></svg> },
-      ]
-    : [];
-
   return (
-    <div className="space-y-6">
-      {/* Profile header */}
-      <section className="app-panel overflow-hidden rounded-2xl border">
-        <div className="relative h-28 bg-[linear-gradient(135deg,var(--accent),var(--accent-hover))]">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-16 right-1/3 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-          <div className="absolute right-4 top-4 flex items-center gap-2">
-            {profile?.isVerified ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-                <CheckIcon /> Verified
-              </span>
-            ) : email ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-                <AlertIcon /> Pending
-              </span>
-            ) : null}
+    <div className="space-y-5">
+      {/* Identity */}
+      <Panel className="p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <button type="button" onClick={() => fileInputRef.current?.click()} className="group relative h-16 w-16 shrink-0 rounded-full" aria-label="Change profile photo">
+            {avatarPreview ? (
+              <img src={avatarPreview} alt="" className="h-16 w-16 rounded-full object-cover ring-1 ring-[var(--border-strong)]" />
+            ) : (
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--accent-soft)] text-2xl font-semibold text-[var(--accent-strong)]">{initials}</span>
+            )}
+            <span className="app-touch-reveal absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition group-hover:opacity-100"><CameraIcon /></span>
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">{profile?.name || 'Loading…'}</h2>
+              <Badge tone="accent">{roleLabel}</Badge>
+              {profile?.email && profile?.isVerified ? <Badge tone="success">Email verified</Badge> : email ? <Badge tone="warning">Email not verified</Badge> : null}
+            </div>
+            <p className="mt-0.5 text-sm text-[var(--text-muted)]">
+              {isSuperAdmin ? 'Platform console' : profile?.shop?.name || 'No shop'}{memberSince ? ` · member since ${memberSince}` : ''}
+            </p>
           </div>
-        </div>
-
-        <div className="relative px-5 pb-5 sm:px-6">
-          <div className="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-5">
-            <div className="group relative shrink-0" onClick={() => fileInputRef.current?.click()}>
-              <div className="relative h-24 w-24 cursor-pointer sm:h-28 sm:w-28">
-                {avatarPreview ? (
-                  <img src={avatarPreview} alt="Profile avatar" className="h-full w-full rounded-2xl object-cover ring-4 ring-[var(--surface-primary)] shadow-xl" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-3xl font-bold text-[var(--accent)] ring-4 ring-[var(--surface-primary)] shadow-xl">
-                    {initials}
-                  </div>
-                )}
-                <span className="app-touch-reveal absolute inset-0 flex items-center justify-center rounded-2xl bg-black/50 text-white opacity-0 transition group-hover:opacity-100 ring-4 ring-[var(--surface-primary)]">
-                  <CameraIcon />
-                </span>
-              </div>
-            </div>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] sm:text-2xl">{profile?.name || 'Loading…'}</h1>
-                <span className="inline-flex items-center rounded-full border border-[var(--accent)]/25 bg-[var(--accent-soft)] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
-                  {roleLabel}
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">
-                {isSuperAdmin
-                  ? 'Platform Console · All registered shops'
-                  : profile?.shop
-                  ? `${profile.shop.name} · @${profile.shop.slug}`
-                  : 'No shop assigned'}
-              </p>
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5">
-                  <rect x="3" y="4" width="18" height="18" rx="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-                Member since {memberSince || '—'}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="app-btn-secondary rounded-xl border px-4 py-2 text-sm font-medium transition">
-                Change photo
-              </button>
-              {avatarPreview && (
-                <button type="button" onClick={handleRemoveAvatar} className="app-btn-secondary rounded-xl border px-4 py-2 text-sm font-medium transition">
-                  Remove
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Avatar Preview Modal */}
-      {showAvatarModal && avatarPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowAvatarModal(false)}>
-          <div className="mx-4 w-full max-w-md rounded-xl border border-[var(--border-default)] bg-[var(--surface-primary)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Profile Photo</h3>
-              <button type="button" onClick={() => setShowAvatarModal(false)} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-secondary)]">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5"><path d="M18 6L6 18M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="mt-5 flex justify-center">
-              <div className="relative">
-                <img src={avatarPreview} alt="Avatar preview" className="h-40 w-40 rounded-xl object-cover shadow-2xl ring-4 ring-[var(--accent)]/20" />
-                <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[var(--surface-primary)] bg-[var(--success)] text-white">
-                  <CheckIcon />
-                </span>
-              </div>
-            </div>
-            <p className="mt-4 text-center text-sm text-[var(--text-muted)]">This photo will be visible across your account</p>
-            <div className="mt-5 flex gap-3">
-              <button type="button" onClick={() => setShowAvatarModal(false)} className="app-btn-primary flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition">
-                Keep Photo
-              </button>
-              <button type="button" onClick={handleRemoveAvatar} className="app-btn-secondary flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition">
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {message && (
-        <div className={`app-panel rounded-xl border px-4 py-3 text-sm ${
-          messageType === 'error'
-            ? 'border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger)]'
-            : 'border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success)]'
-        }`}>
-          {message}
-        </div>
-      )}
-
-      {/* Stats */}
-      {statCards.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-          {statCards.map((card) => (
-            <div key={card.label} className="app-panel rounded-xl border p-4 transition duration-200" style={{ borderLeftColor: card.color }}>
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[var(--accent)] ring-1 ring-[var(--accent)]/10" style={{ backgroundColor: `${card.color}1f`, color: card.color }}>
-                  {card.icon}
-                </span>
-                <div>
-                  <p className="text-xs font-medium text-[var(--text-muted)]">{card.label}</p>
-                  <p className="mt-0.5 text-2xl font-bold tracking-tight text-[var(--text-primary)]">{card.value}</p>
+          {stats ? (
+            <dl className="flex gap-6 text-sm sm:pr-2">
+              {[['Products', stats.products], ['Sales', stats.sales], ['Customers', stats.customers]].map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-xs text-[var(--text-muted)]">{label}</dt>
+                  <dd className="num text-lg font-semibold text-[var(--text-primary)]">{Number(value || 0).toLocaleString()}</dd>
                 </div>
-              </div>
-            </div>
-          ))}
+              ))}
+            </dl>
+          ) : null}
         </div>
-      )}
+      </Panel>
 
-      {/* Tab navigation */}
-      <div className="app-panel overflow-x-auto rounded-xl border p-1.5">
-        <div className="flex min-w-max gap-1.5">
-          {tabs.map((tab) => (
+      {message ? <Alert tone={messageType === 'error' ? 'danger' : 'success'}>{message}</Alert> : null}
+
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[200px_minmax(0,1fr)]">
+        <nav className="flex gap-1 overflow-x-auto lg:sticky lg:top-20 lg:flex-col" aria-label="Account sections">
+          {sections.map((section) => (
             <button
-              key={tab.key}
+              key={section.key}
               type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-                activeTab === tab.key
-                  ? tab.key === 'danger'
-                    ? 'bg-[var(--danger-soft)] text-[var(--danger)]'
-                    : 'bg-[var(--surface-secondary)] text-[var(--text-primary)]'
-                  : 'text-[var(--text-muted)] hover:bg-[var(--surface-secondary)] hover:text-[var(--text-primary)]'
+              onClick={() => setActiveTab(section.key)}
+              aria-current={activeTab === section.key ? 'page' : undefined}
+              className={`shrink-0 rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
+                activeTab === section.key
+                  ? `bg-[var(--surface-primary)] shadow-sm ring-1 ring-[var(--border-default)] ${section.key === 'danger' ? 'text-[var(--danger)]' : 'text-[var(--text-primary)]'}`
+                  : `${section.key === 'danger' ? 'text-[var(--danger)] opacity-80' : 'text-[var(--text-muted)]'} hover:text-[var(--text-primary)]`
               }`}
             >
-              {tab.icon}
-              {tab.label}
+              {section.label}
             </button>
           ))}
+        </nav>
+
+        <div className="min-w-0 space-y-5">
+          {activeTab === 'account' ? (
+            <Panel as="form" onSubmit={handleSave}>
+              <PanelHeader title="Profile" description="Your name and the email used for sign-in help and password resets." />
+              <div className="grid gap-4 p-5 sm:grid-cols-2">
+                <Field label="Full name">
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={fieldInput} required />
+                </Field>
+                <Field label="Username" hint="Usernames can't be changed.">
+                  <input type="text" value={profile?.username || ''} className={`${fieldInput} cursor-not-allowed font-mono opacity-70`} disabled />
+                </Field>
+                <Field label="Email" className="sm:col-span-2" hint={!profile?.isVerified && email ? 'Check your inbox for the verification link.' : undefined}>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={fieldInput} placeholder="you@example.com" />
+                </Field>
+                {!(profile?.email && profile?.isVerified) && email ? (
+                  <div className="sm:col-span-2">
+                    <button type="button" onClick={handleResend} disabled={resending} className="text-sm font-medium text-[var(--accent)] hover:underline disabled:opacity-50">
+                      {resending ? 'Sending…' : 'Resend verification email'}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex items-center justify-between gap-3 border-t border-[var(--border-default)] px-5 py-4">
+                {avatarPreview ? (
+                  <button type="button" onClick={handleRemoveAvatar} className="text-sm text-[var(--text-muted)] hover:text-[var(--danger)]">Remove photo</button>
+                ) : <span />}
+                <button type="submit" disabled={saving} className="app-btn-primary rounded-lg px-5 py-2.5 text-sm disabled:opacity-50">{saving ? 'Saving…' : 'Save changes'}</button>
+              </div>
+            </Panel>
+          ) : null}
+
+          {activeTab === 'security' ? (
+            <Panel as="form" onSubmit={handleChangePassword}>
+              <PanelHeader title="Change password" description="At least 8 characters with a letter, a number and a symbol." />
+              <div className="max-w-md space-y-4 p-5">
+                <Field label="Current password">
+                  <input type={pwInputType} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={fieldInput} autoComplete="current-password" required />
+                </Field>
+                <Field label="New password">
+                  <input type={pwInputType} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={fieldInput} autoComplete="new-password" required />
+                </Field>
+                <Field label="Confirm new password">
+                  <input type={pwInputType} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={fieldInput} autoComplete="new-password" required />
+                </Field>
+                <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                  <input type="checkbox" checked={showPw} onChange={() => setShowPw((v) => !v)} /> Show passwords
+                </label>
+                {pwMessage ? <Alert tone={pwMessageType === 'error' ? 'danger' : 'success'}>{pwMessage}</Alert> : null}
+              </div>
+              <div className="flex justify-end border-t border-[var(--border-default)] px-5 py-4">
+                <button type="submit" disabled={pwSaving} className="app-btn-primary rounded-lg px-5 py-2.5 text-sm disabled:opacity-50">{pwSaving ? 'Updating…' : 'Update password'}</button>
+              </div>
+            </Panel>
+          ) : null}
+
+          {activeTab === 'shop' ? (
+            <Panel>
+              <PanelHeader
+                title={isSuperAdmin ? 'Platform access' : 'Your shop'}
+                description={isSuperAdmin ? 'You can see every registered shop.' : 'Edit these in Settings → Shop & receipt.'}
+                actions={!isSuperAdmin ? <Link to="/app/settings" className="text-sm font-medium text-[var(--accent)] hover:underline">Open settings</Link> : null}
+              />
+              <dl className="divide-y divide-[var(--border-default)]">
+                {shopFields.map(([label, value]) => (
+                  <div key={label} className="grid grid-cols-3 gap-4 px-5 py-3 text-sm">
+                    <dt className="text-[var(--text-muted)]">{label}</dt>
+                    <dd className="col-span-2 text-[var(--text-primary)]">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Panel>
+          ) : null}
+
+          {activeTab === 'danger' ? (
+            <Panel className="border-[var(--danger-border)]">
+              <PanelHeader title="Close account" description="Permanently delete your account. This cannot be undone." />
+              <div className="space-y-4 p-5">
+                {!isSuperAdmin && profile?.shop ? (
+                  <Alert tone="danger">
+                    If you are the only person in <strong>{profile.shop.name}</strong>, closing your account also deletes the shop and everything in it
+                    {stats ? <> — <strong className="num">{Number(stats.products || 0).toLocaleString()} products, {Number(stats.sales || 0).toLocaleString()} sales and {Number(stats.customers || 0).toLocaleString()} customers</strong></> : null}. Download any reports you need first.
+                  </Alert>
+                ) : null}
+                {closeStep === 'confirm' ? (
+                  <button type="button" onClick={handleStartClose} className="rounded-lg border border-[var(--danger-border)] px-4 py-2.5 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-soft)]">
+                    I understand, continue
+                  </button>
+                ) : (
+                  <form onSubmit={handleCloseAccount} className="max-w-md space-y-4">
+                    <Field label="Your password">
+                      <input type="password" value={closePw} onChange={(e) => setClosePw(e.target.value)} className={fieldInput} autoComplete="current-password" required />
+                    </Field>
+                    <Field label={<>Type <span className="font-mono text-[var(--danger)]">DELETE</span> to confirm</>}>
+                      <input type="text" value={closeConfirmText} onChange={(e) => setCloseConfirmText(e.target.value)} className={`${fieldInput} font-mono`} placeholder="DELETE" autoComplete="off" required />
+                    </Field>
+                    {closeMessage ? <Alert tone="danger">{closeMessage}</Alert> : null}
+                    <div className="flex gap-2">
+                      <button type="button" onClick={handleCancelClose} disabled={closing} className="app-btn-secondary flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium">Cancel</button>
+                      <button type="submit" disabled={closing || closeConfirmText.trim() !== 'DELETE' || !closePw} className="app-btn-danger-solid flex-1 rounded-lg px-4 py-2.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50">
+                        {closing ? 'Closing…' : 'Close account permanently'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </Panel>
+          ) : null}
         </div>
       </div>
 
-      {/* Tab: Account */}
-      {activeTab === 'account' && (
-        <div className="space-y-6">
-          <SectionCard icon={<UserIcon />} title="Account Information" subtitle="Update your personal details and contact email.">
-            <form onSubmit={handleSave} className="space-y-5">
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Full Name</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="app-input w-full rounded-lg border px-4 py-3" placeholder="Your name" required />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Username</label>
-                  <input type="text" value={profile?.username || ''} className="app-input w-full cursor-not-allowed rounded-lg border bg-[var(--surface-secondary)] px-4 py-3 text-[var(--text-muted)]" disabled />
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">Username cannot be changed.</p>
-                </div>
-                <div className="sm:col-span-2">
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <label className="text-sm font-medium text-[var(--text-primary)]">Email</label>
-                    {profile?.isVerified ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[var(--success-border)] bg-[var(--success-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--success)]">
-                        <CheckIcon /> Verified
-                      </span>
-                    ) : email ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[var(--warning-border)] bg-[var(--warning-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--warning)]">
-                        <AlertIcon /> Not verified
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full border border-[var(--border-default)] bg-[var(--surface-secondary)] px-2 py-0.5 text-[11px] font-semibold text-[var(--text-muted)]">
-                        No email set
-                      </span>
-                    )}
-                  </div>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="app-input w-full rounded-lg border px-4 py-3" placeholder="you@example.com" />
-                  {!profile?.isVerified && email && (
-                    <button type="button" onClick={handleResend} disabled={resending} className="mt-2 text-xs font-medium text-[var(--accent-strong)] hover:underline disabled:opacity-50">
-                      {resending ? 'Sending…' : 'Resend verification link'}
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-3 border-t border-[var(--border-default)] pt-5">
-                <p className="text-sm text-[var(--text-muted)]">
-                  Role: <span className="font-semibold text-[var(--text-primary)]">{roleLabel}</span>
-                </p>
-                <button type="submit" disabled={saving} className="app-btn-primary rounded-xl px-6 py-2.5 text-sm font-semibold transition disabled:opacity-50">
-                  {saving ? 'Saving…' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </SectionCard>
-
-          {profile && email && !profile.isVerified && (
-            <section className="app-panel rounded-xl border border-[var(--warning-border)] bg-[var(--warning-soft)] px-5 py-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--warning)] text-white">
-                    <AlertIcon />
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--warning)]">Email verification required</p>
-                    <p className="mt-0.5 text-sm text-[var(--text-muted)]">
-                      We sent a verification link to <strong className="font-semibold text-[var(--text-primary)]">{email}</strong>. Click it to finish securing your account.
-                    </p>
-                  </div>
-                </div>
-                <button type="button" onClick={handleResend} disabled={resending} className="app-btn-secondary shrink-0 rounded-xl border px-4 py-2 text-sm font-medium transition disabled:opacity-50">
-                  {resending ? 'Sending…' : 'Resend link'}
-                </button>
-              </div>
-            </section>
+      {showAvatarModal && avatarPreview ? (
+        <Modal
+          title="New profile photo"
+          subtitle="Save your profile to keep this photo."
+          onClose={() => setShowAvatarModal(false)}
+          size="sm"
+          footer={(
+            <>
+              <button type="button" onClick={handleRemoveAvatar} className="app-btn-secondary flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium">Discard</button>
+              <button type="button" onClick={() => setShowAvatarModal(false)} className="app-btn-primary flex-1 rounded-lg px-4 py-2.5 text-sm">Use photo</button>
+            </>
           )}
-        </div>
-      )}
-
-      {/* Tab: Security */}
-      {activeTab === 'security' && (
-        <SectionCard icon={<ShieldIcon />} title="Security" subtitle="Change your password to keep your account secure.">
-          <form onSubmit={handleChangePassword} className="max-w-xl space-y-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Current Password</label>
-              <div className="relative">
-                <input type={pwInputType} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="app-input w-full rounded-lg border px-4 py-2.5 pr-11" placeholder="Current password" autoComplete="current-password" required />
-                <button type="button" onClick={() => setShowPw((prev) => !prev)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] transition hover:text-[var(--text-primary)]" aria-label={showPw ? 'Hide passwords' : 'Show passwords'}>
-                  <EyeIcon on={showPw} />
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">New Password</label>
-              <input type={pwInputType} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="app-input w-full rounded-lg border px-4 py-2.5" placeholder="New password" autoComplete="new-password" required />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Confirm New Password</label>
-              <input type={pwInputType} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="app-input w-full rounded-lg border px-4 py-2.5" placeholder="Repeat new password" autoComplete="new-password" required />
-            </div>
-            {pwMessage && <p className={`text-sm ${pwMessageType === 'error' ? 'text-[var(--danger)]' : 'text-[var(--success)]'}`}>{pwMessage}</p>}
-            <button type="submit" disabled={pwSaving} className="app-btn-primary w-full rounded-xl px-6 py-2.5 text-sm font-semibold transition disabled:opacity-50">
-              {pwSaving ? 'Updating…' : 'Update Password'}
-            </button>
-          </form>
-        </SectionCard>
-      )}
-
-      {/* Tab: Shop */}
-      {activeTab === 'shop' && (
-        <SectionCard icon={<ShopIcon />} title={isSuperAdmin ? 'Platform Scope' : 'Shop Information'} subtitle={isSuperAdmin ? 'Platform-wide access details.' : 'Your shop profile and contact details.'}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {shopFields.map((field) => (
-              <div key={field.label} className="app-panel-soft rounded-xl border px-4 py-3">
-                <p className="text-xs font-medium text-[var(--text-muted)]">{field.label}</p>
-                <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{field.value}</p>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
-
-      {/* Tab: Danger Zone */}
-      {activeTab === 'danger' && (
-        <SectionCard
-          icon={<TrashIcon />}
-          title="Close Account"
-          subtitle="Permanently delete your profile and associated data."
-          accent="danger"
         >
-          {closeStep === 'confirm' ? (
-            <div>
-              <p className="text-sm text-[var(--text-muted)]">
-                Closing your account permanently deletes this profile
-                {isSuperAdmin ? ' and revokes platform access' : profile?.shop ? ' and, if you are the only user, the shop and all its data' : ''}.
-                This cannot be undone.
-              </p>
-              <button type="button" onClick={handleStartClose} className="mt-4 w-full rounded-xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--danger)] transition hover:bg-[var(--danger)] hover:text-white">
-                Close account…
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleCloseAccount} className="space-y-4">
-              <p className="text-sm text-[var(--text-muted)]">
-                Verify this is you, then type <span className="font-mono font-semibold text-[var(--danger)]">DELETE</span> to permanently close this account.
-              </p>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Password</label>
-                <input type="password" value={closePw} onChange={(e) => setClosePw(e.target.value)} className="app-input w-full rounded-lg border px-4 py-2.5" placeholder="Your password" autoComplete="current-password" required />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">Type DELETE</label>
-                <input type="text" value={closeConfirmText} onChange={(e) => setCloseConfirmText(e.target.value)} className="app-input w-full rounded-lg border px-4 py-2.5" placeholder="DELETE" required />
-              </div>
-              {closeMessage && <p className="text-sm text-[var(--danger)]">{closeMessage}</p>}
-              <div className="flex gap-3">
-                <button type="button" onClick={handleCancelClose} disabled={closing} className="app-btn-secondary flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition disabled:opacity-50">
-                  Cancel
-                </button>
-                <button type="submit" disabled={closing || closeConfirmText.trim() !== 'DELETE' || !closePw} className="flex-1 rounded-xl bg-[var(--danger)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
-                  {closing ? 'Closing…' : 'Close account'}
-                </button>
-              </div>
-            </form>
-          )}
-        </SectionCard>
-      )}
+          <img src={avatarPreview} alt="Preview" className="mx-auto h-40 w-40 rounded-full object-cover ring-1 ring-[var(--border-strong)]" />
+        </Modal>
+      ) : null}
     </div>
   );
 }

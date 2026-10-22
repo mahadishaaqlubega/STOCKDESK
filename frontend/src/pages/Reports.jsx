@@ -194,11 +194,11 @@ export default function Reports() {
   const totalRefunds = useMemo(() => returns.reduce((sum, r) => sum + Number(r.totalRefund || 0), 0), [returns]);
 
   /* ---------- receipt archive ---------- */
-  const loadReceiptArchive = async () => {
-    if (receiptsLoaded) return;
+  const loadReceiptArchive = async (q = '') => {
     setReceiptsLoading(true);
     try {
-      const data = await fetchSales();
+      // Server-side search; the latest 100 matches are shown.
+      const data = await fetchSales({ q, limit: 100 });
       setAllSales(Array.isArray(data) ? data : []);
       setReceiptsLoaded(true);
     } catch (e) {
@@ -217,16 +217,13 @@ export default function Reports() {
     }
   };
 
-  const filteredReceipts = useMemo(() => {
-    if (!receiptSearch.trim()) return allSales;
-    const q = receiptSearch.toLowerCase();
-    return allSales.filter((s) =>
-      String(s.id).includes(q) ||
-      (s.customer?.name || '').toLowerCase().includes(q) ||
-      (s.cashier?.name || '').toLowerCase().includes(q) ||
-      (s.paymentMethod || '').toLowerCase().includes(q)
-    );
-  }, [allSales, receiptSearch]);
+  useEffect(() => {
+    if (!receiptsLoaded) return undefined;
+    const handle = setTimeout(() => loadReceiptArchive(receiptSearch.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [receiptSearch]);
+
+  const filteredReceipts = allSales;
 
   /* ---------- range report ---------- */
   const runRangeReport = async () => {
@@ -252,7 +249,7 @@ export default function Reports() {
         s.customer?.name || 'Walk-in',
         s.cashier?.name || '',
         s.paymentMethod,
-        s.subTotal,
+        Number(s.total || 0) - Number(s.taxAmount || 0),
         s.taxAmount || 0,
         s.total,
       ]),
@@ -498,7 +495,7 @@ export default function Reports() {
           <div className="space-y-5 border-t border-[var(--border-default)] px-5 py-5">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                { label: 'Sales', value: (rangeData.metrics?.txCount || 0).toLocaleString() },
+                { label: 'Sales', value: (rangeData.metrics?.orderCount || 0).toLocaleString() },
                 { label: 'Revenue', value: formatMoney(currency, rangeData.metrics?.netSales) },
                 { label: 'Gross Profit', value: formatMoney(currency, rangeData.metrics?.grossProfit) },
                 { label: 'Expenses', value: formatMoney(currency, rangeData.totalExpenses) },
@@ -536,7 +533,7 @@ export default function Reports() {
             {rangeData.sales?.length > 0 && (
               <div className="overflow-hidden rounded-xl border border-[var(--border-default)]">
                 <div className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)] px-4 py-2.5">
-                  <p className="text-[13px] font-semibold text-[var(--text-primary)]">Sales in range <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">{rangeData.sales.length} transactions</span></p>
+                  <p className="text-[13px] font-semibold text-[var(--text-primary)]">Sales in range <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">{rangeData.salesTruncated ? `latest ${rangeData.sales.length.toLocaleString()} of ${(rangeData.metrics?.orderCount || 0).toLocaleString()}` : `${rangeData.sales.length} transactions`}</span></p>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="table-cards w-full text-sm">
@@ -579,7 +576,7 @@ export default function Reports() {
           {!receiptsLoaded ? (
             <button
               type="button"
-              onClick={loadReceiptArchive}
+              onClick={() => loadReceiptArchive()}
               disabled={receiptsLoading}
               className="app-btn-primary flex shrink-0 items-center gap-2 rounded-[0.9rem] px-4 py-2 text-sm font-medium disabled:opacity-60"
             >
@@ -592,7 +589,7 @@ export default function Reports() {
             </button>
           ) : (
             <span className="shrink-0 rounded-full bg-[var(--surface-secondary)] px-3 py-1 text-[12px] font-semibold text-[var(--text-muted)]">
-              {filteredReceipts.length} of {allSales.length} sales
+              {filteredReceipts.length === 100 ? 'Latest 100 matches' : `${filteredReceipts.length} sales`}
             </span>
           )}
         </div>
@@ -674,11 +671,6 @@ export default function Reports() {
                     ))}
                   </tbody>
                 </table>
-                {filteredReceipts.length > 100 && (
-                  <div className="border-t border-[var(--border-default)] bg-[var(--surface-secondary)] px-4 py-2.5 text-center text-xs text-[var(--text-muted)]">
-                    Showing first 100 of {filteredReceipts.length} results. Refine your search to find specific receipts.
-                  </div>
-                )}
               </div>
             )}
           </div>

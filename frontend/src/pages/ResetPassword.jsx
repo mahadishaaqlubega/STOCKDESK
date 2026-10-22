@@ -153,7 +153,7 @@ export default function ResetPassword() {
                 type="password"
                 value={form.password}
                 onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                placeholder="At least 6 characters"
+                placeholder="8+ characters, with a number and a symbol"
                 autoComplete="new-password"
                 Icon={LockIcon}
               />

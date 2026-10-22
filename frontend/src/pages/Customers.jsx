@@ -13,6 +13,7 @@ import { getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatMoney as formatCurrency } from '../utils/format';
+import { StatTile, statIcons } from '../components/ui';
 
 const initialForm = {
   id: null,
@@ -48,6 +49,7 @@ export default function Customers() {
   const [paymentMessage, setPaymentMessage] = useState('');
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [savingCustomer, setSavingCustomer] = useState(false);
 
   useBodyScrollLock(Boolean(historyCustomer) || Boolean(deleteTarget) || Boolean(creditCustomer) || drawerOpen);
 
@@ -90,6 +92,8 @@ export default function Customers() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (savingCustomer) return;
+    setSavingCustomer(true);
     try {
       if (form.id) {
         await updateCustomer(form.id, form);
@@ -104,6 +108,8 @@ export default function Customers() {
       await loadCustomers();
     } catch (error) {
       setMessage(error.message);
+    } finally {
+      setSavingCustomer(false);
     }
   }
 
@@ -207,26 +213,10 @@ export default function Customers() {
   return (
     <div className="space-y-5">
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <button type="button" onClick={() => setOwingOnly(false)} aria-pressed={!owingOnly} className={`app-panel rounded-xl border px-4 py-3 text-left transition hover:border-[var(--border-strong)] ${!owingOnly ? 'ring-2 ring-[var(--accent)]' : ''}`}>
-          <p className="text-xs font-medium text-[var(--text-muted)]">Customers</p>
-          <p className="num mt-1 text-xl font-semibold text-[var(--text-primary)]">{customers.length.toLocaleString()}</p>
-          <p className="mt-0.5 text-xs text-[var(--text-muted)]">Saved profiles</p>
-        </button>
-        <button type="button" onClick={() => setOwingOnly(true)} aria-pressed={owingOnly} className={`app-panel rounded-xl border px-4 py-3 text-left transition hover:border-[var(--border-strong)] ${owingOnly ? 'ring-2 ring-[var(--accent)]' : ''}`}>
-          <p className="text-xs font-medium text-[var(--text-muted)]">Owed to you</p>
-          <p className={`num mt-1 whitespace-nowrap text-xl font-semibold ${totalOwed > 0 ? 'text-amber-600 dark:text-amber-300' : 'text-[var(--text-primary)]'}`}>{formatMoney(totalOwed)}</p>
-          <p className="mt-0.5 text-xs text-[var(--text-muted)]">{owing.length} customer{owing.length === 1 ? '' : 's'} on credit</p>
-        </button>
-        <div className="app-panel rounded-xl border px-4 py-3">
-          <p className="text-xs font-medium text-[var(--text-muted)]">Repeat buyers</p>
-          <p className="num mt-1 text-xl font-semibold text-[var(--text-primary)]">{repeatCustomers.toLocaleString()}</p>
-          <p className="mt-0.5 text-xs text-[var(--text-muted)]">More than one purchase</p>
-        </div>
-        <div className="app-panel rounded-xl border px-4 py-3">
-          <p className="text-xs font-medium text-[var(--text-muted)]">Active</p>
-          <p className="num mt-1 text-xl font-semibold text-[var(--text-primary)]">{customers.filter((c) => c.isActive !== false).length.toLocaleString()}</p>
-          <p className="mt-0.5 text-xs text-[var(--text-muted)]">Available at checkout</p>
-        </div>
+        <StatTile label="Customers" value={customers.length.toLocaleString()} hint="Saved profiles" onClick={() => setOwingOnly(false)} active={!owingOnly} icon={statIcons.users} />
+        <StatTile label="Owed to you" value={formatMoney(totalOwed)} hint={`${owing.length} customer${owing.length === 1 ? '' : 's'} on credit`} tone={totalOwed > 0 ? 'warning' : 'default'} iconTone="warning" onClick={() => setOwingOnly(true)} active={owingOnly} icon={statIcons.credit} />
+        <StatTile label="Repeat buyers" value={repeatCustomers.toLocaleString()} hint="More than one purchase" iconTone="violet" icon={statIcons.repeat} />
+        <StatTile label="Active" value={customers.filter((c) => c.isActive !== false).length.toLocaleString()} hint="Available at checkout" iconTone="success" icon={statIcons.check} />
       </section>
 
       {message && !drawerOpen ? (
@@ -396,7 +386,7 @@ export default function Customers() {
             </div>
             <div className="flex gap-2 border-t border-[var(--border-default)] px-5 py-4">
               <button type="button" onClick={() => setDrawerOpen(false)} className="app-btn-secondary flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium">Cancel</button>
-              <button type="submit" className="app-btn-primary flex-1 rounded-lg px-4 py-2.5 text-sm">{form.id ? 'Save changes' : 'Add customer'}</button>
+              <button type="submit" disabled={savingCustomer} className="app-btn-primary flex-1 rounded-lg px-4 py-2.5 text-sm disabled:cursor-wait disabled:opacity-60">{savingCustomer ? 'Saving…' : form.id ? 'Save changes' : 'Add customer'}</button>
             </div>
           </form>
         </div>

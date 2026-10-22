@@ -281,7 +281,7 @@ export default function OwnerLogin() {
                     loading ? 'cursor-not-allowed bg-gray-400' : 'app-btn-primary'
                   }`}
                 >
-                  {loading ? 'Signing in...' : 'Enter Platform Console'}
+                  {loading ? 'Signing in…' : 'Sign in'}
                 </button>
               </form>
             </div>

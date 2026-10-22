@@ -22,7 +22,8 @@ const pageTitles = {
 export default function Header({ onOpenSidebar, onToggleSidebar, sidebarCollapsed }) {
   const location = useLocation();
   const [user, setUser] = useState(null);
-  const pageTitle = pageTitles[location.pathname] || (location.pathname.startsWith('/app/shops/') ? 'Shop details' : 'StockDesk');
+  const path = location.pathname.replace(/\/+$/, '') || '/';
+  const pageTitle = pageTitles[path] || (path.startsWith('/app/shops/') ? 'Shop details' : 'StockDesk');
 
   useEffect(() => {
     setUser(getUser());
@@ -30,7 +31,7 @@ export default function Header({ onOpenSidebar, onToggleSidebar, sidebarCollapse
 
   const initials = String(user?.name || 'U').slice(0, 1).toUpperCase();
   const isSuperAdmin = user?.role === 'SuperAdmin';
-  const showNewSale = !isSuperAdmin && location.pathname !== '/app/pos';
+  const showNewSale = !isSuperAdmin && path !== '/app/pos';
 
   return (
     <header className="sticky top-0 z-20 -mx-3 mb-5 border-b border-[var(--border-default)] app-header-blur px-3 backdrop-blur-md sm:-mx-5 sm:px-5 lg:-mx-8 lg:px-8">

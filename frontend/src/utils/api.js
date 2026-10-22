@@ -186,7 +186,12 @@ export const fetchMyShop = () => request('/shops/me');
 export const updateMyShop = (body) => request('/shops/me', { method: 'PUT', body: JSON.stringify(body) });
 export const verifyMyShopWhatsapp = (body) => request('/shops/me/whatsapp/verify', { method: 'POST', body: JSON.stringify(body) });
 export const fetchReports = () => request('/reports/daily');
-export const fetchSales = () => request('/sales');
+// Paged: { q, limit, offset }. Search matches receipt number, customer or cashier.
+export const fetchSales = ({ q = '', limit = 100, offset = 0 } = {}) => {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (q) params.set('q', q);
+  return request(`/sales?${params}`);
+};
 export const fetchSale = (id) => request(`/sales/${id}`);
 export const createSale = (body) => request('/sales', { method: 'POST', body: JSON.stringify(body) });
 export const closeBusinessDay = () => request('/sales/close-day', { method: 'POST' });

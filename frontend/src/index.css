@@ -252,6 +252,15 @@ textarea:focus {
   }
 }
 
+/* Horizontally scrolling chip rows: scroll with touch/trackpad, no bar. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 ::selection {
   background: var(--accent);
   color: #ffffff;
