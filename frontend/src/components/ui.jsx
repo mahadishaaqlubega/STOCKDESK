@@ -51,18 +51,19 @@ const washTones = {
 
 // Left edge on every stat tile, echoing the sidebar's active-link marker.
 const edgeTones = {
-  default: 'from-teal-400 to-teal-600',
-  accent: 'from-teal-400 to-teal-600',
-  success: 'from-emerald-400 to-emerald-600',
-  warning: 'from-amber-300 to-amber-500',
-  danger: 'from-rose-400 to-rose-600',
-  info: 'from-sky-400 to-sky-600',
-  violet: 'from-violet-400 to-violet-600',
+  default: 'border-l-teal-500',
+  accent: 'border-l-teal-500',
+  success: 'border-l-emerald-500',
+  warning: 'border-l-amber-400',
+  danger: 'border-l-rose-500',
+  info: 'border-l-sky-500',
+  violet: 'border-l-violet-500',
 };
 
-// Parent needs `relative overflow-hidden`.
-export function TileEdge({ tone = 'default', active = false }) {
-  return <span className={`pointer-events-none absolute inset-y-0 left-0 bg-gradient-to-b ${active ? 'w-1' : 'w-[3px]'} ${edgeTones[tone] || edgeTones.default}`} aria-hidden="true" />;
+// Thick coloured left border; being a real border it curves with the
+// box's rounded corners.
+export function tileEdge(tone = 'default', active = false) {
+  return `${active ? 'border-l-4' : 'border-l-[3px]'} ${edgeTones[tone] || edgeTones.default}`;
 }
 
 export function IconChip({ tone = 'default', children, size = 'md' }) {
@@ -82,9 +83,8 @@ export function StatTile({ label, value, hint, tone = 'default', title, onClick,
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       aria-pressed={onClick ? Boolean(active) : undefined}
-      className={`app-panel relative min-w-0 overflow-hidden rounded-xl border px-4 py-3 text-left transition ${onClick ? 'hover:border-[var(--border-strong)]' : ''} ${active ? 'bg-[var(--accent-soft)] ring-2 ring-[var(--accent)]' : ''}`}
+      className={`app-panel relative min-w-0 overflow-hidden rounded-xl border px-4 py-3 text-left transition ${onClick ? 'hover:border-[var(--border-strong)]' : ''} ${tileEdge(chip, active)} ${active ? 'bg-[var(--accent-soft)] ring-2 ring-[var(--accent)]' : ''}`}
     >
-      <TileEdge tone={chip} active={active} />
       {icon ? <span className={`pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full blur-2xl ${washTones[chip] || washTones.default}`} aria-hidden="true" /> : null}
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { fetchBestSelling, fetchCreditSummary, fetchDashboardStats, fetchDashboardSummary } from '../utils/api';
 import { getUser } from '../utils/auth';
 import { formatMoney, formatCompactMoney } from '../utils/format';
-import { IconChip, TileEdge } from '../components/ui';
+import { IconChip, tileEdge } from '../components/ui';
 
 function DashboardIcon({ children, tone = 'default' }) {
   return <IconChip tone={tone}>{children}</IconChip>;
@@ -19,8 +19,7 @@ function StatCard({ title, value, fullValue, helper, tone = 'default', icon }) {
   }[tone];
 
   return (
-    <div className="app-panel relative overflow-hidden rounded-2xl border p-4 sm:p-5">
-      <TileEdge tone={tone} />
+    <div className={`app-panel relative overflow-hidden rounded-2xl border p-4 sm:p-5 ${tileEdge(tone)}`}>
       <span className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl ${{ default: 'bg-teal-500/10', success: 'bg-emerald-500/10', warning: 'bg-amber-500/15', danger: 'bg-rose-500/10' }[tone]}`} aria-hidden="true" />
       <div className="relative flex items-center justify-between gap-3">
         <p className="truncate text-[13px] font-medium text-[var(--text-muted)]">{title}</p>
@@ -286,18 +285,15 @@ export default function Dashboard() {
               action={<div className="num rounded-lg bg-[var(--accent-soft)] px-3 py-1.5 text-sm font-medium text-[var(--accent-strong)]">Today {formatMoney(currency, todayRevenue)}</div>}
             >
               <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                <div className="app-panel-soft relative overflow-hidden rounded-xl border p-3.5">
-                  <TileEdge />
+                <div className={`app-panel-soft rounded-xl border p-3.5 ${tileEdge()}`}>
                   <p className="text-xs font-medium text-[var(--text-muted)]">7-Day Total</p>
                   <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{formatMoney(currency, weeklySalesTotal)}</p>
                 </div>
-                <div className="app-panel-soft relative overflow-hidden rounded-xl border p-3.5">
-                  <TileEdge />
+                <div className={`app-panel-soft rounded-xl border p-3.5 ${tileEdge()}`}>
                   <p className="text-xs font-medium text-[var(--text-muted)]">Daily Average</p>
                   <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{formatMoney(currency, weeklyAverageSales)}</p>
                 </div>
-                <div className="app-panel-soft relative overflow-hidden rounded-xl border p-3.5">
-                  <TileEdge />
+                <div className={`app-panel-soft rounded-xl border p-3.5 ${tileEdge()}`}>
                   <p className="text-xs font-medium text-[var(--text-muted)]">Best Day</p>
                   <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{bestDay}</p>
                 </div>
