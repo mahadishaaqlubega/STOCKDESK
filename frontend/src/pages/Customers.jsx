@@ -542,7 +542,7 @@ export default function Customers() {
 
       {creditCustomer && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={(e) => { if (e.target === e.currentTarget) setCreditCustomer(null); }}>
-          <div className="app-panel flex max-h-[92vh] w-full max-w-2xl flex-col rounded-2xl border p-6" role="dialog" aria-modal="true" aria-labelledby="credit-title">
+          <div className="app-panel flex max-h-[calc(92dvh/var(--app-zoom,1))] w-full max-w-2xl flex-col rounded-2xl border p-6" role="dialog" aria-modal="true" aria-labelledby="credit-title">
             <div className="flex items-start justify-between gap-3 border-b border-[var(--border-default)] pb-4">
               <div>
                 <h3 id="credit-title" className="text-lg font-semibold text-[var(--text-primary)]">{creditCustomer.name} · Credit account</h3>

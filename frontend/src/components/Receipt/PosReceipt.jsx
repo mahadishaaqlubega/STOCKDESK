@@ -425,7 +425,7 @@ export default function PosReceipt({ sale, settings, cashierName, onClose, autoP
   return (
     <div className="app-overlay fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" onClick={onClose}>
       <div
-        className={`app-modal flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-2xl border sm:rounded-2xl ${isA4 ? 'max-w-4xl' : 'max-w-md'}`}
+        className={`app-modal flex max-h-[calc(94dvh/var(--app-zoom,1))] w-full flex-col overflow-hidden rounded-t-2xl border sm:rounded-2xl ${isA4 ? 'max-w-4xl' : 'max-w-md'}`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"

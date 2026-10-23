@@ -71,7 +71,7 @@ function IconButton({ label, onClick, danger, children }) {
 function Modal({ title, subtitle, onClose, children, wide }) {
   return (
     <div className="app-overlay fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={`app-modal max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border p-5 sm:rounded-2xl sm:p-6 ${wide ? 'max-w-xl' : 'max-w-lg'}`} role="dialog" aria-modal="true">
+      <div className={`app-modal max-h-[calc(92dvh/var(--app-zoom,1))] w-full overflow-y-auto rounded-t-2xl border p-5 sm:rounded-2xl sm:p-6 ${wide ? 'max-w-xl' : 'max-w-lg'}`} role="dialog" aria-modal="true">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>

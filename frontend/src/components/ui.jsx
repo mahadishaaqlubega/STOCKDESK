@@ -210,7 +210,7 @@ export function Modal({ title, subtitle, onClose, children, footer, size = 'md' 
   const width = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' }[size];
   return (
     <div className="app-overlay fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={`app-modal flex max-h-[92dvh] w-full ${width} flex-col rounded-t-2xl border sm:rounded-2xl`} role="dialog" aria-modal="true">
+      <div className={`app-modal flex max-h-[calc(92dvh/var(--app-zoom,1))] w-full ${width} flex-col rounded-t-2xl border sm:rounded-2xl`} role="dialog" aria-modal="true">
         <div className="flex items-start justify-between gap-3 border-b border-[var(--border-default)] px-5 py-4">
           <div className="min-w-0">
             <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>

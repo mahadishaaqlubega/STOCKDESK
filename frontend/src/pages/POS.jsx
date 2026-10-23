@@ -608,7 +608,7 @@ export default function POS() {
         </section>
 
         <section
-          className={`app-panel flex min-w-0 flex-col rounded-2xl border xl:sticky xl:top-20 xl:max-h-[calc(100dvh-6rem)] ${mobileSection !== 'cart' ? 'hidden xl:flex' : ''}`}
+          className={`app-panel flex min-w-0 flex-col rounded-2xl border xl:sticky xl:top-20 xl:max-h-[calc(100dvh/var(--app-zoom,1)_-_6rem)] ${mobileSection !== 'cart' ? 'hidden xl:flex' : ''}`}
           aria-label="Current sale"
         >
           {/* Header */}

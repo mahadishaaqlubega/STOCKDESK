@@ -1,7 +1,7 @@
 export default function PageLoader({ fullPage = false }) {
   if (fullPage) {
     return (
-      <div className="flex min-h-dvh items-center justify-center px-4" style={{ background: 'var(--bg-app)' }}>
+      <div className="flex min-h-app items-center justify-center px-4" style={{ background: 'var(--bg-app)' }}>
         <div className="w-full max-w-md space-y-3">
           <div className="app-panel-soft h-24 animate-pulse rounded-2xl border" />
           <div className="app-panel-soft h-24 animate-pulse rounded-2xl border" />
