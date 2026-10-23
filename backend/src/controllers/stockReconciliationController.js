@@ -1,15 +1,22 @@
 const { StockReconciliation, Product, User } = require('../models');
 const auditController = require('./auditController');
 const { Op } = require('sequelize');
+const { parseLocalDate } = require('../config/timezone');
+const { startOfDay, endOfDay } = require('../utils/businessMetrics');
 
 // Create stock reconciliation record
 exports.createReconciliation = async (req, res) => {
   try {
     const { shopId, id: userId } = req.user;
-    const { productId, physicalQuantity, reason, notes } = req.body;
+    const { productId, reason, notes } = req.body;
 
-    if (!productId || physicalQuantity === undefined) {
+    if (!productId || req.body.physicalQuantity === undefined || req.body.physicalQuantity === '') {
       return res.status(400).json({ message: 'Product ID and physical quantity are required' });
+    }
+
+    const physicalQuantity = Number(req.body.physicalQuantity);
+    if (!Number.isInteger(physicalQuantity) || physicalQuantity < 0) {
+      return res.status(400).json({ message: 'Physical quantity must be a whole number of 0 or more' });
     }
 
     const product = await Product.findOne({
@@ -18,6 +25,9 @@ exports.createReconciliation = async (req, res) => {
 
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
+    }
+    if (product.type === 'service') {
+      return res.status(400).json({ message: 'Services do not hold stock and cannot be counted' });
     }
 
     const systemQuantity = product.quantity;
@@ -85,7 +95,7 @@ exports.createReconciliation = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating reconciliation:', error);
-    res.status(500).json({ message: 'Failed to record reconciliation', error: error.message });
+    res.status(500).json({ message: 'Failed to record reconciliation' });
   }
 };
 
@@ -101,8 +111,8 @@ exports.getReconciliations = async (req, res) => {
 
     if (startDate || endDate) {
       where.reconciliationDate = {};
-      if (startDate) where.reconciliationDate[Op.gte] = new Date(startDate);
-      if (endDate) where.reconciliationDate[Op.lte] = new Date(endDate);
+      if (startDate) where.reconciliationDate[Op.gte] = startOfDay(parseLocalDate(startDate));
+      if (endDate) where.reconciliationDate[Op.lte] = endOfDay(parseLocalDate(endDate));
     }
 
     const { count, rows } = await StockReconciliation.findAndCountAll({
@@ -131,7 +141,7 @@ exports.getReconciliations = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching reconciliations:', error);
-    res.status(500).json({ message: 'Failed to fetch reconciliations', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch reconciliations' });
   }
 };
 
@@ -145,8 +155,8 @@ exports.getReconciliationSummary = async (req, res) => {
 
     if (startDate || endDate) {
       where.reconciliationDate = {};
-      if (startDate) where.reconciliationDate[Op.gte] = new Date(startDate);
-      if (endDate) where.reconciliationDate[Op.lte] = new Date(endDate);
+      if (startDate) where.reconciliationDate[Op.gte] = startOfDay(parseLocalDate(startDate));
+      if (endDate) where.reconciliationDate[Op.lte] = endOfDay(parseLocalDate(endDate));
     }
 
     const summary = await StockReconciliation.findAll({
@@ -167,13 +177,15 @@ exports.getReconciliationSummary = async (req, res) => {
       group: ['productId', 'product.id', 'product.name', 'product.sku'],
       raw: true,
       subQuery: false,
-      order: [[require('sequelize').literal('totalVariance'), 'DESC']],
+      // Quoted: unquoted identifiers are lower-cased by Postgres and would not
+      // match the camelCase alias, failing every request.
+      order: [[require('sequelize').literal('"totalVariance"'), 'DESC']],
     });
 
     res.json(summary);
   } catch (error) {
     console.error('Error fetching reconciliation summary:', error);
-    res.status(500).json({ message: 'Failed to fetch reconciliation summary', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch reconciliation summary' });
   }
 };
 
@@ -183,7 +195,7 @@ exports.getProductsForReconciliation = async (req, res) => {
     const { shopId } = req.user;
     const { search } = req.query;
 
-    const where = { shopId, isActive: true };
+    const where = { shopId, isActive: true, type: 'goods' };
 
     if (search) {
       where[Op.or] = [
@@ -202,6 +214,6 @@ exports.getProductsForReconciliation = async (req, res) => {
     res.json(products);
   } catch (error) {
     console.error('Error fetching products:', error);
-    res.status(500).json({ message: 'Failed to fetch products', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch products' });
   }
 };

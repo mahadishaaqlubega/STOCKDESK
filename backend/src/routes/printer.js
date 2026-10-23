@@ -53,10 +53,7 @@ router.post('/configure', authenticate, authorize(['Admin']), async (req, res) =
     });
   } catch (error) {
     console.error('Printer configuration error:', error);
-    res.status(500).json({
-      error: 'Failed to configure printer',
-      message: error.message,
-    });
+    res.status(500).json({ error: 'Failed to configure printer' });
   }
 });
 
@@ -65,8 +62,16 @@ router.post('/configure', authenticate, authorize(['Admin']), async (req, res) =
  * GET /api/printer/status
  */
 router.get('/status', authenticate, (req, res) => {
+  // Direct ESC/POS printing needs optional native modules that the production
+  // image does not install (and a cloud server cannot reach a shop's printer
+  // anyway). Receipts print from the browser; report that plainly.
+  let printerService;
   try {
-    const printerService = getPrinterService();
+    printerService = getPrinterService();
+  } catch (error) {
+    return res.json({ connected: false, available: false, reason: 'Server printing is not available. Receipts print from this device.' });
+  }
+  try {
     const status = printerService.getStatus();
 
     res.json({
@@ -99,10 +104,7 @@ router.post('/test', authenticate, authorize(['Admin']), async (req, res) => {
     });
   } catch (error) {
     console.error('Test print error:', error);
-    res.status(500).json({
-      error: 'Test print failed',
-      message: error.message,
-    });
+    res.status(500).json({ error: 'Test print failed' });
   }
 });
 
@@ -202,7 +204,6 @@ router.post('/print-receipt', authenticate, async (req, res) => {
     console.error('Print receipt error:', error);
     res.status(500).json({
       error: 'Failed to print receipt',
-      message: error.message,
       fallback: true, // Signal frontend to use window.print()
     });
   }
@@ -321,7 +322,7 @@ router.post('/send-whatsapp', authenticate, sendWhatsappLimiter, async (req, res
     res.json({ success: true, sid: result.sid || result.messageSid || null });
   } catch (error) {
     console.error('Send WhatsApp error:', error);
-    res.status(500).json({ error: 'Failed to send WhatsApp receipt', message: error.message });
+    res.status(500).json({ error: 'Failed to send WhatsApp receipt' });
   }
 });
 

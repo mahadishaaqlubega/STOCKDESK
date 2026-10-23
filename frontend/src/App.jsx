@@ -25,6 +25,7 @@ const Returns = lazy(() => import('./pages/Returns'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const Profile = lazy(() => import('./pages/Profile'));
+const Suppliers = lazy(() => import('./pages/Suppliers'));
 
 function App() {
   const [session, setSession] = useState({
@@ -75,6 +76,7 @@ function App() {
           <Route path="reports" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <Reports />} />
           <Route path="expenses" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <Expenses />} />
           <Route path="stock-reconciliation" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <StockReconciliation />} />
+          <Route path="suppliers" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <Suppliers />} />
           <Route path="returns" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Returns />} />
           <Route path="audit-logs" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <AuditLogs />} />
           <Route path="settings" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <Settings />} />

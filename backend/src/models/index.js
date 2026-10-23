@@ -17,6 +17,11 @@ const SaleReturnItem = require('./saleReturnItem');
 const Audit = require('./audit');
 const StockReconciliation = require('./stockReconciliation');
 const PendingSignup = require('./pendingSignup');
+const CreditPayment = require('./creditPayment');
+const Supplier = require('./supplier');
+const Purchase = require('./purchase');
+const PurchaseItem = require('./purchaseItem');
+const SupplierPayment = require('./supplierPayment');
 const { backfillMissingUsernames, generateUniqueUsername } = require('../utils/username');
 const { generateUniqueShopSlug } = require('../utils/shop');
 
@@ -93,6 +98,36 @@ Shop.hasMany(StockReconciliation, { foreignKey: 'shopId', as: 'reconciliations',
 StockReconciliation.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', onDelete: 'CASCADE' });
 StockReconciliation.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 StockReconciliation.belongsTo(User, { foreignKey: 'adjustedByUserId', as: 'adjustedBy' });
+
+// Credit sale repayments
+Shop.hasMany(CreditPayment, { foreignKey: 'shopId', as: 'creditPayments', onDelete: 'CASCADE', hooks: true });
+CreditPayment.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', onDelete: 'CASCADE' });
+Sale.hasMany(CreditPayment, { foreignKey: 'saleId', as: 'creditPayments', onDelete: 'CASCADE' });
+CreditPayment.belongsTo(Sale, { foreignKey: 'saleId', as: 'sale', onDelete: 'CASCADE' });
+Customer.hasMany(CreditPayment, { foreignKey: 'customerId', as: 'creditPayments', onDelete: 'CASCADE' });
+CreditPayment.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer', onDelete: 'CASCADE' });
+CreditPayment.belongsTo(User, { foreignKey: 'receivedByUserId', as: 'receivedBy' });
+
+// Suppliers, purchases (goods received) and what is paid to suppliers
+Shop.hasMany(Supplier, { foreignKey: 'shopId', as: 'suppliers', onDelete: 'CASCADE', hooks: true });
+Supplier.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', onDelete: 'CASCADE' });
+Shop.hasMany(Purchase, { foreignKey: 'shopId', as: 'purchases', onDelete: 'CASCADE', hooks: true });
+Purchase.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', onDelete: 'CASCADE' });
+Supplier.hasMany(Purchase, { foreignKey: 'supplierId', as: 'purchases' });
+Purchase.belongsTo(Supplier, { foreignKey: 'supplierId', as: 'supplier' });
+Purchase.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdBy' });
+Purchase.hasMany(PurchaseItem, { foreignKey: 'purchaseId', as: 'items', onDelete: 'CASCADE' });
+PurchaseItem.belongsTo(Purchase, { foreignKey: 'purchaseId', as: 'purchase', onDelete: 'CASCADE' });
+PurchaseItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+Shop.hasMany(PurchaseItem, { foreignKey: 'shopId', as: 'purchaseItems', onDelete: 'CASCADE', hooks: true });
+PurchaseItem.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', onDelete: 'CASCADE' });
+Shop.hasMany(SupplierPayment, { foreignKey: 'shopId', as: 'supplierPayments', onDelete: 'CASCADE', hooks: true });
+SupplierPayment.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', onDelete: 'CASCADE' });
+Supplier.hasMany(SupplierPayment, { foreignKey: 'supplierId', as: 'payments' });
+SupplierPayment.belongsTo(Supplier, { foreignKey: 'supplierId', as: 'supplier' });
+Purchase.hasMany(SupplierPayment, { foreignKey: 'purchaseId', as: 'payments', onDelete: 'CASCADE' });
+SupplierPayment.belongsTo(Purchase, { foreignKey: 'purchaseId', as: 'purchase', onDelete: 'CASCADE' });
+SupplierPayment.belongsTo(User, { foreignKey: 'paidByUserId', as: 'paidBy' });
 
 async function findOrCreateLegacyShop() {
   let shop = await Shop.findOne({ where: { slug: 'stockdesk-shop' } });
@@ -233,5 +268,10 @@ module.exports = {
   StockIn,
   SaleReturn,
   SaleReturnItem,
+  CreditPayment,
+  Supplier,
+  Purchase,
+  PurchaseItem,
+  SupplierPayment,
   initAppData,
 };

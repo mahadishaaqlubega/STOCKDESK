@@ -1,4 +1,5 @@
 const { Op } = require('sequelize');
+const { localDateString } = require('../config/timezone');
 const {
   Audit,
   Customer,
@@ -11,16 +12,44 @@ const {
   SaleItem,
   SaleReturn,
   SaleReturnItem,
+  CreditPayment,
   Setting,
   Shop,
   StockIn,
   StockReconciliation,
   User,
   sequelize,
+  Supplier,
+  Purchase,
+  PurchaseItem,
+  SupplierPayment,
 } = require('../models');
 
 const ACTIVITY_WINDOW_HOURS = 24;
 const TREND_DAYS = 14;
+
+// Map of shopId -> earliest Admin account, fetched in a single query.
+async function fetchShopOwners() {
+  const admins = await User.findAll({
+    where: { role: 'Admin', shopId: { [Op.not]: null } },
+    attributes: ['id', 'name', 'username', 'email', 'isVerified', 'createdAt', 'shopId'],
+    order: [['createdAt', 'ASC']],
+  });
+  const owners = new Map();
+  for (const admin of admins) {
+    if (!owners.has(admin.shopId)) {
+      owners.set(admin.shopId, {
+        id: admin.id,
+        name: admin.name,
+        username: admin.username,
+        email: admin.email,
+        isVerified: admin.isVerified,
+        createdAt: admin.createdAt,
+      });
+    }
+  }
+  return owners;
+}
 
 exports.getAllShops = async (req, res, next) => {
   try {
@@ -30,19 +59,22 @@ exports.getAllShops = async (req, res, next) => {
       order: [['createdAt', 'DESC']],
     });
 
-    const shopMetricsRows = await sequelize.query(
-      `SELECT
-         s.id AS "shopId",
-         COALESCE(u.cnt, 0) AS "userCount",
-         COALESCE(p.cnt, 0) AS "productCount",
-         COALESCE(sale.cnt, 0) AS "saleCount"
-       FROM "shops" s
-       LEFT JOIN (SELECT "shopId", COUNT(*) AS cnt FROM "users" GROUP BY "shopId") u ON u."shopId" = s.id
-       LEFT JOIN (SELECT "shopId", COUNT(*) AS cnt FROM "products" GROUP BY "shopId") p ON p."shopId" = s.id
-       LEFT JOIN (SELECT "shopId", COUNT(*) AS cnt FROM "sales" GROUP BY "shopId") sale ON sale."shopId" = s.id
-       ORDER BY s."createdAt" DESC`,
-      { type: sequelize.QueryTypes.SELECT }
-    );
+    const [shopMetricsRows, owners] = await Promise.all([
+      sequelize.query(
+        `SELECT
+           s.id AS "shopId",
+           COALESCE(u.cnt, 0) AS "userCount",
+           COALESCE(p.cnt, 0) AS "productCount",
+           COALESCE(sale.cnt, 0) AS "saleCount"
+         FROM "shops" s
+         LEFT JOIN (SELECT "shopId", COUNT(*) AS cnt FROM "users" GROUP BY "shopId") u ON u."shopId" = s.id
+         LEFT JOIN (SELECT "shopId", COUNT(*) AS cnt FROM "products" GROUP BY "shopId") p ON p."shopId" = s.id
+         LEFT JOIN (SELECT "shopId", COUNT(*) AS cnt FROM "sales" GROUP BY "shopId") sale ON sale."shopId" = s.id
+         ORDER BY s."createdAt" DESC`,
+        { type: sequelize.QueryTypes.SELECT }
+      ),
+      fetchShopOwners(),
+    ]);
 
     const metricsMap = new Map(shopMetricsRows.map((m) => [m.shopId, m]));
     const results = shops.map((shop) => {
@@ -54,6 +86,7 @@ exports.getAllShops = async (req, res, next) => {
         isActive: shop.isActive,
         createdAt: shop.createdAt,
         currency: shop.settings?.currency || 'USD',
+        owner: owners.get(shop.id) || null,
         metrics: { userCount: Number(m.userCount) || 0, productCount: Number(m.productCount) || 0, saleCount: Number(m.saleCount) || 0 },
       };
     });
@@ -71,7 +104,7 @@ exports.getOverview = async (req, res, next) => {
     todayStart.setHours(0, 0, 0, 0);
     const activityCutoff = new Date(now.getTime() - ACTIVITY_WINDOW_HOURS * 60 * 60 * 1000);
 
-    const [shops, shopMetrics] = await Promise.all([
+    const [shops, shopMetrics, owners] = await Promise.all([
       Shop.findAll({
         attributes: ['id', 'name', 'slug', 'isActive', 'createdAt'],
         include: [{ model: Setting, as: 'settings', attributes: ['currency'], required: false }],
@@ -103,6 +136,7 @@ exports.getOverview = async (req, res, next) => {
          ORDER BY s."createdAt" DESC`,
         { type: sequelize.QueryTypes.SELECT }
       ),
+      fetchShopOwners(),
     ]);
 
     const metricsMap = new Map(shopMetrics.map((m) => [m.shopId, m]));
@@ -116,7 +150,7 @@ exports.getOverview = async (req, res, next) => {
         isActive: shop.isActive,
         createdAt: shop.createdAt,
         currency: shop.settings?.currency || 'USD',
-        owner: null,
+        owner: owners.get(shop.id) || null,
         metrics: { userCount: Number(m.userCount) || 0, productCount: Number(m.productCount) || 0, saleCount: Number(m.saleCount) || 0 },
         activity: {
           lastLoginAt: m.lastSaleAt || null,
@@ -234,7 +268,7 @@ exports.getDashboard = async (req, res, next) => {
     for (let i = 0; i < trendDays; i += 1) {
       const date = new Date(trendStart);
       date.setDate(date.getDate() + i);
-      const key = date.toISOString().slice(0, 10);
+      const key = localDateString(date);
       salesSeries.push({ day: key, label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), count: saleByDay.get(key) || 0 });
       signupsSeries.push({ day: key, label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), count: signupByDay.get(key) || 0 });
     }
@@ -378,11 +412,17 @@ exports.deleteShop = async (req, res, next) => {
       await SaleReturnItem.destroy({ where: { shopId }, transaction: t });
       await SaleReturn.destroy({ where: { shopId }, transaction: t });
       await Receipt.destroy({ where: { shopId }, transaction: t });
+      await CreditPayment.destroy({ where: { shopId }, transaction: t });
       await SaleItem.destroy({ where: { shopId }, transaction: t });
       await Sale.destroy({ where: { shopId }, transaction: t });
       // Delete records that reference Products and Users before them
       await DayClosure.destroy({ where: { shopId }, transaction: t });
       await StockReconciliation.destroy({ where: { shopId }, transaction: t });
+      // Supplier records reference products, so they go first.
+      await SupplierPayment.destroy({ where: { shopId }, transaction: t });
+      await PurchaseItem.destroy({ where: { shopId }, transaction: t });
+      await Purchase.destroy({ where: { shopId }, transaction: t });
+      await Supplier.destroy({ where: { shopId }, transaction: t });
       await StockIn.destroy({ where: { shopId }, transaction: t });
       await Audit.destroy({ where: { shopId }, transaction: t });
       await Expense.destroy({ where: { shopId }, transaction: t });

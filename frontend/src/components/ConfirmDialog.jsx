@@ -49,7 +49,7 @@ export default function ConfirmDialog({
       onKeyDown={handleKeyDown}
     >
       <div
-        className="w-full max-w-md rounded-[1.6rem] border bg-[var(--surface-primary)] p-6"
+        className="w-full max-w-md rounded-2xl border bg-[var(--surface-primary)] p-6"
         style={{ boxShadow: '0 32px 80px rgba(0,0,0,0.32)' }}
         onClick={(event) => event.stopPropagation()}
         role="dialog"

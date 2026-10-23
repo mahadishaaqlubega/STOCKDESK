@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { logout, updateToken } from '../utils/auth';
 import { refreshToken as refreshTokenAPI } from '../utils/api';
+import { isOffline } from '../utils/connectivity';
 
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes of inactivity = logout
 const TOKEN_REFRESH_INTERVAL_MS = 14 * 60 * 1000; // Refresh every 14 minutes
@@ -29,6 +30,13 @@ export default function useInactivityLogout(isAuthenticated) {
       }
 
       timeoutRef.current = window.setTimeout(() => {
+        // Never sign a till out while offline: signing back in needs the
+        // internet, so the cashier would be locked out of selling. The timer
+        // simply restarts and applies once the connection is back.
+        if (isOffline()) {
+          startTimer();
+          return;
+        }
         logout({
           message: 'You have been logged out due to inactivity.',
           redirectTo: '/login',

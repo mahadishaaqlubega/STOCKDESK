@@ -1,5 +1,7 @@
 const { Audit, User, Shop } = require('../models');
 const { Op } = require('sequelize');
+const { parseLocalDate } = require('../config/timezone');
+const { startOfDay, endOfDay } = require('../utils/businessMetrics');
 
 // Log an action
 exports.logAction = async (userId, shopId, action, entityType, entityId, details, req) => {
@@ -36,8 +38,9 @@ exports.getAuditLogs = async (req, res) => {
 
     if (startDate || endDate) {
       where.createdAt = {};
-      if (startDate) where.createdAt[Op.gte] = new Date(startDate);
-      if (endDate) where.createdAt[Op.lte] = new Date(endDate);
+      // Whole local days: an end date includes everything on that day.
+      if (startDate) where.createdAt[Op.gte] = startOfDay(parseLocalDate(startDate));
+      if (endDate) where.createdAt[Op.lte] = endOfDay(parseLocalDate(endDate));
     }
 
     const { count, rows } = await Audit.findAndCountAll({
@@ -61,7 +64,7 @@ exports.getAuditLogs = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching audit logs:', error);
-    res.status(500).json({ message: 'Failed to fetch audit logs', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch audit logs' });
   }
 };
 
@@ -79,7 +82,7 @@ exports.getAuditUsers = async (req, res) => {
     res.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
-    res.status(500).json({ message: 'Failed to fetch users', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch users' });
   }
 };
 
@@ -101,6 +104,6 @@ exports.getAuditStats = async (req, res) => {
     res.json(stats);
   } catch (error) {
     console.error('Error fetching audit stats:', error);
-    res.status(500).json({ message: 'Failed to fetch audit stats', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch audit stats' });
   }
 };

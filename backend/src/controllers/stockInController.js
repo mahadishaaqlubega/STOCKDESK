@@ -1,10 +1,24 @@
 const { StockIn, Product, User } = require('../models');
 
 exports.restockProduct = async (req, res, next) => {
-  const transaction = await Product.sequelize.transaction();
+  // Opened inside try: if the pool is exhausted the error must reach
+  // next() instead of escaping as an unhandled rejection.
+  let transaction;
   try {
-    const product = await Product.findOne({ where: { id: req.params.id, shopId: req.user.shopId }, transaction });
-    if (!product) return res.status(404).json({ message: 'Product not found' });
+    transaction = await Product.sequelize.transaction();
+    const product = await Product.findOne({
+      where: { id: req.params.id, shopId: req.user.shopId },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!product) {
+      await transaction.rollback();
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    if (product.type === 'service') {
+      await transaction.rollback();
+      return res.status(400).json({ message: 'Services do not hold stock and cannot be restocked' });
+    }
 
     const { quantity, costPrice, supplier, notes } = req.body;
     if (!quantity || Number(quantity) <= 0) {
@@ -12,7 +26,7 @@ exports.restockProduct = async (req, res, next) => {
       return res.status(400).json({ message: 'quantity must be a positive number' });
     }
 
-    product.quantity += Number(quantity);
+    product.quantity = Number(product.quantity || 0) + Number(quantity);
     if (costPrice !== undefined && costPrice !== null && costPrice !== '') {
       product.buyPrice = parseFloat(costPrice);
     }
@@ -34,7 +48,7 @@ exports.restockProduct = async (req, res, next) => {
     await transaction.commit();
     res.status(201).json({ stockIn, newQuantity: product.quantity });
   } catch (error) {
-    await transaction.rollback();
+    if (transaction && !transaction.finished) await transaction.rollback();
     next(error);
   }
 };

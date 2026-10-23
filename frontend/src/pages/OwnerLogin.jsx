@@ -145,7 +145,7 @@ export default function OwnerLogin() {
         </button>
       </div>
 
-      <div className="app-modal relative mx-auto grid w-full max-w-5xl overflow-visible rounded-[2rem] border backdrop-blur lg:min-h-[calc(100dvh-6rem)] lg:grid-cols-[0.98fr_minmax(0,1.02fr)]">
+      <div className="app-modal relative mx-auto grid w-full max-w-5xl overflow-visible rounded-2xl border backdrop-blur lg:min-h-[calc(100dvh-6rem)] lg:grid-cols-[0.98fr_minmax(0,1.02fr)]">
         {/* Left panel — branding */}
         <section className="relative hidden overflow-hidden lg:block lg:px-7 lg:py-6 xl:px-8 xl:py-7" style={{ background: 'var(--sidebar-bg)' }}>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(13,148,136,0.24),transparent_34%)]" />
@@ -172,7 +172,7 @@ export default function OwnerLogin() {
 
             <div className="space-y-2.5">
               {features.map(({ title, desc, Icon }) => (
-                <div key={title} className="flex items-start gap-3 rounded-[1.1rem] border border-white/10 bg-white/6 px-3.5 py-3 backdrop-blur-sm">
+                <div key={title} className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/6 px-3.5 py-3 backdrop-blur-sm">
                   <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.95rem] bg-white/10 text-white">
                     <Icon />
                   </div>
@@ -190,7 +190,7 @@ export default function OwnerLogin() {
                 { value: 'Live', label: 'Real-time' },
                 { value: '24/7', label: 'Monitoring' },
               ].map((item) => (
-                <div key={item.label} className="rounded-[1.1rem] border border-white/10 bg-white/8 px-3 py-2.5 text-center backdrop-blur-sm">
+                <div key={item.label} className="rounded-xl border border-white/10 bg-white/8 px-3 py-2.5 text-center backdrop-blur-sm">
                   <div className="text-sm font-semibold tracking-tight text-white xl:text-base">{item.value}</div>
                   <div className="mt-1 text-xs uppercase tracking-[0.16em] text-white/70">{item.label}</div>
                 </div>
@@ -207,7 +207,7 @@ export default function OwnerLogin() {
               <div className="flex items-center gap-3">
                 <img src={logo} alt="StockDesk logo" className="h-12 w-12 object-contain" />
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-strong)]">StockDesk</p>
+                  <p className="text-xs font-medium text-[var(--accent-strong)]">StockDesk</p>
                   <p className="mt-1 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Platform Console</p>
                 </div>
               </div>
@@ -221,7 +221,7 @@ export default function OwnerLogin() {
               Sign in to the platform console to monitor tenant signups, shop activity, and live business movement across the network.
             </p>
 
-            <div className="app-panel-soft mt-6 rounded-[1.35rem] border p-5 sm:p-6">
+            <div className="app-panel-soft mt-6 rounded-2xl border p-5 sm:p-6">
               <form className="space-y-4" onSubmit={handleSubmit}>
                 <div>
                   <label className="block text-[13px] font-medium text-[var(--text-secondary)]">Username</label>
@@ -233,7 +233,7 @@ export default function OwnerLogin() {
                       type="text"
                       value={form.username}
                       onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
-                      className="app-input w-full rounded-[1.15rem] border py-2.5 pl-12 pr-4 text-sm shadow-sm"
+                      className="app-input w-full rounded-xl border py-2.5 pl-12 pr-4 text-sm shadow-sm"
                       placeholder="Enter your username"
                       autoComplete="username"
                       required
@@ -251,7 +251,7 @@ export default function OwnerLogin() {
                       type={showPw ? 'text' : 'password'}
                       value={form.password}
                       onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-                      className="app-input w-full rounded-[1.15rem] border py-2.5 pl-12 pr-11 text-sm shadow-sm"
+                      className="app-input w-full rounded-xl border py-2.5 pl-12 pr-11 text-sm shadow-sm"
                       placeholder="Enter your password"
                       autoComplete="current-password"
                       required
@@ -267,21 +267,21 @@ export default function OwnerLogin() {
                   </div>
                 </div>
 
-                <div className="rounded-[1.1rem] border border-[var(--border-default)] bg-[var(--surface-primary)] px-4 py-2.5 text-sm text-[var(--text-muted)]">
+                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-primary)] px-4 py-2.5 text-sm text-[var(--text-muted)]">
                   This route is for platform ownership only. Shop admins and staff should use the normal login page.
                 </div>
 
-                {notice ? <div className="app-alert-success rounded-[1.1rem] px-4 py-2.5 text-sm">{notice}</div> : null}
-                {error ? <div className="app-alert-danger rounded-[1.1rem] px-4 py-2.5 text-sm">{error}</div> : null}
+                {notice ? <div className="app-alert-success rounded-xl px-4 py-2.5 text-sm">{notice}</div> : null}
+                {error ? <div className="app-alert-danger rounded-xl px-4 py-2.5 text-sm">{error}</div> : null}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`inline-flex w-full items-center justify-center rounded-[1.1rem] px-4 py-3 text-sm font-semibold leading-none text-white transition ${
+                  className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold leading-none text-white transition ${
                     loading ? 'cursor-not-allowed bg-gray-400' : 'app-btn-primary'
                   }`}
                 >
-                  {loading ? 'Signing in...' : 'Enter Platform Console'}
+                  {loading ? 'Signing in…' : 'Sign in'}
                 </button>
               </form>
             </div>

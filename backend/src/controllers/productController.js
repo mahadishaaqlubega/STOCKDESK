@@ -1,10 +1,31 @@
 const { Product, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
+const PRODUCT_TYPES = ['goods', 'service'];
+
+// Services are sold without a stock count, so their stock fields are pinned
+// to zero and can never trigger low-stock warnings.
+function applyTypeRules(fields) {
+  if (fields.type === undefined) return fields;
+  if (!PRODUCT_TYPES.includes(fields.type)) {
+    throw Object.assign(new Error('type must be "goods" or "service"'), { status: 400 });
+  }
+  if (fields.type === 'service') {
+    return { ...fields, quantity: 0, lowStock: 0 };
+  }
+  return fields;
+}
+
 exports.listProducts = async (req, res, next) => {
   try {
-    const { search, category } = req.query;
+    const { search, category, type } = req.query;
     const where = { shopId: req.user.shopId };
+    if (req.query.includeArchived !== '1') {
+      where.isActive = true;
+    }
+    if (PRODUCT_TYPES.includes(type)) {
+      where.type = type;
+    }
 
     if (search) {
       where.name = { [Op.iLike]: `%${search}%` };
@@ -13,7 +34,9 @@ exports.listProducts = async (req, res, next) => {
       where.category = category;
     }
 
-    const products = await Product.findAll({ where, order: [['name', 'ASC']] });
+    // raw: plain rows serialise several times faster than model instances for
+    // catalogues with thousands of products.
+    const products = await Product.findAll({ where, order: [['name', 'ASC']], raw: true });
     res.json(products);
   } catch (error) {
     next(error);
@@ -32,8 +55,9 @@ exports.getProduct = async (req, res, next) => {
 
 exports.createProduct = async (req, res, next) => {
   try {
-    const { name, sku, category, buyPrice, sellPrice, quantity, lowStock } = req.body;
-    const product = await Product.create({ name, sku: sku || null, category, buyPrice, sellPrice, quantity, lowStock, shopId: req.user.shopId });
+    const { name, sku, category, buyPrice, sellPrice, quantity, lowStock, type = 'goods' } = req.body;
+    const fields = applyTypeRules({ name, sku: sku || null, category, buyPrice, sellPrice, quantity, lowStock, type });
+    const product = await Product.create({ ...fields, shopId: req.user.shopId });
     res.status(201).json(product);
   } catch (error) {
     next(error);
@@ -45,7 +69,16 @@ exports.updateProduct = async (req, res, next) => {
     const product = await Product.findOne({ where: { id: req.params.id, shopId: req.user.shopId } });
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
-    const updates = req.body;
+    // Whitelist updatable fields — prevents mass-assignment of tenant-scoping
+    // columns such as shopId/id from the request body.
+    const allowed = ['name', 'sku', 'category', 'buyPrice', 'sellPrice', 'quantity', 'lowStock', 'type'];
+    let updates = {};
+    for (const field of allowed) {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    }
+    updates = applyTypeRules({ type: updates.type ?? product.type, ...updates });
     await product.update(updates);
     res.json(product);
   } catch (error) {
@@ -55,9 +88,18 @@ exports.updateProduct = async (req, res, next) => {
 
 exports.deleteProduct = async (req, res, next) => {
   try {
-    const destroyed = await Product.destroy({ where: { id: req.params.id, shopId: req.user.shopId } });
-    if (!destroyed) return res.status(404).json({ message: 'Product not found' });
-    res.status(204).send();
+    const product = await Product.findOne({ where: { id: req.params.id, shopId: req.user.shopId } });
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+    try {
+      await product.destroy();
+      return res.status(204).send();
+    } catch (error) {
+      // Sold products are referenced by past sales and receipts. Archive them
+      // instead so history stays intact and they disappear from the catalogue.
+      if (error.name !== 'SequelizeForeignKeyConstraintError') throw error;
+      await product.update({ isActive: false });
+      return res.json({ archived: true, message: `${product.name} has sales history, so it was archived instead of deleted.` });
+    }
   } catch (error) {
     next(error);
   }
@@ -66,7 +108,7 @@ exports.deleteProduct = async (req, res, next) => {
 exports.lowStockAlerts = async (req, res, next) => {
   try {
     const products = await Product.findAll({
-      where: { shopId: req.user.shopId, quantity: { [Op.lte]: sequelize.col('lowStock') } },
+      where: { shopId: req.user.shopId, type: 'goods', isActive: true, quantity: { [Op.lte]: sequelize.col('lowStock') } },
     });
     res.json(products);
   } catch (error) {
@@ -76,8 +118,11 @@ exports.lowStockAlerts = async (req, res, next) => {
 
 // Bulk restock all products in a category
 exports.bulkRestockByCategory = async (req, res, next) => {
-  const transaction = await Product.sequelize.transaction();
+  // Opened inside try: if the pool is exhausted the error must reach
+  // next() instead of escaping as an unhandled rejection.
+  let transaction;
   try {
+    transaction = await Product.sequelize.transaction();
     const { category, quantity, costPrice, supplier, notes } = req.body;
     if (!category) {
       await transaction.rollback();
@@ -88,7 +133,11 @@ exports.bulkRestockByCategory = async (req, res, next) => {
       return res.status(400).json({ message: 'quantity must be a positive number' });
     }
 
-    const items = await Product.findAll({ where: { shopId: req.user.shopId, category }, transaction });
+    const items = await Product.findAll({
+      where: { shopId: req.user.shopId, category, type: 'goods', isActive: true },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
     if (!items || items.length === 0) {
       await transaction.rollback();
       return res.status(404).json({ message: 'No products found for this category' });
@@ -121,7 +170,7 @@ exports.bulkRestockByCategory = async (req, res, next) => {
     await transaction.commit();
     res.json({ updated: results.length, results });
   } catch (error) {
-    await transaction.rollback();
+    if (transaction && !transaction.finished) await transaction.rollback();
     next(error);
   }
 };

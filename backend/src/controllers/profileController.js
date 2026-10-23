@@ -1,7 +1,34 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const { User, Shop, Setting, Product, Sale, Customer, PendingSignup } = require('../models');
+const {
+  User,
+  Shop,
+  Setting,
+  Product,
+  Sale,
+  Customer,
+  PendingSignup,
+  SaleItem,
+  SaleReturn,
+  SaleReturnItem,
+  CreditPayment,
+  Receipt,
+  DayClosure,
+  Expense,
+  StockIn,
+  StockReconciliation,
+  Audit,
+  sequelize,
+  Supplier,
+  Purchase,
+  PurchaseItem,
+  SupplierPayment,
+} = require('../models');
 const { Op } = require('sequelize');
+const { escapeLike } = require('../utils/sql');
+const { passwordProblem } = require('../utils/password');
+const { signToken } = require('../utils/token');
+const auditController = require('./auditController');
 const { sendVerificationEmail } = require('../services/emailService');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -84,11 +111,9 @@ exports.changePassword = async (req, res, next) => {
       return res.status(400).json({ message: 'Passwords do not match' });
     }
 
-    const strongPassword = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
-    if (!strongPassword.test(newPassword)) {
-      return res.status(400).json({
-        message: 'Password must be at least 8 characters and include letters, numbers, and a special character.',
-      });
+    const newPasswordProblem = passwordProblem(newPassword);
+    if (newPasswordProblem) {
+      return res.status(400).json({ message: newPasswordProblem });
     }
 
     const valid = await bcrypt.compare(currentPassword, user.password);
@@ -97,9 +122,26 @@ exports.changePassword = async (req, res, next) => {
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
+    // End every other session; this device gets a fresh token below.
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
 
-    res.json({ message: 'Password updated successfully.' });
+    res.json({ message: 'Password updated. Other devices have been signed out.', token: signToken(user) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/profile/sign-out-everywhere — ends every session of this user,
+// including this one (lost phone, shared computer).
+exports.signOutEverywhere = async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+    await auditController.logAction(user.id, user.shopId, 'SIGN_OUT_ALL', 'USER', user.id, {}, req);
+    res.json({ message: 'Signed out on every device.' });
   } catch (error) {
     next(error);
   }
@@ -135,13 +177,13 @@ exports.updateProfile = async (req, res, next) => {
         }
 
         const existing = await User.findOne({
-          where: { email: { [Op.iLike]: normalizedEmail }, id: { [Op.ne]: user.id } },
+          where: { email: { [Op.iLike]: escapeLike(normalizedEmail) }, id: { [Op.ne]: user.id } },
         });
         if (existing) {
           return res.status(409).json({ message: 'An account with this email already exists' });
         }
 
-        const pendingEmail = await PendingSignup.findOne({ where: { email: { [Op.iLike]: normalizedEmail } } });
+        const pendingEmail = await PendingSignup.findOne({ where: { email: { [Op.iLike]: escapeLike(normalizedEmail) } } });
         if (pendingEmail) {
           return res.status(409).json({ message: 'That email is pending verification on another signup. Please try a different email.' });
         }
@@ -211,6 +253,77 @@ exports.updateProfile = async (req, res, next) => {
 
     res.json(profile);
   } catch (error) {
+    next(error);
+  }
+};
+
+// Delete the caller's own account after verifying their password and a
+// confirmation flag. If the account is the last user of a shop, the shop and
+// its data are removed as well so no orphaned tenant remains.
+exports.closeAccount = async (req, res, next) => {
+  // Opened inside try: if the pool is exhausted the error must reach
+  // next() instead of escaping as an unhandled rejection.
+  let transaction;
+  try {
+    transaction = await sequelize.transaction();
+    const user = await User.findByPk(req.user.id, { transaction });
+    if (!user) {
+      await transaction.rollback();
+      return res.status(404).json({ message: 'Account not found' });
+    }
+
+    const { currentPassword, confirm } = req.body;
+    if (!currentPassword || confirm !== true) {
+      await transaction.rollback();
+      return res.status(400).json({ message: 'Password and confirmation are required to close the account.' });
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) {
+      await transaction.rollback();
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    // Only the last remaining user of a shop triggers shop cleanup. Other
+    // staff/team accounts are left intact.
+    let deleteShop = false;
+    if (user.shopId) {
+      const remainingUsers = await User.count({ where: { shopId: user.shopId, id: { [require('sequelize').Op.ne]: user.id } }, transaction });
+      deleteShop = remainingUsers === 0;
+    }
+
+    if (deleteShop) {
+      const shopId = user.shopId;
+      await SaleReturnItem.destroy({ where: { shopId }, transaction });
+      await SaleReturn.destroy({ where: { shopId }, transaction });
+      await Receipt.destroy({ where: { shopId }, transaction });
+      await CreditPayment.destroy({ where: { shopId }, transaction });
+      await SaleItem.destroy({ where: { shopId }, transaction });
+      await Sale.destroy({ where: { shopId }, transaction });
+      await DayClosure.destroy({ where: { shopId }, transaction });
+      await StockReconciliation.destroy({ where: { shopId }, transaction });
+      // Supplier records reference products, so they go first.
+      await SupplierPayment.destroy({ where: { shopId }, transaction });
+      await PurchaseItem.destroy({ where: { shopId }, transaction });
+      await Purchase.destroy({ where: { shopId }, transaction });
+      await Supplier.destroy({ where: { shopId }, transaction });
+      await StockIn.destroy({ where: { shopId }, transaction });
+      await Audit.destroy({ where: { shopId }, transaction });
+      await Expense.destroy({ where: { shopId }, transaction });
+      await Product.destroy({ where: { shopId }, transaction });
+      await Customer.destroy({ where: { shopId }, transaction });
+      await Setting.destroy({ where: { shopId }, transaction });
+      await Shop.destroy({ where: { id: shopId }, transaction });
+    }
+
+    await user.destroy({ transaction });
+    await transaction.commit();
+
+    res.json({ message: 'Your account has been closed.' });
+  } catch (error) {
+    if (transaction && !transaction.finished) {
+      await transaction.rollback();
+    }
     next(error);
   }
 };

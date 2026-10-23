@@ -40,6 +40,14 @@ Product.init(
       allowNull: false,
       defaultValue: 5,
     },
+    type: {
+      // 'goods' are stock-tracked; 'service' items (repairs, labour, fees)
+      // are sold without any stock count.
+      type: DataTypes.STRING(16),
+      allowNull: false,
+      defaultValue: 'goods',
+      validate: { isIn: [['goods', 'service']] },
+    },
     isActive: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

@@ -2,7 +2,7 @@ require('./setup');
 const request = require('supertest');
 const app = require('../src/app');
 const { adminToken, staffToken, superAdminToken } = require('./helpers');
-const { User, Shop } = require('../src/models');
+const { User, Shop, PendingSignup } = require('../src/models');
 
 describe('GET /api', () => {
   it('returns health check response', async () => {
@@ -67,8 +67,9 @@ describe('POST /api/auth/login', () => {
     const bcrypt = require('bcryptjs');
     const hash = await bcrypt.hash('adminpass', 10);
 
+    // With no shop name, the first lookup is the platform-owner lookup.
+    User.findOne.mockReset();
     User.findOne
-      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
         id: 99, name: 'Owner', username: 'owner', email: 'owner@test.com',
         password: hash, role: 'SuperAdmin', shopId: null, isVerified: true,
@@ -92,6 +93,7 @@ describe('POST /api/auth/login', () => {
     User.findOne.mockResolvedValue({
       id: 1, name: 'Admin', username: 'admin', email: 'admin@test.com',
       password: hash, role: 'Admin', shopId: 10, isVerified: true,
+      failedLoginCount: 0, update: jest.fn(),
     });
 
     const res = await request(app)
@@ -136,8 +138,6 @@ describe('POST /api/auth/signup', () => {
     Shop.findOne.mockResolvedValue(null);
     PendingSignup.findOne.mockResolvedValue(null);
     User.findOne.mockResolvedValue(null);
-
-    const { PendingSignup } = require('../src/models');
     PendingSignup.create.mockResolvedValue({});
 
     const res = await request(app)

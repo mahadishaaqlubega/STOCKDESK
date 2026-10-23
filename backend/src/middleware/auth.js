@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+const { verifyToken, isCurrentSession } = require('../utils/token');
 const { User } = require('../models');
 
 exports.authenticate = async (req, res, next) => {
@@ -9,10 +9,13 @@ exports.authenticate = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = verifyToken(token);
     const user = await User.findByPk(payload.id);
     if (!user) {
       return res.status(401).json({ message: 'Invalid token' });
+    }
+    if (!isCurrentSession(payload, user)) {
+      return res.status(401).json({ message: 'You were signed out because the password was changed. Please sign in again.' });
     }
 
     req.user = { id: user.id, role: user.role, name: user.name, username: user.username, shopId: user.shopId };

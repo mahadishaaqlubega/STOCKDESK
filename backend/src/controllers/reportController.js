@@ -1,5 +1,8 @@
-const { Sale, SaleItem, Product, User, Expense } = require('../models');
+const { Sale, SaleItem, Product, User, Expense, Customer } = require('../models');
+
+const RANGE_SALES_LIMIT = 1000;
 const { fn, col, Op, literal } = require('sequelize');
+const { parseLocalDate } = require('../config/timezone');
 const { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getMetricsForRange } = require('../utils/businessMetrics');
 const sequelize = require('../config/db');
 
@@ -91,7 +94,7 @@ exports.dashboardStats = async (req, res, next) => {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
     sevenDaysAgo.setHours(0, 0, 0, 0);
 
-    const emptyProducts = { totalProducts: 0, totalStock: 0, lowStockCount: 0 };
+    const emptyProducts = { totalProducts: 0, totalStock: 0, lowStockCount: 0, outOfStockCount: 0 };
     const safe = async (fn) => { try { return await fn(); } catch { return null; } };
 
     const [productStats, salesTrend] = await Promise.all([
@@ -99,9 +102,11 @@ exports.dashboardStats = async (req, res, next) => {
         `SELECT
            COUNT(*)::int AS "totalProducts",
            COALESCE(SUM("quantity"), 0)::int AS "totalStock",
-           COUNT(*) FILTER (WHERE "quantity" < GREATEST(5, COALESCE("lowStock", 5)))::int AS "lowStockCount"
+           -- Respect each product's own reorder level; out-of-stock is reported separately.
+           COUNT(*) FILTER (WHERE "quantity" > 0 AND "quantity" <= COALESCE("lowStock", 5))::int AS "lowStockCount",
+           COUNT(*) FILTER (WHERE "quantity" <= 0)::int AS "outOfStockCount"
          FROM "products"
-         WHERE "shopId" = :shopId`,
+         WHERE "shopId" = :shopId AND COALESCE("type", 'goods') = 'goods' AND "isActive" = true`,
         { replacements: { shopId }, type: sequelize.QueryTypes.SELECT }
       )),
       safe(() => sequelize.query(
@@ -192,22 +197,27 @@ exports.rangeReport = async (req, res, next) => {
     const { start, end } = req.query;
     if (!start || !end) return res.status(400).json({ message: 'start and end query params required' });
 
-    const rangeStart = startOfDay(new Date(start));
-    const rangeEnd = endOfDay(new Date(end));
+    const rangeStart = startOfDay(parseLocalDate(start));
+    const rangeEnd = endOfDay(parseLocalDate(end));
 
     const [metrics, sales, topProducts] = await Promise.all([
       getMetricsForRange(req.user.shopId, rangeStart, rangeEnd),
+      // Sale headers only (no line items) and capped: a month of a busy shop
+      // was 31 MB and a minute of database time when every item was included.
+      // Totals come from `metrics`, which always covers the whole range.
       Sale.findAll({
         where: { shopId: req.user.shopId, createdAt: { [Op.gte]: rangeStart, [Op.lte]: rangeEnd } },
+        attributes: ['id', 'createdAt', 'total', 'taxAmount', 'discount', 'paymentMethod', 'balanceDue'],
         include: [
           { model: User, as: 'cashier', attributes: ['id', 'name'] },
-          { model: SaleItem, as: 'items', required: false, include: [{ model: Product, attributes: ['id', 'name', 'buyPrice'] }] },
+          { model: Customer, as: 'customer', attributes: ['id', 'name'] },
         ],
         order: [['createdAt', 'DESC']],
+        limit: RANGE_SALES_LIMIT,
       }),
       SaleItem.findAll({
         where: { shopId: req.user.shopId },
-        attributes: ['productId', [fn('SUM', col('SaleItem.quantity')), 'unitsSold'], [fn('SUM', col('SaleItem.price')), 'revenue']],
+        attributes: ['productId', [fn('SUM', col('SaleItem.quantity')), 'unitsSold'], [fn('SUM', literal('"SaleItem"."price" * "SaleItem"."quantity"')), 'revenue']],
         include: [
           { model: Sale, attributes: [], where: { shopId: req.user.shopId, createdAt: { [Op.gte]: rangeStart, [Op.lte]: rangeEnd } }, required: true },
           { model: Product, attributes: ['id', 'name', 'buyPrice'], required: false },
@@ -223,7 +233,7 @@ exports.rangeReport = async (req, res, next) => {
     });
     const totalExpenses = expensesInRange.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
 
-    res.json({ metrics, sales, topProducts, totalExpenses, start, end });
+    res.json({ metrics, sales, salesTruncated: sales.length === RANGE_SALES_LIMIT, topProducts, totalExpenses, start, end });
   } catch (error) {
     next(error);
   }

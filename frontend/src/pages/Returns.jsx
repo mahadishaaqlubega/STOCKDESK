@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react';
 import { fetchSales, fetchSale, createReturn, fetchReturns, fetchSettings } from '../utils/api';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import { formatMoney, formatAmount } from '../utils/format';
+import { Badge, EmptyState, Modal, Panel, SearchInput, SkeletonRows, Tabs, Toast } from '../components/ui';
 
-function formatMoney(currency, value) {
-  return `${currency} ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+const PAGE_SIZE = 50;
 
-function SkeletonRow({ cols = 6 }) {
-  return (
-    <tr>
-      {Array.from({ length: cols }).map((_, i) => (
-        <td key={i} className="px-4 py-3">
-          <div className="h-3 animate-pulse rounded-md bg-[var(--surface-secondary)]" />
-        </td>
-      ))}
-    </tr>
-  );
+const receiptNo = (sale) => sale.receipt?.receiptNumber || `SD-${String(sale.id).padStart(6, '0')}`;
+
+function relativeTime(dateStr) {
+  const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} h ago`;
+  return new Date(dateStr).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function ReturnModal({ sale, currency, onClose, onSubmit }) {
@@ -25,161 +24,90 @@ function ReturnModal({ sale, currency, onClose, onSubmit }) {
   const [error, setError] = useState('');
 
   const items = sale?.items || [];
-
-  const selectedItems = items
+  const selected = items
     .map((item) => ({ ...item, returnQty: Number(quantities[item.productId] || 0) }))
     .filter((item) => item.returnQty > 0);
+  const refundTotal = selected.reduce((sum, item) => sum + Number(item.price) * item.returnQty, 0);
+  const owed = Number(sale.balanceDue || 0);
+  const debtReduction = Math.min(owed, refundTotal);
+  const cashBack = refundTotal - debtReduction;
 
-  const refundTotal = selectedItems.reduce(
-    (sum, item) => sum + Number(item.price) * item.returnQty,
-    0
-  );
-
-  const handleQtyChange = (productId, value) => {
-    setQuantities((prev) => ({ ...prev, [productId]: value }));
+  const setQty = (productId, value, max) => {
+    const next = Math.max(0, Math.min(max, Number(value) || 0));
+    setQuantities((prev) => ({ ...prev, [productId]: next }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (selectedItems.length === 0) {
-      setError('Select at least one item to return.');
+    if (!selected.length) {
+      setError('Choose at least one item to return.');
       return;
     }
     setError('');
     setSubmitting(true);
     try {
-      await onSubmit({
-        items: selectedItems.map((item) => ({
-          productId: item.productId,
-          quantity: item.returnQty,
-        })),
-        reason: reason || undefined,
-      });
+      await onSubmit({ items: selected.map((item) => ({ productId: item.productId, quantity: item.returnQty })), reason: reason || undefined });
     } catch (err) {
-      setError(err.message || 'Failed to process return');
+      setError(err.message || 'Could not process the return.');
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="app-panel relative z-10 w-full max-w-lg overflow-hidden rounded-[1.6rem] border shadow-2xl">
-        <div className="border-b border-[var(--border-default)] px-6 py-4">
-          <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
-            Process Return — #{sale.id}
-          </h2>
-          <p className="mt-0.5 text-sm text-[var(--text-muted)]">
-            Select items to return. Stock will be automatically restored.
-          </p>
-        </div>
+    <Modal
+      title={`Return items · ${receiptNo(sale)}`}
+      subtitle={`${new Date(sale.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}${sale.customer?.name && sale.customer.name !== 'Walk-in Customer' ? ` · ${sale.customer.name}` : ''}`}
+      onClose={onClose}
+      footer={(
+        <>
+          <button type="button" onClick={onClose} className="app-btn-secondary flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium">Cancel</button>
+          <button type="submit" form="return-form" disabled={submitting || !selected.length} className="app-btn-primary flex-1 rounded-lg px-4 py-2.5 text-sm disabled:opacity-50">
+            {submitting ? 'Processing…' : selected.length ? `Refund ${formatMoney(currency, refundTotal)}` : 'Choose items'}
+          </button>
+        </>
+      )}
+    >
+      <form id="return-form" onSubmit={handleSubmit} className="space-y-4">
+        <ul className="divide-y divide-[var(--border-default)] rounded-lg border border-[var(--border-default)]">
+          {items.map((item) => {
+            const max = Number(item.quantity);
+            const qty = Number(quantities[item.productId] || 0);
+            return (
+              <li key={item.productId} className="flex items-center gap-3 px-3.5 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-[var(--text-primary)]">{item.Product?.name || item.name || 'Item'}</p>
+                  <p className="num text-xs text-[var(--text-muted)]">Bought {max} × {formatMoney(currency, item.price)}</p>
+                </div>
+                <div className="flex items-center rounded-lg border border-[var(--border-strong)]">
+                  <button type="button" onClick={() => setQty(item.productId, qty - 1, max)} className="flex h-8 w-8 items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)]" aria-label="One less">−</button>
+                  <span className="num w-8 text-center text-sm font-medium">{qty}</span>
+                  <button type="button" onClick={() => setQty(item.productId, qty + 1, max)} className="flex h-8 w-8 items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)]" aria-label="One more">+</button>
+                </div>
+                <button type="button" onClick={() => setQty(item.productId, max, max)} className="text-xs font-medium text-[var(--accent)] hover:underline">All</button>
+              </li>
+            );
+          })}
+        </ul>
 
-        <form onSubmit={handleSubmit}>
-          <div className="max-h-[50vh] overflow-y-auto px-6 py-4">
-            <div className="space-y-3">
-              {items.map((item) => {
-                const maxQty = Number(item.quantity);
-                const name = item.Product?.name || item.name || 'Product';
-                const qty = quantities[item.productId] !== undefined ? quantities[item.productId] : '';
-                return (
-                  <div
-                    key={item.productId}
-                    className="flex items-center gap-4 rounded-[1.1rem] border border-[var(--border-default)] px-4 py-3"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-[var(--text-primary)]">{name}</p>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        Sold: {maxQty} × {formatMoney(currency, item.price)}
-                      </p>
-                    </div>
-                    <div className="shrink-0">
-                      <label className="sr-only">Return qty</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={maxQty}
-                        step={1}
-                        inputMode="numeric"
-                        value={qty}
-                        onChange={(e) => handleQtyChange(item.productId, e.target.value)}
-                        placeholder="0"
-                        className="app-input w-20 rounded-[0.9rem] border px-3 py-1.5 text-center text-sm"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        <label className="block text-sm font-medium text-[var(--text-secondary)]">
+          Reason <span className="font-normal text-[var(--text-muted)]">(optional)</span>
+          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Faulty, wrong item, changed mind…" className="app-input mt-1.5 w-full rounded-lg border px-3 py-2.5 text-sm" />
+        </label>
 
-            <div className="mt-4">
-              <label className="mb-1.5 block text-[13px] font-medium text-[var(--text-secondary)]">
-                Reason <span className="font-normal text-[var(--text-muted)]">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Defective, wrong item, customer changed mind…"
-                className="app-input w-full rounded-[1rem] border px-4 py-2.5 text-sm"
-              />
-            </div>
-
-            {error && (
-              <p className="mt-3 rounded-[0.9rem] bg-[rgba(218,106,90,0.1)] px-3 py-2 text-sm text-[var(--danger)]">
-                {error}
-              </p>
-            )}
+        {refundTotal > 0 ? (
+          <div className="space-y-1 rounded-lg bg-[var(--panel-soft-bg)] px-3.5 py-3 text-sm">
+            <div className="flex justify-between"><span className="text-[var(--text-muted)]">Refund value</span><span className="num font-medium">{formatMoney(currency, refundTotal)}</span></div>
+            {debtReduction > 0 ? (
+              <div className="flex justify-between"><span className="text-[var(--text-muted)]">Taken off what they owe</span><span className="num">−{formatMoney(currency, debtReduction)}</span></div>
+            ) : null}
+            <div className="flex justify-between border-t border-[var(--border-default)] pt-1.5 font-medium"><span>Cash to hand back</span><span className="num">{formatMoney(currency, cashBack)}</span></div>
+            <p className="pt-1 text-xs text-[var(--text-muted)]">Returned goods go back into stock automatically.</p>
           </div>
+        ) : null}
 
-          <div className="flex items-center justify-between border-t border-[var(--border-default)] bg-[var(--surface-secondary)] px-6 py-4">
-            <div>
-              {refundTotal > 0 && (
-                <p className="text-sm font-semibold text-[var(--success)]">
-                  Refund: {formatMoney(currency, refundTotal)}
-                </p>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="app-btn-secondary rounded-[1rem] border px-4 py-2 text-sm font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting || selectedItems.length === 0}
-                className="app-btn-primary rounded-[1rem] px-4 py-2 text-sm font-semibold disabled:opacity-50"
-              >
-                {submitting ? 'Processing…' : 'Process Return'}
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function getRelativeTime(dateStr) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString([], { dateStyle: 'medium' });
-}
-
-function UserAvatar({ name }) {
-  const initials = String(name || '?').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-  return (
-    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--surface-secondary)] text-[10px] font-bold text-[var(--accent)]">
-      {initials}
-    </span>
+        {error ? <p className="app-alert-danger rounded-lg px-3 py-2 text-sm" role="alert">{error}</p> : null}
+      </form>
+    </Modal>
   );
 }
 
@@ -187,269 +115,186 @@ export default function Returns() {
   const [view, setView] = useState('sales');
   const [sales, setSales] = useState([]);
   const [returns, setReturns] = useState([]);
-  const [currency, setCurrency] = useState('USD');
-  const [loading, setLoading] = useState(false);
-  const [selectedSale, setSelectedSale] = useState(null);
+  const [currency, setCurrency] = useState('UGX');
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [saleDetail, setSaleDetail] = useState(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
-  const [toast, setToast] = useState({ type: '', text: '' });
+  const [toast, setToast] = useState('');
 
   useBodyScrollLock(Boolean(saleDetail));
 
+  const flash = (text) => {
+    setToast(text);
+    window.setTimeout(() => setToast(''), 4500);
+  };
+
   useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        const [settings] = await Promise.all([fetchSettings()]);
-        setCurrency(settings?.currency || 'USD');
-      } catch (err) {
-        console.error('Failed to load settings:', err.message);
-      } finally { /* done */ }
-    }
-    load();
+    fetchSettings().then((s) => setCurrency(s?.currency || 'UGX')).catch(() => {});
   }, []);
 
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Sales are searched and paged on the server, so this stays fast for shops
+  // with tens of thousands of sales.
+  const loadSales = async (q, offset = 0) => {
+    const page = await fetchSales({ q, limit: PAGE_SIZE, offset });
+    setHasMore(page.length === PAGE_SIZE);
+    setSales((prev) => (offset ? [...prev, ...page] : page));
+  };
+
+  const load = async (which = view) => {
+    try {
+      setLoading(true);
+      if (which === 'sales') await loadSales(search.trim());
+      else setReturns(await fetchReturns());
+    } catch (err) {
+      flash(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (view === 'sales') loadSales();
-    else loadReturns();
-  }, [view]);
+    if (view !== 'sales') {
+      load(view);
+      return undefined;
+    }
+    const handle = setTimeout(() => load('sales'), search ? 300 : 0);
+    return () => clearTimeout(handle);
+  }, [view, search]);
 
-  const loadSales = async () => {
+  const loadMore = async () => {
+    setLoadingMore(true);
     try {
-      setLoading(true);
-      const data = await fetchSales();
-      setSales(data);
+      await loadSales(search.trim(), sales.length);
     } catch (err) {
-      console.error('Failed to load sales:', err.message);
+      flash(err.message);
     } finally {
-      setLoading(false);
+      setLoadingMore(false);
     }
   };
 
-  const loadReturns = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchReturns();
-      setReturns(data);
-    } catch (err) {
-      console.error('Failed to load returns:', err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const filteredSales = sales;
 
   const openReturn = async (saleId) => {
     try {
-      setLoadingDetail(true);
-      const detail = await fetchSale(saleId);
-      setSaleDetail(detail);
-      setSelectedSale(saleId);
+      setSaleDetail(await fetchSale(saleId));
     } catch (err) {
-      showToast('error', err.message || 'Failed to load sale details');
-    } finally {
-      setLoadingDetail(false);
+      flash(err.message || 'Could not load that sale.');
     }
   };
 
   const handleReturn = async (payload) => {
-    await createReturn(selectedSale, payload);
+    const result = await createReturn(saleDetail.id, payload);
     setSaleDetail(null);
-    setSelectedSale(null);
-    showToast('success', 'Return processed. Stock has been restored.');
-    if (view === 'sales') loadSales();
-    else loadReturns();
-  };
-
-  const showToast = (type, text) => {
-    setToast({ type, text });
-    setTimeout(() => setToast({ type: '', text: '' }), 4000);
+    const parts = [`Return recorded · ${formatMoney(currency, result.totalRefund)}`];
+    if (result.creditReduction > 0) parts.push(`${formatMoney(currency, result.creditReduction)} off the customer's balance`);
+    parts.push(`hand back ${formatMoney(currency, result.cashRefund ?? result.totalRefund)}`);
+    flash(parts.join(' · '));
+    load(view);
   };
 
   return (
-    <div className="space-y-4">
-      {/* Tab bar */}
-      <div className="app-panel flex items-center gap-1 rounded-[1.3rem] border p-1">
-        {[
-          { key: 'sales', label: 'Process Return', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg> },
-          { key: 'returns', label: 'Returns History', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
-        ].map(({ key, label, icon }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setView(key)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-[1.1rem] px-4 py-2.5 text-sm font-medium transition-all duration-150 ${
-              view === key
-                ? 'bg-[var(--accent)] text-white shadow-sm'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            {icon}
-            {label}
-          </button>
-        ))}
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Tabs
+          label="Returns"
+          value={view}
+          onChange={setView}
+          tabs={[
+            { key: 'sales', label: 'New return' },
+            { key: 'returns', label: 'Return history' },
+          ]}
+        />
+        {view === 'sales' ? <SearchInput value={search} onChange={setSearch} placeholder="Receipt no., customer or cashier" className="sm:w-80" /> : null}
       </div>
 
-      {/* Toast */}
-      {toast.text && (
-        <div
-          className={`flex items-center gap-3 rounded-[1.1rem] border px-4 py-3 text-sm font-medium ${
-            toast.type === 'success'
-              ? 'border-[rgba(74,168,132,0.3)] bg-[rgba(74,168,132,0.08)] text-[var(--success)]'
-              : 'border-[rgba(218,106,90,0.3)] bg-[rgba(218,106,90,0.08)] text-[var(--danger)]'
-          }`}
-        >
-          {toast.text}
-        </div>
-      )}
-
-      {/* Sales list */}
-      {view === 'sales' && (
-        <section className="app-panel overflow-hidden rounded-[1.4rem] border">
-          <div className="border-b border-[var(--border-default)] px-5 py-4">
-            <h2 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">Recent Sales</h2>
-            <p className="mt-0.5 text-sm text-[var(--text-muted)]">
-              Click "Return" on any sale to select items and record the refund.
-            </p>
-          </div>
+      <Panel>
+        {loading ? (
+          <SkeletonRows rows={6} />
+        ) : view === 'sales' ? (
+          filteredSales.length === 0 ? (
+            <EmptyState title={search ? 'No sale matches that search' : 'No sales yet'} message="Search by receipt number (e.g. SD-000477 or 477), customer name or cashier." />
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="table-cards min-w-full text-left text-sm">
+                  <thead className="app-table-head">
+                    <tr>
+                      <th className="px-4 py-2.5 font-medium">Receipt</th>
+                      <th className="px-4 py-2.5 font-medium">When</th>
+                      <th className="px-4 py-2.5 font-medium">Customer</th>
+                      <th className="px-4 py-2.5 font-medium">Cashier</th>
+                      <th className="px-4 py-2.5 font-medium">Payment</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Total ({currency})</th>
+                      <th className="px-4 py-2.5"><span className="sr-only">Action</span></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-default)]">
+                    {filteredSales.map((sale) => (
+                      <tr key={sale.id} className="app-row-hover">
+                        <td data-label="Receipt" className="px-4 py-2.5 font-mono text-xs text-[var(--text-secondary)]">{receiptNo(sale)}</td>
+                        <td data-label="When" className="px-4 py-2.5 text-[var(--text-muted)]">{relativeTime(sale.createdAt)}</td>
+                        <td data-label="Customer" className="px-4 py-2.5 text-[var(--text-primary)]">{sale.customer?.name && sale.customer.name !== 'Walk-in Customer' ? sale.customer.name : <span className="text-[var(--text-muted)]">Walk-in</span>}</td>
+                        <td data-label="Cashier" className="px-4 py-2.5 text-[var(--text-secondary)]">{sale.cashier?.name || '—'}</td>
+                        <td data-label="Payment" className="px-4 py-2.5">
+                          {sale.paymentMethod === 'Credit' ? <Badge tone={Number(sale.balanceDue) > 0 ? 'warning' : 'success'}>{Number(sale.balanceDue) > 0 ? 'Credit · owing' : 'Credit · paid'}</Badge> : <span className="text-[var(--text-secondary)]">{sale.paymentMethod}</span>}
+                        </td>
+                        <td data-label="Total" className="num px-4 py-2.5 text-right font-medium text-[var(--text-primary)]">{formatAmount(currency, sale.total)}</td>
+                        <td data-label="Action" className="px-4 py-2.5 text-right">
+                          <button type="button" onClick={() => openReturn(sale.id)} className="app-btn-secondary rounded-lg border px-3 py-1.5 text-xs font-medium">Return items</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {hasMore ? (
+                <div className="border-t border-[var(--border-default)] p-3 text-center">
+                  <button type="button" onClick={loadMore} disabled={loadingMore} className="app-btn-secondary rounded-lg border px-4 py-2 text-sm font-medium disabled:opacity-60">
+                    {loadingMore ? 'Loading…' : 'Show older sales'}
+                  </button>
+                </div>
+              ) : null}
+            </>
+          )
+        ) : returns.length === 0 ? (
+          <EmptyState title="No returns yet" message="Returned items and refunds will be listed here." />
+        ) : (
           <div className="overflow-x-auto">
-            <table className="table-cards w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
-                  {['Receipt', 'Date', 'Cashier', 'Total', 'Payment', ''].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                      {h}
-                    </th>
-                  ))}
+            <table className="table-cards min-w-full text-left text-sm">
+              <thead className="app-table-head">
+                <tr>
+                  <th className="px-4 py-2.5 font-medium">When</th>
+                  <th className="px-4 py-2.5 font-medium">Original sale</th>
+                  <th className="px-4 py-2.5 font-medium">Items returned</th>
+                  <th className="px-4 py-2.5 font-medium">Reason</th>
+                  <th className="px-4 py-2.5 font-medium">By</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Refund ({currency})</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-default)]">
-                {loading ? (
-                  Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
-                ) : sales.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">
-                      No sales found
+                {returns.map((ret) => (
+                  <tr key={ret.id} className="app-row-hover">
+                    <td data-label="When" className="whitespace-nowrap px-4 py-2.5 text-[var(--text-muted)]">{relativeTime(ret.createdAt)}</td>
+                    <td data-label="Original sale" className="px-4 py-2.5 font-mono text-xs text-[var(--text-secondary)]">SD-{String(ret.saleId).padStart(6, '0')}</td>
+                    <td data-label="Items returned" className="px-4 py-2.5 text-[var(--text-primary)]">
+                      {(ret.items || []).map((item) => `${item.quantity} × ${item.product?.name || 'Item'}`).join(', ') || '—'}
                     </td>
+                    <td data-label="Reason" className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.reason || <span className="text-[var(--text-muted)]">—</span>}</td>
+                    <td data-label="By" className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.processedBy?.name || '—'}</td>
+                    <td data-label="Refund" className="num px-4 py-2.5 text-right font-medium text-[var(--text-primary)]">{formatAmount(currency, ret.totalRefund)}</td>
                   </tr>
-                ) : (
-                  sales.map((sale) => (
-                    <tr key={sale.id} className="border-l-[3px] border-l-[var(--accent)] transition hover:bg-[var(--surface-secondary)]">
-                      <td data-label="Receipt" className="px-4 py-3 font-mono text-xs text-[var(--text-muted)]">
-                        {sale.receipt?.receiptNumber || `#${sale.id}`}
-                      </td>
-                      <td data-label="Date" className="whitespace-nowrap px-4 py-3">
-                        <p className="text-sm text-[var(--text-secondary)]">{new Date(sale.createdAt).toLocaleDateString([], { dateStyle: 'medium' })}</p>
-                        <p className="text-[11px] text-[var(--text-muted)]">{getRelativeTime(sale.createdAt)}</p>
-                      </td>
-                      <td data-label="Cashier" className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-2 md:justify-start">
-                          <UserAvatar name={sale.cashier?.name} />
-                          <span className="text-[var(--text-primary)]">{sale.cashier?.name || '—'}</span>
-                        </div>
-                      </td>
-                      <td data-label="Total" className="px-4 py-3 font-semibold tabular-nums text-[var(--text-primary)]">
-                        {formatMoney(sale.currency || currency, sale.total)}
-                      </td>
-                      <td data-label="Payment" className="px-4 py-3 text-[var(--text-muted)]">{sale.paymentMethod}</td>
-                      <td data-label="Action" className="px-4 py-3">
-                        <button
-                          type="button"
-                          disabled={loadingDetail}
-                          onClick={() => openReturn(sale.id)}
-                          className="app-btn-secondary rounded-[0.9rem] border px-3 py-1.5 text-[12px] font-medium transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50"
-                        >
-                          Return
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
-        </section>
-      )}
+        )}
+      </Panel>
 
-      {/* Returns history */}
-      {view === 'returns' && (
-        <section className="app-panel overflow-hidden rounded-[1.4rem] border">
-          <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 py-4">
-            <div>
-              <h2 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">Returns & Refunds</h2>
-              <p className="mt-0.5 text-sm text-[var(--text-muted)]">
-                Every processed return is recorded here with the refund amount and reason.
-              </p>
-            </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-secondary)] px-3 py-1 text-xs font-semibold text-[var(--text-muted)]">
-              {returns.length} return{returns.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="table-cards w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
-                  {['Date', 'Original Sale', 'Items Returned', 'Refund', 'Reason', 'Processed By'].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-default)]">
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
-                ) : returns.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center">
-                      <p className="text-sm font-medium text-[var(--text-primary)]">No returns recorded yet</p>
-                      <p className="mt-1 text-xs text-[var(--text-muted)]">
-                        Use the "Sales — Process Return" tab to initiate a return.
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  returns.map((ret) => (
-                    <tr key={ret.id} className="border-l-[3px] border-l-[var(--danger)] transition hover:bg-[var(--surface-secondary)]">
-                      <td data-label="Date" className="whitespace-nowrap px-4 py-3">
-                        <p className="text-xs text-[var(--text-secondary)]">{new Date(ret.createdAt).toLocaleDateString([], { dateStyle: 'medium' })}</p>
-                        <p className="text-[11px] text-[var(--text-muted)]">{getRelativeTime(ret.createdAt)}</p>
-                      </td>
-                      <td data-label="Sale #" className="px-4 py-3 font-mono text-xs text-[var(--text-muted)]">#{ret.saleId}</td>
-                      <td data-label="Items" className="px-4 py-3 text-[var(--text-secondary)]">
-                        {ret.items?.map((item) => (
-                          <span key={item.productId} className="inline-block">
-                            {item.product?.name} ×{item.quantity}
-                          </span>
-                        )).reduce((prev, curr, i) => [prev, <span key={`sep-${i}`} className="text-[var(--text-muted)]">, </span>, curr]) || '—'}
-                      </td>
-                      <td data-label="Refund" className="px-4 py-3 font-semibold tabular-nums text-[var(--danger)]">
-                        −{formatMoney(currency, ret.totalRefund)}
-                      </td>
-                      <td data-label="Reason" className="px-4 py-3 text-[var(--text-muted)]">{ret.reason || '—'}</td>
-                      <td data-label="By" className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-2 md:justify-start">
-                          <UserAvatar name={ret.processedBy?.name} />
-                          <span className="text-[var(--text-secondary)]">{ret.processedBy?.name || '—'}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      {/* Return modal */}
-      {saleDetail && (
-        <ReturnModal
-          sale={saleDetail}
-          currency={currency}
-          onClose={() => { setSaleDetail(null); setSelectedSale(null); }}
-          onSubmit={handleReturn}
-        />
-      )}
+      {saleDetail ? <ReturnModal sale={saleDetail} currency={currency} onClose={() => setSaleDetail(null)} onSubmit={handleReturn} /> : null}
+      <Toast text={toast} />
     </div>
   );
 }

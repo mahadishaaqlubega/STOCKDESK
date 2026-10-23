@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { passwordProblem } = require('../utils/password');
 const { User } = require('../models');
 const { normalizeUsername } = require('../utils/username');
 
@@ -46,6 +47,10 @@ exports.createUser = async (req, res, next) => {
     if (password !== confirmPassword) {
       return res.status(400).json({ message: 'Passwords do not match' });
     }
+    const newUserPasswordProblem = passwordProblem(password);
+    if (newUserPasswordProblem) {
+      return res.status(400).json({ message: newUserPasswordProblem });
+    }
 
     const existingUser = await User.findOne({ where: { shopId: req.user.shopId, username } });
     if (existingUser) {
@@ -56,7 +61,7 @@ exports.createUser = async (req, res, next) => {
     const user = await User.create({
       name: username,
       username,
-      email: req.user.email || null,
+      email: null,
       password: hash,
       role,
       displayRole,
@@ -64,11 +69,11 @@ exports.createUser = async (req, res, next) => {
       isVerified: true,
       verificationToken: null,
     });
+    // Return plaintext password to admin only (visible in response)
     res.status(201).json({
       id: user.id,
       name: user.name,
       username: user.username,
-      email: user.email,
       plainPassword: password,
       role: user.role,
       displayRole: user.displayRole,
@@ -128,8 +133,16 @@ exports.resetPassword = async (req, res, next) => {
     if (password !== confirmPassword) {
       return res.status(400).json({ message: 'Passwords do not match' });
     }
+    const resetPasswordProblem = passwordProblem(password);
+    if (resetPasswordProblem) {
+      return res.status(400).json({ message: resetPasswordProblem });
+    }
 
     user.password = await bcrypt.hash(password, 10);
+    // Sign the staff member out everywhere so the old password's sessions end.
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    user.failedLoginCount = 0;
+    user.lockedUntil = null;
     await user.save();
 
     res.json({

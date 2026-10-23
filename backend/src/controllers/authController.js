@@ -1,28 +1,22 @@
 const crypto = require('crypto');
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Shop, User, Setting, PendingSignup, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const { escapeLike } = require('../utils/sql');
+const { signToken, verifyToken, isCurrentSession } = require('../utils/token');
+const { passwordProblem } = require('../utils/password');
 const { normalizeUsername } = require('../utils/username');
 const { generateUniqueShopSlug } = require('../utils/shop');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
+const auditController = require('./auditController');
 
 function maskEmail(email) {
   const [local, domain] = email.split('@');
   return `${local[0]}***@${domain}`;
 }
 
-function signToken(user) {
-  if (!process.env.JWT_SECRET) {
-    throw new Error('JWT_SECRET is required.');
-  }
-
-  return jwt.sign(
-    { id: user.id, role: user.role, shopId: user.shopId },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE || '8h' }
-  );
-}
+const MAX_FAILED_LOGINS = 10;
+const LOCKOUT_MINUTES = 15;
 
 exports.login = async (req, res, next) => {
   try {
@@ -44,7 +38,7 @@ exports.login = async (req, res, next) => {
       shop = await Shop.findOne({
         where: {
           name: {
-            [Op.iLike]: shopName,
+            [Op.iLike]: escapeLike(shopName),
           },
         },
         attributes: ['id', 'name', 'slug'],
@@ -60,7 +54,7 @@ exports.login = async (req, res, next) => {
         user = await User.findOne({ where: { shopId: shop.id, email: username } });
       } else if (!user && !isEmail) {
         user = await User.findOne({
-          where: { shopId: shop.id, email: { [Op.iLike]: rawIdentifier } },
+          where: { shopId: shop.id, email: { [Op.iLike]: escapeLike(rawIdentifier) } },
         });
       }
     }
@@ -78,9 +72,34 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ message: 'Invalid shop name, username, or password' });
     }
 
+    // Per-account lockout: the IP rate limit alone does not stop guessing
+    // spread across many networks.
+    if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+      const minutes = Math.ceil((new Date(user.lockedUntil) - Date.now()) / 60000);
+      return res.status(429).json({
+        message: `Too many wrong passwords. This account is locked for ${minutes} more minute${minutes === 1 ? '' : 's'}, or reset the password by email.`,
+      });
+    }
+
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
+      const failures = (user.failedLoginCount || 0) + 1;
+      const locking = failures >= MAX_FAILED_LOGINS;
+      await user.update({
+        failedLoginCount: locking ? 0 : failures,
+        lockedUntil: locking ? new Date(Date.now() + LOCKOUT_MINUTES * 60000) : user.lockedUntil,
+      });
+      if (locking) {
+        await auditController.logAction(user.id, user.shopId, 'LOCKED', 'USER', user.id, { failures }, req);
+        return res.status(429).json({
+          message: `Too many wrong passwords. This account is locked for ${LOCKOUT_MINUTES} minutes, or reset the password by email.`,
+        });
+      }
       return res.status(401).json({ message: 'Invalid shop name, username, or password' });
+    }
+
+    if (user.failedLoginCount || user.lockedUntil) {
+      await user.update({ failedLoginCount: 0, lockedUntil: null });
     }
 
     if (!user.isVerified) {
@@ -88,6 +107,7 @@ exports.login = async (req, res, next) => {
       // sign-in so the admin can add/verify their email from the Profile page.
       // New accounts never exist unverified (they are created only after the
       // verification link is clicked), so no new shop can sign in this way.
+      await auditController.logAction(user.id, user.shopId, 'LOGIN', 'USER', user.id, {}, req);
       return res.status(200).json({
         token: signToken(user),
         user: {
@@ -108,6 +128,8 @@ exports.login = async (req, res, next) => {
     }
 
     const token = signToken(user);
+
+    await auditController.logAction(user.id, user.shopId, 'LOGIN', 'USER', user.id, {}, req);
 
     res.json({
       token,
@@ -154,11 +176,15 @@ exports.signup = async (req, res, next) => {
     if (password !== confirmPassword) {
       return res.status(400).json({ message: 'Passwords do not match' });
     }
+    const signupPasswordProblem = passwordProblem(password);
+    if (signupPasswordProblem) {
+      return res.status(400).json({ message: signupPasswordProblem });
+    }
 
     const existingShop = await Shop.findOne({
       where: {
         name: {
-          [Op.iLike]: normalizedShopName,
+          [Op.iLike]: escapeLike(normalizedShopName),
         },
       },
     });
@@ -167,12 +193,12 @@ exports.signup = async (req, res, next) => {
       return res.status(409).json({ message: 'Shop name is already in use' });
     }
 
-    const pendingShop = await PendingSignup.findOne({ where: { shopName: { [Op.iLike]: normalizedShopName } } });
+    const pendingShop = await PendingSignup.findOne({ where: { shopName: { [Op.iLike]: escapeLike(normalizedShopName) } } });
     if (pendingShop && pendingShop.email.toLowerCase() !== normalizedEmail) {
       return res.status(409).json({ message: 'Shop name is already being registered by another account' });
     }
 
-    const existingEmail = await User.findOne({ where: { email: { [Op.iLike]: normalizedEmail } } });
+    const existingEmail = await User.findOne({ where: { email: { [Op.iLike]: escapeLike(normalizedEmail) } } });
     if (existingEmail) {
       // Check whether the user's shop still exists — if the shop was deleted but the
       // user row wasn't cleaned up (orphaned record), free the email and continue.
@@ -196,7 +222,7 @@ exports.signup = async (req, res, next) => {
 
     // Re-signing up while a verification is already pending for this email:
     // refresh the pending record with the latest details and resend the link.
-    const pendingExisting = await PendingSignup.findOne({ where: { email: { [Op.iLike]: normalizedEmail } } });
+    const pendingExisting = await PendingSignup.findOne({ where: { email: { [Op.iLike]: escapeLike(normalizedEmail) } } });
     if (pendingExisting) {
       pendingExisting.shopName = normalizedShopName;
       pendingExisting.username = normalizedUsername;
@@ -268,7 +294,7 @@ exports.verifyEmail = async (req, res, next) => {
       const transaction = await sequelize.transaction();
       try {
         const shopNameTaken = await Shop.findOne({
-          where: { name: { [Op.iLike]: pending.shopName } },
+          where: { name: { [Op.iLike]: escapeLike(pending.shopName) } },
           transaction,
         });
         if (shopNameTaken) {
@@ -279,7 +305,7 @@ exports.verifyEmail = async (req, res, next) => {
           });
         }
 
-        const emailTaken = await User.findOne({ where: { email: { [Op.iLike]: pending.email } }, transaction });
+        const emailTaken = await User.findOne({ where: { email: { [Op.iLike]: escapeLike(pending.email) } }, transaction });
         if (emailTaken) {
           await transaction.rollback();
           await pending.destroy();
@@ -359,7 +385,7 @@ exports.resendVerification = async (req, res, next) => {
     const normalizedEmail = String(email).trim().toLowerCase();
 
     // Pending (not yet created) registrations
-    const pending = await PendingSignup.findOne({ where: { email: { [Op.iLike]: normalizedEmail } } });
+    const pending = await PendingSignup.findOne({ where: { email: { [Op.iLike]: escapeLike(normalizedEmail) } } });
     if (pending) {
       const verificationToken = crypto.randomBytes(32).toString('hex');
       await pending.update({ verificationToken });
@@ -378,7 +404,7 @@ exports.resendVerification = async (req, res, next) => {
     }
 
     // Legacy flow: accounts created before pending signups were introduced
-    const user = await User.findOne({ where: { email: { [Op.iLike]: normalizedEmail } } });
+    const user = await User.findOne({ where: { email: { [Op.iLike]: escapeLike(normalizedEmail) } } });
 
     // Always respond with success to avoid email enumeration
     if (!user || user.isVerified) {
@@ -410,7 +436,7 @@ exports.forgotPassword = async (req, res, next) => {
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
-    const user = await User.findOne({ where: { email: { [Op.iLike]: normalizedEmail } } });
+    const user = await User.findOne({ where: { email: { [Op.iLike]: escapeLike(normalizedEmail) } } });
 
     // Always respond with success to avoid email enumeration
     if (user) {
@@ -439,8 +465,12 @@ exports.resetPassword = async (req, res, next) => {
     if (password !== confirmPassword) {
       return res.status(400).json({ message: 'Passwords do not match' });
     }
+    const resetPasswordProblem = passwordProblem(password);
+    if (resetPasswordProblem) {
+      return res.status(400).json({ message: resetPasswordProblem });
+    }
 
-    const user = await User.findOne({ where: { resetPasswordToken: token } });
+    const user = await User.findOne({ where: { resetPasswordToken: String(token) } });
     if (!user) {
       return res.status(400).json({ message: 'This password reset link is invalid or has already been used.' });
     }
@@ -454,6 +484,11 @@ exports.resetPassword = async (req, res, next) => {
       resetPasswordToken: null,
       resetPasswordExpiry: null,
       isVerified: true,
+      // A reset usually means the password may be known to someone else:
+      // end every existing session and lift any lockout.
+      tokenVersion: (user.tokenVersion || 0) + 1,
+      failedLoginCount: 0,
+      lockedUntil: null,
     });
 
     res.json({ message: 'Password reset successfully. You can now sign in.' });
@@ -469,12 +504,12 @@ exports.refreshToken = async (req, res, next) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const payload = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+    const payload = verifyToken(authHeader.split(' ')[1]);
     const user = await User.findByPk(payload.id, {
       include: [{ model: Shop, as: 'shop', attributes: ['id', 'name', 'slug'], required: false }],
     });
 
-    if (!user) {
+    if (!user || !isCurrentSession(payload, user)) {
       return res.status(401).json({ message: 'Invalid session' });
     }
 

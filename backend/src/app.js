@@ -1,4 +1,7 @@
+// Local business day for everything below (also when app.js is loaded alone).
+require('./config/timezone');
 const express = require('express');
+const compression = require('compression');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const authRoutes = require('./routes/auth');
@@ -15,14 +18,23 @@ const expenseRoutes = require('./routes/expenses');
 const auditRoutes = require('./routes/audit');
 const stockReconciliationRoutes = require('./routes/stockReconciliation');
 const profileRoutes = require('./routes/profile');
+const creditRoutes = require('./routes/credit');
+const publicRoutes = require('./routes/public');
+const supplierRoutes = require('./routes/suppliers');
+const purchaseRoutes = require('./routes/purchases');
+const importRoutes = require('./routes/imports');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
 // Security middleware: trust proxy, limit request size
 app.set('trust proxy', 1);
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+// Gzip JSON responses: product and customer lists shrink ~85%, which matters
+// on mobile data.
+app.use(compression());
+// 3 MB covers the largest legitimate body (a 2 MB profile photo as base64).
+app.use(express.json({ limit: '3mb' }));
+app.use(express.urlencoded({ limit: '3mb', extended: true }));
 
 // Security headers: prevent common vulnerabilities
 app.use((req, res, next) => {
@@ -30,6 +42,12 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  // Restrict what API responses may load. Skipped for receipt PDFs so inline
+  // PDF rendering in the browser's viewer is not blocked.
+  if (!req.path.endsWith('/receipt') && !req.path.startsWith('/api/public/receipts/')) {
+    res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+  }
   next();
 });
 
@@ -105,6 +123,16 @@ const authLimiter = rateLimit({
   message: { message: 'Too many requests. Please wait before trying again.' },
 });
 
+// server.js sets dbReady=false until migrations finish. (Left undefined in
+// tests, which use the app without a database.)
+app.use('/api', (req, res, next) => {
+  if (app.get('dbReady') === false) {
+    res.set('Retry-After', '5');
+    return res.status(503).json({ message: 'StockDesk is starting up. Please try again in a moment.', status: 'STARTING' });
+  }
+  next();
+});
+
 app.get('/api', (req, res) => {
   res.json({ message: 'Backend is running', status: 'OK' });
 });
@@ -115,12 +143,18 @@ app.post('/api/auth/login', loginLimiter);
 app.post('/api/auth/forgot-password', authLimiter);
 app.post('/api/auth/resend-verification', authLimiter);
 
-// CRUD rate limiter — protects all data endpoints
+// CRUD rate limiter — protects all data endpoints. Keyed per session token
+// (falling back to IP) because several tills in one shop usually share a
+// single public IP and would otherwise exhaust one shared budget.
 const crudLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 60,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    const auth = req.headers.authorization || '';
+    return auth.startsWith('Bearer ') ? `token:${auth.slice(7)}` : `ip:${req.ip}`;
+  },
   message: { message: 'Too many requests. Please slow down.' },
 });
 
@@ -131,6 +165,9 @@ app.use('/api/sales', crudLimiter);
 app.use('/api/expenses', crudLimiter);
 app.use('/api/audit', crudLimiter);
 app.use('/api/stock-reconciliation', crudLimiter);
+app.use('/api/credit', crudLimiter);
+app.use('/api/suppliers', crudLimiter);
+app.use('/api/purchases', crudLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -146,6 +183,11 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/stock-reconciliation', stockReconciliationRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/credit', creditRoutes);
+app.use('/api/public', publicRoutes);
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/purchases', purchaseRoutes);
+app.use('/api', importRoutes);
 
 app.use(errorHandler);
 

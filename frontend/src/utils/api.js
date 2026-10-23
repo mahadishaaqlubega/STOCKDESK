@@ -1,6 +1,8 @@
 import { getToken, logout } from './auth';
+import { NetworkError, configureConnectivity, markOffline, markOnline } from './connectivity';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+configureConnectivity(API_BASE);
 const PRINTER_API_BASE = import.meta.env.VITE_PRINTER_API_URL || 'http://localhost:4000/api';
 const PRINTER_BRIDGE_KEY = import.meta.env.VITE_PRINTER_BRIDGE_KEY || '';
 
@@ -63,10 +65,29 @@ async function request(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  } catch {
+    // DNS failure, no route, CORS-less network drop: the server is unreachable.
+    markOffline();
+    throw new NetworkError();
+  }
+  // Gateway errors mean the server (or the link to it) is down, not that the
+  // request was wrong.
+  if ([502, 503, 504].includes(response.status) && !isAuthPath) {
+    markOffline();
+    throw new NetworkError('StockDesk is not reachable right now. Try again in a moment.');
+  }
+  markOnline();
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: response.ok ? null : `Request failed (${response.status})` };
+  }
 
   if (response.status === 401) {
     if (path === '/auth/login') {
@@ -138,6 +159,7 @@ export const deleteUser = (id) => request(`/users/${id}`, { method: 'DELETE' });
 export const fetchProfile = () => request('/profile');
 export const updateProfile = (body) => request('/profile', { method: 'PUT', body: JSON.stringify(body) });
 export const changePassword = (body) => request('/profile/change-password', { method: 'POST', body: JSON.stringify(body) });
+export const signOutEverywhere = () => request('/profile/sign-out-everywhere', { method: 'POST' });
 export const closeAccount = (body) => request('/profile/close-account', { method: 'POST', body: JSON.stringify(body) });
 export const fetchPlatformOverview = () => request('/admin/overview');
 export const fetchPlatformDashboard = (days) => request(`/admin/dashboard${days ? `?days=${days}` : ''}`);
@@ -148,6 +170,28 @@ export const fetchCustomers = (query = '') => request(`/customers${query}`);
 export const createCustomer = (body) => request('/customers', { method: 'POST', body: JSON.stringify(body) });
 export const updateCustomer = (id, body) => request(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(body) });
 export const deleteCustomer = (id) => request(`/customers/${id}`, { method: 'DELETE' });
+export const fetchCustomerCredit = (id) => request(`/customers/${id}/credit`);
+export const recordCreditPayment = (id, body) => request(`/customers/${id}/payments`, { method: 'POST', body: JSON.stringify(body) });
+export const recordCustomerReminder = (id, body) => request(`/customers/${id}/reminders`, { method: 'POST', body: JSON.stringify(body) });
+export const shareSaleReceipt = (id) => request(`/sales/${id}/share`, { method: 'POST' });
+export const fetchCreditSummary = () => request('/credit/summary');
+export const importProducts = (body) => request('/import/products', { method: 'POST', body: JSON.stringify(body) });
+export const importCustomers = (body) => request('/import/customers', { method: 'POST', body: JSON.stringify(body) });
+export const exportSalesRows = (start, end) => request(`/exports/sales?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&tz=${new Date().getTimezoneOffset()}`);
+export const fetchSuppliers = () => request('/suppliers');
+export const createSupplier = (body) => request('/suppliers', { method: 'POST', body: JSON.stringify(body) });
+export const updateSupplier = (id, body) => request(`/suppliers/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+export const deleteSupplier = (id) => request(`/suppliers/${id}`, { method: 'DELETE' });
+export const fetchSupplierStatement = (id) => request(`/suppliers/${id}/statement`);
+export const paySupplier = (id, body) => request(`/suppliers/${id}/payments`, { method: 'POST', body: JSON.stringify(body) });
+export const fetchPurchases = ({ supplierId, unpaid, limit = 50, offset = 0 } = {}) => {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (supplierId) params.set('supplierId', String(supplierId));
+  if (unpaid) params.set('unpaid', '1');
+  return request(`/purchases?${params}`);
+};
+export const fetchPurchase = (id) => request(`/purchases/${id}`);
+export const createPurchase = (body) => request('/purchases', { method: 'POST', body: JSON.stringify(body) });
 export const downloadReceipt = async (saleId) => {
   try {
     const token = getToken();
@@ -183,7 +227,12 @@ export const fetchMyShop = () => request('/shops/me');
 export const updateMyShop = (body) => request('/shops/me', { method: 'PUT', body: JSON.stringify(body) });
 export const verifyMyShopWhatsapp = (body) => request('/shops/me/whatsapp/verify', { method: 'POST', body: JSON.stringify(body) });
 export const fetchReports = () => request('/reports/daily');
-export const fetchSales = () => request('/sales');
+// Paged: { q, limit, offset }. Search matches receipt number, customer or cashier.
+export const fetchSales = ({ q = '', limit = 100, offset = 0 } = {}) => {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (q) params.set('q', q);
+  return request(`/sales?${params}`);
+};
 export const fetchSale = (id) => request(`/sales/${id}`);
 export const createSale = (body) => request('/sales', { method: 'POST', body: JSON.stringify(body) });
 export const closeBusinessDay = () => request('/sales/close-day', { method: 'POST' });

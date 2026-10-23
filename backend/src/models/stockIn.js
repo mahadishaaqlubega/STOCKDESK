@@ -30,6 +30,11 @@ StockIn.init(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    purchaseId: {
+      // Set when the stock came in through a recorded purchase.
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     addedByUserId: {
       type: DataTypes.INTEGER,
       allowNull: true,

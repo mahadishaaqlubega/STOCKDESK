@@ -24,6 +24,12 @@ Receipt.init(
       allowNull: false,
       defaultValue: DataTypes.NOW,
     },
+    publicToken: {
+      // Unguessable id for the customer's receipt link (shared on WhatsApp).
+      // Unique index in migrations.
+      type: DataTypes.STRING(64),
+      allowNull: true,
+    },
     shopId: {
       type: DataTypes.INTEGER,
       allowNull: true,

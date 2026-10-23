@@ -1,9 +1,9 @@
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import PageLoader from './PageLoader';
+import OfflineBar from './OfflineBar';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { logout, getUser } from '../utils/auth';
 
@@ -14,10 +14,6 @@ export default function Layout() {
 
   useBodyScrollLock(sidebarOpen);
 
-  const handleLogout = () => {
-    logout();
-  };
-
   return (
     <div className="app-shell min-h-dvh">
       <div className="flex min-h-dvh">
@@ -26,21 +22,20 @@ export default function Layout() {
           isOpen={sidebarOpen}
           collapsed={sidebarCollapsed}
           onClose={() => setSidebarOpen(false)}
-          onLogout={handleLogout}
+          onLogout={() => logout()}
         />
-        <div className={`flex-1 min-w-0 px-3 py-3 sm:px-4 sm:py-4 lg:px-5 lg:py-4.5 transition-all duration-300`}>
-          <div className="mx-auto w-full max-w-[1280px]">
-            <Header
-              onOpenSidebar={() => setSidebarOpen(true)}
-              onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
-              sidebarCollapsed={sidebarCollapsed}
-            />
-            <div className="mt-4 sm:mt-5">
-              <Suspense fallback={<PageLoader />}>
-                <Outlet />
-              </Suspense>
-            </div>
-          </div>
+        <div className="min-w-0 flex-1 px-3 pb-10 sm:px-5 lg:px-8">
+          <Header
+            onOpenSidebar={() => setSidebarOpen(true)}
+            onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
+            sidebarCollapsed={sidebarCollapsed}
+          />
+          <main className="mx-auto w-full max-w-[1440px]">
+            {user?.shopId ? <OfflineBar shopId={user.shopId} /> : null}
+            <Suspense fallback={<PageLoader />}>
+              <Outlet />
+            </Suspense>
+          </main>
         </div>
       </div>
     </div>

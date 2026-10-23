@@ -41,7 +41,7 @@ export default function VerifyEmail() {
       className="flex min-h-dvh items-center justify-center px-4 py-8"
       style={{ background: 'var(--bg-auth)' }}
     >
-      <div className="app-modal w-full max-w-md overflow-hidden rounded-[2rem] border p-8 text-center">
+      <div className="app-modal w-full max-w-md overflow-hidden rounded-2xl border p-8 text-center">
         <div className="mb-6 flex justify-center">
           <img src={logo} alt="StockDesk" className="h-12 w-12 object-contain" />
         </div>
@@ -66,7 +66,7 @@ export default function VerifyEmail() {
             <button
               type="button"
               onClick={() => navigate('/login', { replace: true })}
-              className="app-btn-primary mt-5 inline-flex w-full items-center justify-center rounded-[1.1rem] px-4 py-3 text-sm font-semibold leading-none text-white transition"
+              className="app-btn-primary mt-5 inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold leading-none text-white transition"
             >
               Sign In Now
             </button>
@@ -85,7 +85,7 @@ export default function VerifyEmail() {
             <button
               type="button"
               onClick={() => navigate('/login', { replace: true })}
-              className="app-btn-primary mt-5 inline-flex w-full items-center justify-center rounded-[1.1rem] px-4 py-3 text-sm font-semibold leading-none text-white transition"
+              className="app-btn-primary mt-5 inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold leading-none text-white transition"
             >
               Back to Sign In
             </button>
