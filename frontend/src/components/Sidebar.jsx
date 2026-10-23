@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { getUser } from '../utils/auth';
 import { useTheme } from './ThemeProvider';
 import logo from '../assets/logo.png';
@@ -89,6 +90,13 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
 
   const hideWhenCollapsed = collapsed ? 'lg:hidden' : '';
 
+  // Keep the current page's link visible when the menu is taller than the window.
+  const navRef = useRef(null);
+  const { pathname } = useLocation();
+  useEffect(() => {
+    navRef.current?.querySelector('.app-sidebar-link-active')?.scrollIntoView({ block: 'nearest' });
+  }, [pathname]);
+
   return (
     <>
       <div
@@ -102,7 +110,7 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
         aria-label="Main navigation"
       >
         {/* Brand + shop */}
-        <div className={`flex items-center gap-3 px-4 pb-4 pt-5 ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}>
+        <div className={`flex items-center gap-3 px-4 pb-3 pt-4 tall:pb-4 tall:pt-5 ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}>
           <img src={logo} alt="" className="h-9 w-9 shrink-0 object-contain" />
           <div className={`min-w-0 flex-1 ${hideWhenCollapsed}`}>
             <p className="text-[15px] font-semibold leading-tight tracking-tight text-[var(--sidebar-text)]">StockDesk</p>
@@ -118,9 +126,9 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
           </button>
         </div>
 
-        <nav className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        <nav ref={navRef} className="sidebar-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           {sections.map((section, index) => (
-            <div key={section.title || index} className={index ? 'mt-5' : 'mt-1'}>
+            <div key={section.title || index} className={index ? 'mt-3.5 tall:mt-5' : 'mt-1'}>
               {section.title ? (
                 <p className={`mb-1.5 px-3 text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--sidebar-muted)] opacity-80 ${hideWhenCollapsed}`}>
                   {section.title}
@@ -135,7 +143,7 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
                     onClick={onClose}
                     title={collapsed ? item.label : undefined}
                     className={({ isActive }) =>
-                      `app-sidebar-link flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] font-medium transition ${
+                      `app-sidebar-link flex items-center gap-3 rounded-lg px-3 py-1.5 text-[13.5px] font-medium transition tall:py-2 ${
                         collapsed ? 'lg:justify-center lg:px-0' : ''
                       } ${isActive ? 'app-sidebar-link-active' : ''}`
                     }
@@ -150,7 +158,7 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
         </nav>
 
         {/* Account */}
-        <div className="border-t border-[var(--sidebar-border)] p-3">
+        <div className="border-t border-[var(--sidebar-border)] p-2.5 tall:p-3">
           <div className={`flex items-center gap-3 rounded-lg px-2 py-2 ${collapsed ? 'lg:flex-col lg:px-0' : ''}`}>
             {user?.avatarUrl ? (
               <img src={user.avatarUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />

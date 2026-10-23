@@ -2,6 +2,11 @@ export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
+      // Roomier spacing only when the window is tall enough (zoomed-in or
+      // short laptop screens keep the compact sizes).
+      screens: {
+        tall: { raw: '(min-height: 820px)' },
+      },
       colors: {
         brand: {
           50: '#eef9fc',
