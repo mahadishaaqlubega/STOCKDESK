@@ -60,7 +60,7 @@ exports.login = async (req, res, next) => {
     }
 
     if (!user) {
-      // Platform owner lookup — by username or email, regardless of shopId.
+      // Platform owner lookup - by username or email, regardless of shopId.
       // SuperAdmin accounts must never be scoped to a tenant shop.
       user = await User.findOne({ where: { username, role: 'SuperAdmin' } });
       if (!user && isEmail) {
@@ -200,18 +200,18 @@ exports.signup = async (req, res, next) => {
 
     const existingEmail = await User.findOne({ where: { email: { [Op.iLike]: escapeLike(normalizedEmail) } } });
     if (existingEmail) {
-      // Check whether the user's shop still exists — if the shop was deleted but the
+      // Check whether the user's shop still exists - if the shop was deleted but the
       // user row wasn't cleaned up (orphaned record), free the email and continue.
       const ownerShop = existingEmail.shopId
         ? await Shop.findByPk(existingEmail.shopId)
         : null;
 
       if (ownerShop || existingEmail.shopId === null) {
-        // Active user (shop exists) or a SuperAdmin — genuinely taken
+        // Active user (shop exists) or a SuperAdmin - genuinely taken
         return res.status(409).json({ message: 'An account with this email already exists' });
       }
 
-      // Orphaned user: shop was deleted but row remained — clear the email so the
+      // Orphaned user: shop was deleted but row remained - clear the email so the
       // unique constraint doesn't block the INSERT below, then delete the row.
       await existingEmail.update({ email: null });
       await existingEmail.destroy();
@@ -272,7 +272,7 @@ exports.signup = async (req, res, next) => {
     }
 
     res.status(201).json({
-      message: 'Registration received. Please check your email to verify your account — your shop will be created once your email is verified.',
+      message: 'Registration received. Please check your email to verify your account. Your shop will be created once your email is verified.',
       email: normalizedEmail,
       shopName: normalizedShopName,
     });

@@ -34,7 +34,7 @@ function DeleteShopModal({ shop, onCancel, onConfirm, isDeleting }) {
     >
       <div className="space-y-4">
         <Alert tone="danger">
-          This deletes <strong>{shop.name}</strong> and everything in it — {shop.metrics?.userCount || 0} team accounts, {(shop.metrics?.productCount || 0).toLocaleString()} products, {(shop.metrics?.saleCount || 0).toLocaleString()} sales, customers, expenses and history. It cannot be undone.
+          This deletes <strong>{shop.name}</strong> and everything in it: {shop.metrics?.userCount || 0} team accounts, {(shop.metrics?.productCount || 0).toLocaleString()} products, {(shop.metrics?.saleCount || 0).toLocaleString()} sales, customers, expenses and history. It cannot be undone.
         </Alert>
         <label className="block text-sm font-medium text-[var(--text-secondary)]">
           Type <span className="font-mono text-[var(--danger)]">{shop.name}</span> to confirm

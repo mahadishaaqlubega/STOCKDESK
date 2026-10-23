@@ -84,7 +84,7 @@ router.post('/me/whatsapp/verify', authorize(['Admin']), verifyWhatsappLimiter, 
     const provider = shop.whatsapp_provider || 'twilio';
     const fromNumber = parsedSender.number;
     const toNumber = parsedAdmin.number;
-    const body = `Verification message from ${shop.name || 'your shop'} — reply to confirm.`;
+    const body = `Verification message from ${shop.name || 'your shop'}. Reply to confirm.`;
 
     const result = await whatsappService.sendText({ provider, fromNumber, toNumber, body });
 

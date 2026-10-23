@@ -214,7 +214,7 @@ exports.importCustomers = async (req, res, next) => {
   }
 };
 
-// GET /api/exports/sales?start=YYYY-MM-DD&end=YYYY-MM-DD — one row per item
+// GET /api/exports/sales?start=YYYY-MM-DD&end=YYYY-MM-DD - one row per item
 // sold, for the accountant's spreadsheet. Capped at 50,000 lines.
 exports.exportSales = async (req, res, next) => {
   try {

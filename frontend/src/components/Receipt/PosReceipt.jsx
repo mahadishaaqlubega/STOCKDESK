@@ -63,7 +63,7 @@ function receiptModel(sale, settings, cashierName) {
     footerNote: settings?.receiptFooter || 'Thank you for your business!',
     createdAt: new Date(sale.createdAt),
     receiptNumber: sale.receipt?.receiptNumber || `SD-${String(sale.id).padStart(6, '0')}`,
-    cashier: cashierName || sale.cashier?.name || '—',
+    cashier: cashierName || sale.cashier?.name || '-',
     customer: sale.customer && sale.customer.name !== 'Walk-in Customer' ? sale.customer : null,
     items,
     units: items.reduce((sum, item) => sum + item.quantity, 0),
@@ -77,7 +77,7 @@ function receiptModel(sale, settings, cashierName) {
     paid: total - balanceDue,
     isCredit: Number(sale.creditAmount || 0) > 0,
     dueDate: sale.dueDate || null,
-    paymentMethod: sale.paymentMethod || '—',
+    paymentMethod: sale.paymentMethod || '-',
     splits: Array.isArray(sale.paymentSplits) ? sale.paymentSplits.filter((split) => Number(split.amount) > 0) : [],
   };
 }

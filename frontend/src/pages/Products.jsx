@@ -436,7 +436,7 @@ export default function Products() {
         </div>
 
         {!isAdmin ? (
-          <p className="border-b border-[var(--border-default)] bg-[var(--panel-soft-bg)] px-4 py-2 text-xs text-[var(--text-muted)]">View only — ask an admin to add or change products.</p>
+          <p className="border-b border-[var(--border-default)] bg-[var(--panel-soft-bg)] px-4 py-2 text-xs text-[var(--text-muted)]">View only. Ask an admin to add or change products.</p>
         ) : null}
 
         {/* Content */}
@@ -510,7 +510,7 @@ export default function Products() {
                       </td>
                       <td data-label="Status" className="px-4 py-2.5"><StatusBadge product={product} /></td>
                       <td data-label="In stock" className="num px-4 py-2.5 text-right text-[var(--text-primary)]">
-                        {service ? <span className="text-[var(--text-muted)]">—</span> : (
+                        {service ? <span className="text-[var(--text-muted)]">-</span> : (
                           <>
                             {Number(product.quantity || 0).toLocaleString()}
                             <span className="block text-[11px] text-[var(--text-muted)]">reorder at {product.lowStock}</span>
@@ -521,7 +521,7 @@ export default function Products() {
                       <td data-label="Price" className="num px-4 py-2.5 text-right font-medium text-[var(--text-primary)]">{service && !(Number(product.sellPrice) > 0) ? <span className="font-normal text-[var(--text-muted)]">At checkout</span> : formatAmount(currency, product.sellPrice)}</td>
                       {isAdmin ? (
                         <td data-label="Margin" className={`num px-4 py-2.5 text-right ${margin == null ? 'text-[var(--text-muted)]' : margin < 0 ? 'text-red-600' : margin < 10 ? 'text-amber-600' : 'text-[var(--text-secondary)]'}`}>
-                          {margin == null ? '—' : `${margin}%`}
+                          {margin == null ? '-' : `${margin}%`}
                         </td>
                       ) : null}
                       {isAdmin ? (
@@ -638,7 +638,7 @@ export default function Products() {
                   </label>
                 </div>
               ) : (
-                <p className="rounded-lg bg-[var(--panel-soft-bg)] px-3 py-2.5 text-xs text-[var(--text-muted)]">Services have no stock count, so they can always be sold. Leave the price empty when it depends on the job — the cashier enters the amount at checkout.</p>
+                <p className="rounded-lg bg-[var(--panel-soft-bg)] px-3 py-2.5 text-xs text-[var(--text-muted)]">Services have no stock count, so they can always be sold. Leave the price empty when it depends on the job; the cashier enters the amount at checkout.</p>
               )}
 
               {formError ? <p className="app-alert-danger rounded-lg px-3 py-2 text-sm" role="alert">{formError}</p> : null}
@@ -688,7 +688,7 @@ export default function Products() {
                 {stockHistory.map((entry) => (
                   <li key={entry.id} className="flex items-center justify-between gap-3 py-2">
                     <span className="num font-medium text-[var(--text-primary)]">+{entry.quantity}</span>
-                    <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{entry.supplier || '—'}</span>
+                    <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{entry.supplier || '-'}</span>
                     <span className="text-xs text-[var(--text-muted)]">{new Date(entry.createdAt).toLocaleDateString()}</span>
                   </li>
                 ))}

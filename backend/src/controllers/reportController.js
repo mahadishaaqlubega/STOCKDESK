@@ -172,7 +172,7 @@ exports.bestSelling = async (req, res, next) => {
     });
     res.json(best);
   } catch (error) {
-    // Return empty list instead of crashing — dashboard degrades gracefully
+    // Return empty list instead of crashing - dashboard degrades gracefully
     console.error('bestSelling query failed:', error.message);
     res.json([]);
   }

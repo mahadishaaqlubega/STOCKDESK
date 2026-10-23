@@ -1,8 +1,8 @@
 const jwt = require('jsonwebtoken');
 
 // `tv` (token version) ties a session to the user's current tokenVersion.
-// Bumping the column — on a password change or reset, or "sign out
-// everywhere" — makes every session issued before it invalid.
+// Bumping the column - on a password change or reset, or "sign out
+// everywhere" - makes every session issued before it invalid.
 function signToken(user) {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET is required.');

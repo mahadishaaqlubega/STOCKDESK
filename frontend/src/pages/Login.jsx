@@ -349,7 +349,7 @@ export default function Login() {
                 Run your whole shop from one screen.
               </h1>
               <p className="mt-2.5 max-w-lg text-[14px] leading-6 text-white/70">
-                Sales, stock, customers and credit — clear, fast and built for the way shops in Uganda actually work.
+                Sales, stock, customers and credit. Clear, fast and built for the way shops in Uganda actually work.
               </p>
             </div>
 

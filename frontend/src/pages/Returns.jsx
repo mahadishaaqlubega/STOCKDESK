@@ -237,7 +237,7 @@ export default function Returns() {
                         <td data-label="Receipt" className="px-4 py-2.5 font-mono text-xs text-[var(--text-secondary)]">{receiptNo(sale)}</td>
                         <td data-label="When" className="px-4 py-2.5 text-[var(--text-muted)]">{relativeTime(sale.createdAt)}</td>
                         <td data-label="Customer" className="px-4 py-2.5 text-[var(--text-primary)]">{sale.customer?.name && sale.customer.name !== 'Walk-in Customer' ? sale.customer.name : <span className="text-[var(--text-muted)]">Walk-in</span>}</td>
-                        <td data-label="Cashier" className="px-4 py-2.5 text-[var(--text-secondary)]">{sale.cashier?.name || '—'}</td>
+                        <td data-label="Cashier" className="px-4 py-2.5 text-[var(--text-secondary)]">{sale.cashier?.name || '-'}</td>
                         <td data-label="Payment" className="px-4 py-2.5">
                           {sale.paymentMethod === 'Credit' ? <Badge tone={Number(sale.balanceDue) > 0 ? 'warning' : 'success'}>{Number(sale.balanceDue) > 0 ? 'Credit · owing' : 'Credit · paid'}</Badge> : <span className="text-[var(--text-secondary)]">{sale.paymentMethod}</span>}
                         </td>
@@ -280,10 +280,10 @@ export default function Returns() {
                     <td data-label="When" className="whitespace-nowrap px-4 py-2.5 text-[var(--text-muted)]">{relativeTime(ret.createdAt)}</td>
                     <td data-label="Original sale" className="px-4 py-2.5 font-mono text-xs text-[var(--text-secondary)]">SD-{String(ret.saleId).padStart(6, '0')}</td>
                     <td data-label="Items returned" className="px-4 py-2.5 text-[var(--text-primary)]">
-                      {(ret.items || []).map((item) => `${item.quantity} × ${item.product?.name || 'Item'}`).join(', ') || '—'}
+                      {(ret.items || []).map((item) => `${item.quantity} × ${item.product?.name || 'Item'}`).join(', ') || '-'}
                     </td>
-                    <td data-label="Reason" className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.reason || <span className="text-[var(--text-muted)]">—</span>}</td>
-                    <td data-label="By" className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.processedBy?.name || '—'}</td>
+                    <td data-label="Reason" className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.reason || <span className="text-[var(--text-muted)]">-</span>}</td>
+                    <td data-label="By" className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.processedBy?.name || '-'}</td>
                     <td data-label="Refund" className="num px-4 py-2.5 text-right font-medium text-[var(--text-primary)]">{formatAmount(currency, ret.totalRefund)}</td>
                   </tr>
                 ))}

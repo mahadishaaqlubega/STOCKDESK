@@ -520,7 +520,7 @@ export default function POS() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Search by name, code or category — press Enter to add"
+              placeholder="Search by name, code or category, then press Enter to add"
               aria-label="Search products"
               className="app-input w-full rounded-xl border py-3 pl-10 pr-4"
             />

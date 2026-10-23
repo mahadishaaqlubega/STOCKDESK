@@ -52,7 +52,7 @@ function DeleteShopModal({ shop, onCancel, onConfirm, isDeleting }) {
     >
       <div className="space-y-4">
         <Alert tone="danger">
-          This deletes <strong>{shop.name}</strong> and everything in it — {m.users || 0} team accounts, {(m.products || 0).toLocaleString()} products, {(m.sales || 0).toLocaleString()} sales, {(m.customers || 0).toLocaleString()} customers and all history. It cannot be undone.
+          This deletes <strong>{shop.name}</strong> and everything in it: {m.users || 0} team accounts, {(m.products || 0).toLocaleString()} products, {(m.sales || 0).toLocaleString()} sales, {(m.customers || 0).toLocaleString()} customers and all history. It cannot be undone.
         </Alert>
         <label className="block text-sm font-medium text-[var(--text-secondary)]">
           Type <span className="font-mono text-[var(--danger)]">{shop.name}</span> to confirm

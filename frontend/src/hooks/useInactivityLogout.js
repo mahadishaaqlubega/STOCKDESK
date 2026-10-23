@@ -56,7 +56,7 @@ export default function useInactivityLogout(isAuthenticated) {
           updateToken(response.token, response.user);
         }
       } catch (error) {
-        // Silently ignore refresh failures — do NOT log out here.
+        // Silently ignore refresh failures - do NOT log out here.
         // The user will only be logged out by the inactivity timer or
         // an actual 401 from a protected API call.
         console.warn('Token refresh skipped:', error?.message || error);

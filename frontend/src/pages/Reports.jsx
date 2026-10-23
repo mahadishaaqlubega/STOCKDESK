@@ -490,10 +490,10 @@ export default function Reports() {
                       <tr key={ret.id} className="transition hover:bg-[var(--surface-secondary)]">
                         <td data-label="Date" className="whitespace-nowrap px-4 py-2.5 text-xs text-[var(--text-muted)]">{new Date(ret.createdAt).toLocaleDateString([], { dateStyle: 'medium' })}</td>
                         <td data-label="Sale #" className="px-4 py-2.5 font-mono text-xs text-[var(--text-muted)]">#{ret.saleId}</td>
-                        <td data-label="Items" className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.items?.map((it) => `${it.product?.name || 'Item'} ×${it.quantity}`).join(', ') || '—'}</td>
+                        <td data-label="Items" className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.items?.map((it) => `${it.product?.name || 'Item'} ×${it.quantity}`).join(', ') || '-'}</td>
                         <td data-label="Refund" className="px-4 py-2.5 font-semibold tabular-nums text-[var(--danger)]">−{formatMoney(currency, ret.totalRefund)}</td>
-                        <td data-label="Reason" className="px-4 py-2.5 text-[var(--text-muted)]">{ret.reason || '—'}</td>
-                        <td data-label="By" className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.processedBy?.name || '—'}</td>
+                        <td data-label="Reason" className="px-4 py-2.5 text-[var(--text-muted)]">{ret.reason || '-'}</td>
+                        <td data-label="By" className="px-4 py-2.5 text-[var(--text-secondary)]">{ret.processedBy?.name || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -587,7 +587,7 @@ export default function Reports() {
                           <td data-label="ID" className="px-4 py-2.5 font-mono text-xs text-[var(--text-muted)]">#{sale.id}</td>
                           <td data-label="Date" className="px-4 py-2.5 text-[var(--text-secondary)]">{new Date(sale.createdAt).toLocaleDateString()}</td>
                           <td data-label="Customer" className="px-4 py-2.5 text-[var(--text-primary)]">{sale.customer?.name || 'Walk-in'}</td>
-                          <td data-label="Cashier" className="px-4 py-2.5 text-[var(--text-secondary)]">{sale.cashier?.name || '—'}</td>
+                          <td data-label="Cashier" className="px-4 py-2.5 text-[var(--text-secondary)]">{sale.cashier?.name || '-'}</td>
                           <td data-label="Payment" className="px-4 py-2.5">
                             <span className="inline-block rounded-full bg-[var(--surface-secondary)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">{sale.paymentMethod}</span>
                           </td>
@@ -684,7 +684,7 @@ export default function Reports() {
                           <p className="text-[11px] text-[var(--text-muted)]">{new Date(sale.createdAt).toLocaleTimeString([], { timeStyle: 'short' })}</p>
                         </td>
                         <td data-label="Customer" className="px-4 py-3 font-medium text-[var(--text-primary)]">{sale.customer?.name || 'Walk-in'}</td>
-                        <td data-label="Cashier" className="px-4 py-3 text-[var(--text-secondary)]">{sale.cashier?.name || '—'}</td>
+                        <td data-label="Cashier" className="px-4 py-3 text-[var(--text-secondary)]">{sale.cashier?.name || '-'}</td>
                         <td data-label="Payment" className="px-4 py-3">
                           <span className="inline-flex items-center rounded-full bg-[var(--surface-secondary)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--text-muted)]">{sale.paymentMethod}</span>
                         </td>

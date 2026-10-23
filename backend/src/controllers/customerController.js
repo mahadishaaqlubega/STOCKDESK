@@ -137,7 +137,7 @@ exports.deleteCustomer = async (req, res, next) => {
   }
 };
 
-// POST /api/customers/:id/reminders — the till opened WhatsApp with a debt
+// POST /api/customers/:id/reminders - the till opened WhatsApp with a debt
 // reminder; remember when, and log who sent it.
 exports.recordReminder = async (req, res, next) => {
   try {

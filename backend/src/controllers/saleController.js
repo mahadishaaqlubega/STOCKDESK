@@ -481,7 +481,7 @@ exports.getSaleReceipt = async (req, res, next) => {
   }
 };
 
-// POST /api/sales/:id/share — the receipt's public link token, created on
+// POST /api/sales/:id/share - the receipt's public link token, created on
 // first use for sales made before links existed.
 exports.shareReceipt = async (req, res, next) => {
   try {
@@ -498,7 +498,7 @@ exports.shareReceipt = async (req, res, next) => {
   }
 };
 
-// GET /api/public/receipts/:token — the customer's copy, no sign-in. The
+// GET /api/public/receipts/:token - the customer's copy, no sign-in. The
 // token is 144 random bits, so links cannot be guessed or enumerated.
 exports.publicReceipt = async (req, res, next) => {
   try {

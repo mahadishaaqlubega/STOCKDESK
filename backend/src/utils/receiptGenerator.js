@@ -68,7 +68,7 @@ exports.generateReceiptPdf = async (stream, sale, settings) => {
   const shopName = settings.shop?.name || settings.shopName || 'StockDesk';
   const saleDate = new Date(sale.createdAt);
   const receiptNumber = sale.receipt?.receiptNumber || `SD-${String(sale.id).padStart(6, '0')}`;
-  const cashierName = sale.cashier?.name || '—';
+  const cashierName = sale.cashier?.name || '-';
   const customer = sale.customer && sale.customer.name !== 'Walk-in Customer' ? sale.customer : null;
 
   const items = (sale.items || []).map((item) => {
@@ -251,7 +251,7 @@ exports.generateReceiptPdf = async (stream, sale, settings) => {
     ? 'Credit'
     : sale.paymentMethod === 'Split' && splits.length
       ? splits.map((s) => `${s.method} ${money(s.amount)}`).join(' · ')
-      : sale.paymentMethod || '—';
+      : sale.paymentMethod || '-';
   const status = owing ? (total - balanceDue > 0 ? 'Part paid' : 'Unpaid') : 'Paid';
   const cells = [
     ['Payment method', method, COLORS.ink],

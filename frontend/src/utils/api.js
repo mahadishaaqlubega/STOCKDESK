@@ -91,7 +91,7 @@ async function request(path, options = {}) {
 
   if (response.status === 401) {
     if (path === '/auth/login') {
-      // Login failure — show actual error, don't logout
+      // Login failure - show actual error, don't logout
       throw new Error(data?.error || data?.message || 'Invalid credentials');
     }
     const sessionMessage = data?.error || data?.message || 'Session expired. Please log in again.';

@@ -43,7 +43,7 @@ describe('messages', () => {
       settings,
       'https://x/api/public/receipts/abc'
     );
-    expect(text).toMatch(/2 × Charger — UGX 20,000/);
+    expect(text).toMatch(/2 × Charger: UGX 20,000/);
     expect(text).toMatch(/Total: \*UGX 20,000\*/);
     expect(text).toMatch(/https:\/\/x\/api\/public\/receipts\/abc/);
   });

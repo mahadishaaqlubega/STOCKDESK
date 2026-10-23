@@ -379,7 +379,7 @@ export default function Customers() {
                       </td>
                       <td data-label="Contact" className="px-4 py-2.5">
                         <p className="flex items-center gap-1.5 text-[var(--text-secondary)]">
-                          {customer.phone || (customer.whatsapp ? null : '—')}
+                          {customer.phone || (customer.whatsapp ? null : '-')}
                           {customer.whatsapp && customer.whatsapp !== customer.phone ? (
                             <span className="inline-flex items-center gap-1 text-xs text-[#1a9e4b]"><WhatsAppIcon /> {customer.whatsapp}</span>
                           ) : null}
@@ -393,7 +393,7 @@ export default function Customers() {
                             <span className="font-semibold text-amber-600 dark:text-amber-300">{formatMoney(balance)}</span>
                             {customer.lastReminderAt ? <span className="block text-[11px] font-normal text-[var(--text-muted)]">Reminded {timeAgo(customer.lastReminderAt)}</span> : null}
                           </>
-                        ) : <span className="text-[var(--text-muted)]">—</span>}
+                        ) : <span className="text-[var(--text-muted)]">-</span>}
                       </td>
                       <td data-label="Actions" className="px-4 py-2.5">
                         <div className="flex items-center justify-end gap-1">
