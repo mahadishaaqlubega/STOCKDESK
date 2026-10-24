@@ -84,7 +84,7 @@ async function emailOwner(shopId, message) {
   try {
     const owner = await findOwner(shopId);
     if (!owner?.email) return false;
-    await sendBillingEmail(owner.email, message);
+    await sendBillingEmail(owner.email, { name: owner.name || owner.username, ...message });
     return true;
   } catch (error) {
     console.error('[billing] email failed:', error.message);
@@ -208,6 +208,7 @@ exports.submitPayment = async (req, res, next) => {
       sendBillingEmail(notify, {
         subject: `Payment to confirm: ${shop?.name || `shop ${shopId}`}`,
         heading: 'A shop sent a payment',
+        greeting: 'Hello,',
         lines: [
           `${shop?.name || 'A shop'} says it paid ${ugx(amount, config.currency)} for the ${plan.name} plan (${payment.months} month${payment.months > 1 ? 's' : ''}).`,
           `Method: ${method}. Transaction ID: ${reference || 'none'}. Paid from: ${payerPhone || 'not given'}.`,

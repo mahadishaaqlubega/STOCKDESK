@@ -79,12 +79,12 @@ async function runBillingReminders(now = new Date()) {
       if (!notice || notice.key === shop.lastBillingNotice) continue;
       const owner = await User.findOne({
         where: { shopId: shop.id, role: 'Admin', email: { [Op.ne]: null } },
-        attributes: ['email'],
+        attributes: ['email', 'name', 'username'],
         order: [['createdAt', 'ASC']],
       });
       if (!owner?.email) continue;
       try {
-        await sendBillingEmail(owner.email, notice);
+        await sendBillingEmail(owner.email, { name: owner.name || owner.username, ...notice });
         shop.lastBillingNotice = notice.key;
         await shop.save({ fields: ['lastBillingNotice'] });
         sent += 1;

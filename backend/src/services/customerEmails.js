@@ -301,7 +301,7 @@ async function runDailySummaries(now = new Date()) {
         preheader: `${m.orderCount} sales, ${money(m.grossProfit)} profit, ${lowStock} item${lowStock === 1 ? '' : 's'} low on stock.`,
         eyebrow: `Daily summary · ${fmtDate(now)}`,
         heading: `Here's how ${shop.name} did today`,
-        greeting: owner.name ? `Hello ${owner.name},` : null,
+        greeting: `Hello ${owner.name || 'there'},`,
         details: [
           ['Sales today', money(m.netSales), { strong: true }],
           ['Number of sales', String(m.orderCount || 0)],
