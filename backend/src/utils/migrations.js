@@ -168,6 +168,10 @@ const STATEMENTS = [
   { name: 'products.wholesaleMinQty', sql: `ALTER TABLE IF EXISTS "products" ADD COLUMN IF NOT EXISTS "wholesaleMinQty" INTEGER;` },
   { name: 'customers.priceTier', sql: `ALTER TABLE IF EXISTS "customers" ADD COLUMN IF NOT EXISTS "priceTier" VARCHAR(16) NOT NULL DEFAULT 'retail';` },
   { name: 'sales.priceTier', sql: `ALTER TABLE IF EXISTS "sales" ADD COLUMN IF NOT EXISTS "priceTier" VARCHAR(16) NOT NULL DEFAULT 'retail';` },
+  // Loyalty and customer-specific prices.
+  { name: 'customers.loyaltyPercent', sql: `ALTER TABLE IF EXISTS "customers" ADD COLUMN IF NOT EXISTS "loyaltyPercent" NUMERIC(5, 2);` },
+  { name: 'index: one price per customer and product', sql: `CREATE UNIQUE INDEX IF NOT EXISTS "customer_prices_customer_product_uq" ON "customer_prices" ("customerId", "productId");` },
+  { name: 'index: customer prices by shop', sql: `CREATE INDEX IF NOT EXISTS "customer_prices_shop_idx" ON "customer_prices" ("shopId", "customerId");` },
   // Indexes for the queries every screen runs, so lists and reports stay
   // fast as shops grow to thousands of customers and sales.
   { name: 'index: sales by shop and date', sql: `CREATE INDEX IF NOT EXISTS "sales_shop_created_idx" ON "sales" ("shopId", "createdAt");` },

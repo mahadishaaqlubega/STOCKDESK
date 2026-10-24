@@ -1,5 +1,6 @@
 const crypto = require('crypto');
-const { Sale, SaleItem, Product, Receipt, User, Setting, Shop, Customer, DayClosure, SaleReturn, SaleReturnItem } = require('../models');
+const { Sale, SaleItem, Product, Receipt, User, Setting, Shop, Customer, CustomerPrice, DayClosure, SaleReturn, SaleReturnItem } = require('../models');
+const { linePrice } = require('../utils/pricing');
 const { generateReceiptPdf } = require('../utils/receiptGenerator');
 const { startOfDay, endOfDay, getMetricsForRange } = require('../utils/businessMetrics');
 const { localDateString } = require('../config/timezone');
@@ -183,6 +184,16 @@ exports.createSale = async (req, res, next) => {
     }
     const wholesaleSale = customer?.priceTier === 'wholesale' || (isAdmin && req.body.priceTier === 'wholesale');
     let usedWholesale = false;
+    // Price cuts that count toward the staff discount limit. Cuts on products
+    // with a wholesale price don't: the wholesale price is their floor.
+    let limitedItemDiscounts = 0;
+
+    // Prices saved for this customer (loyalty / negotiated).
+    const specialPrices = new Map();
+    if (customer) {
+      const rows = await CustomerPrice.findAll({ where: { shopId: req.user.shopId, customerId: customer.id }, attributes: ['productId', 'price'], transaction });
+      rows.forEach((row) => specialPrices.set(Number(row.productId), Number(row.price)));
+    }
 
     // Lock rows in ascending product id so two sales touching the same
     // products always queue instead of deadlocking each other.
@@ -212,11 +223,12 @@ exports.createSale = async (req, res, next) => {
       // discount off the catalogue price (never above it). Services may be
       // charged any agreed amount (e.g. a repair quoted per job); a service
       // with no catalogue price must have one supplied.
-      const retailPrice = parseFloat(product.sellPrice) || 0;
-      const wholesalePrice = product.wholesalePrice == null ? null : parseFloat(product.wholesalePrice);
-      const getsWholesale = wholesaleSale && wholesalePrice != null && quantity >= (product.wholesaleMinQty || 1);
-      if (getsWholesale) usedWholesale = true;
-      const catalogPrice = getsWholesale ? wholesalePrice : retailPrice;
+      const priced = isService
+        ? { listPrice: parseFloat(product.sellPrice) || 0, source: 'retail', floor: null, retail: parseFloat(product.sellPrice) || 0 }
+        : linePrice({ product, quantity, customer, specialPrice: specialPrices.get(product.id), wholesaleSale });
+      if (priced.source === 'wholesale') usedWholesale = true;
+      const retailPrice = priced.retail;
+      const catalogPrice = priced.listPrice;
       let unitPrice = catalogPrice;
       if (item.price !== undefined && item.price !== null && item.price !== '') {
         const charged = roundMoney(Number(item.price));
@@ -225,6 +237,9 @@ exports.createSale = async (req, res, next) => {
         }
         if (!isService && charged > retailPrice + 0.005) {
           throw httpError(400, `${product.name} cannot be sold above its price of ${retailPrice}. Change the product price instead.`);
+        }
+        if (!isService && priced.floor != null && charged < priced.floor - 0.005) {
+          throw httpError(400, `${product.name} cannot be sold below its wholesale price of ${priced.floor}.`);
         }
         unitPrice = charged;
       }
@@ -239,6 +254,7 @@ exports.createSale = async (req, res, next) => {
       // negative discount.
       const listPrice = Math.max(catalogPrice, unitPrice);
       listSubtotal += listPrice * quantity;
+      if (priced.floor == null) limitedItemDiscounts += (listPrice - unitPrice) * quantity;
       const lineTotal = unitPrice * quantity;
       subtotal += lineTotal;
       if (!isService) {
@@ -259,7 +275,7 @@ exports.createSale = async (req, res, next) => {
     // Staff discount limit, set by the admin: item price cuts plus the
     // sale-wide discount, as a share of the sale's catalogue value.
     const itemDiscounts = roundMoney(listSubtotal - subtotal);
-    const totalDiscount = itemDiscounts + Math.min(discountAmount, subtotal);
+    const totalDiscount = roundMoney(limitedItemDiscounts) + Math.min(discountAmount, subtotal);
     const staffLimit = settings && settings.maxDiscountPercent != null ? Number(settings.maxDiscountPercent) : null;
     if (!isAdmin && staffLimit != null && totalDiscount > 0 && listSubtotal > 0) {
       const givenPercent = (totalDiscount / listSubtotal) * 100;

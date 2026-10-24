@@ -51,6 +51,11 @@ Customer.init(
       allowNull: false,
       defaultValue: 'retail',
     },
+    // Loyalty discount off retail prices, never below a product's wholesale price.
+    loyaltyPercent: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
     isActive: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

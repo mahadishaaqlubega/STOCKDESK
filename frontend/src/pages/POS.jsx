@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchProducts, createSale, fetchSettings, downloadReceipt, fetchSale, fetchCustomers } from '../utils/api';
+import { fetchProducts, createSale, fetchSettings, downloadReceipt, fetchSale, fetchCustomers, fetchCustomerPrices, saveCustomerPrice } from '../utils/api';
 import { Link } from 'react-router-dom';
 import { getUser } from '../utils/auth';
 import { getPrintSettings, savePrintSettings } from '../utils/printSettings';
@@ -23,15 +23,33 @@ const tenderMethods = ['Cash', 'Card', 'Mobile Money'];
 
 const isServiceProduct = (product) => product?.type === 'service';
 
-// The catalogue price for a cart line: the wholesale price when the sale is
-// wholesale and the line meets the product's minimum quantity, else retail.
-// A price the cashier typed in is kept.
-function repriceLine(item, wholesale) {
+// The catalogue price for a cart line, in the same order as the server:
+// the customer's special price, then wholesale (wholesale sale and minimum
+// quantity met), then the customer's loyalty %, then retail. Nothing goes
+// below the product's wholesale price. A price the cashier typed is kept.
+function repriceLine(item, ctx) {
   if (item.isService || item.retailPrice == null) return item;
-  const useWholesale = wholesale && item.wholesalePrice != null && item.quantity >= (item.wholesaleMinQty || 1);
-  const listPrice = useWholesale ? item.wholesalePrice : item.retailPrice;
+  const retail = item.retailPrice;
+  const floor = item.wholesalePrice;
+  const special = ctx.specials?.get(item.productId);
+  let listPrice = retail;
+  let priceSource = 'retail';
+  if (special != null) {
+    listPrice = Math.min(retail, special);
+    if (floor != null) listPrice = Math.max(listPrice, floor);
+    priceSource = 'special';
+  } else if (ctx.wholesale && floor != null && item.quantity >= (item.wholesaleMinQty || 1)) {
+    listPrice = floor;
+    priceSource = 'wholesale';
+  } else if (ctx.loyalty > 0 && retail > 0) {
+    const loyal = Math.max(Math.round(retail * (1 - ctx.loyalty / 100)), floor != null ? floor : Math.min(item.buyPrice || 0, retail));
+    if (loyal < retail) {
+      listPrice = loyal;
+      priceSource = 'loyalty';
+    }
+  }
   const price = item.priceInput !== undefined ? item.price : listPrice;
-  return listPrice === item.listPrice && price === item.price ? item : { ...item, listPrice, price, wholesale: useWholesale };
+  return listPrice === item.listPrice && price === item.price && priceSource === item.priceSource ? item : { ...item, listPrice, price, priceSource };
 }
 
 // Tiles rendered at once; more load on demand so big catalogues stay fast on phones.
@@ -77,6 +95,7 @@ export default function POS() {
   const [creditDueDate, setCreditDueDate] = useState('');
   const [splitPayments, setSplitPayments] = useState([{ method: 'Cash', amount: '' }, { method: 'Card', amount: '' }]);
   const [wholesaleWalkIn, setWholesaleWalkIn] = useState(false);
+  const [customerPrices, setCustomerPrices] = useState(() => new Map());
   const isAdminUser = getUser()?.role === 'Admin';
 
   useBodyScrollLock(showReceipt);
@@ -201,12 +220,39 @@ export default function POS() {
   const customerIsWholesale = selectedCustomer?.priceTier === 'wholesale';
   const wholesaleMode = customerIsWholesale || (isAdminUser && wholesaleWalkIn);
 
+  const loyaltyPercent = Number(selectedCustomer?.loyaltyPercent) || 0;
+
+  // Special prices for the chosen customer, kept on the device for offline use.
+  useEffect(() => {
+    let cancelled = false;
+    if (!customerId) { setCustomerPrices(new Map()); return undefined; }
+    const key = `customer-prices:${shopId}:${customerId}`;
+    const apply = (rows) => { if (!cancelled) setCustomerPrices(new Map((rows || []).map((r) => [Number(r.productId), Number(r.price)]))); };
+    fetchCustomerPrices(customerId)
+      .then((res) => { apply(res.prices); cacheSet(key, res.prices); })
+      .catch(async () => apply(await cacheGet(key)));
+    return () => { cancelled = true; };
+  }, [customerId, shopId]);
+
+  const pricing = useMemo(() => ({ wholesale: wholesaleMode, loyalty: loyaltyPercent, specials: customerPrices }), [wholesaleMode, loyaltyPercent, customerPrices]);
+
   useEffect(() => {
     setCart((prev) => {
-      const next = prev.map((item) => repriceLine(item, wholesaleMode));
+      const next = prev.map((item) => repriceLine(item, pricing));
       return next.some((item, i) => item !== prev[i]) ? next : prev;
     });
-  }, [wholesaleMode]);
+  }, [pricing]);
+
+  const rememberPrice = async (item) => {
+    try {
+      await saveCustomerPrice(customerId, item.productId, Number(item.price));
+      setCustomerPrices((prev) => new Map(prev).set(item.productId, Number(item.price)));
+      setCart((prev) => prev.map((line) => (line.productId === item.productId ? { ...line, priceInput: undefined } : line)));
+      setMessage(`${item.name} will be ${formatMoney(currency, item.price)} for ${selectedCustomer?.name} from now on.`);
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
 
   const cartItemCount = useMemo(
     () => cart.reduce((sum, item) => sum + item.quantity, 0),
@@ -219,7 +265,7 @@ export default function POS() {
       if (existing) {
         return prev.map((item) =>
           item.productId === product.id
-            ? repriceLine({ ...item, quantity: item.isService ? item.quantity + 1 : Math.min(item.quantity + 1, product.quantity) }, wholesaleMode)
+            ? repriceLine({ ...item, quantity: item.isService ? item.quantity + 1 : Math.min(item.quantity + 1, product.quantity) }, pricing)
             : item
         );
       }
@@ -240,7 +286,7 @@ export default function POS() {
         buyPrice: parseFloat(product.buyPrice) || 0,
         quantity: 1,
         isService: isServiceProduct(product),
-      }, wholesaleMode)];
+      }, pricing)];
     });
   };
 
@@ -254,7 +300,7 @@ export default function POS() {
   const updateQuantity = (productId, amount) => {
     setCart((prev) =>
       prev
-        .map((item) => (item.productId === productId ? repriceLine({ ...item, quantity: Math.max(0, item.quantity + amount) }, wholesaleMode) : item))
+        .map((item) => (item.productId === productId ? repriceLine({ ...item, quantity: Math.max(0, item.quantity + amount) }, pricing) : item))
         .filter((item) => item.quantity > 0)
     );
   };
@@ -389,6 +435,11 @@ export default function POS() {
       const unpriced = cart.find((item) => item.isService && !(Number(item.price) > 0));
       if (unpriced) {
         setMessage(`Enter the amount charged for ${unpriced.name}.`);
+        return;
+      }
+      const underFloor = cart.find((item) => !item.isService && item.wholesalePrice != null && Number(item.price) < item.wholesalePrice - 0.005);
+      if (underFloor) {
+        setMessage(`${underFloor.name} can't be sold below its wholesale price of ${formatMoney(currency, underFloor.wholesalePrice)}.`);
         return;
       }
       const overpriced = cart.find((item) => !item.isService && Number(item.price) > (item.retailPrice ?? item.listPrice) + 0.005);
@@ -741,9 +792,9 @@ export default function POS() {
                               if (e.key === 'Escape') { updatePrice(item.productId, String(item.listPrice)); setEditingPriceId(null); }
                             }}
                             aria-label={`Price charged for ${item.name}`}
-                            className={`app-input num w-24 rounded-md border px-2 py-0.5 text-xs ${Number(item.price) > item.listPrice || item.price === '' ? 'border-amber-500' : ''}`}
+                            className={`app-input num w-24 rounded-md border px-2 py-0.5 text-xs ${Number(item.price) > (item.retailPrice ?? item.listPrice) || (item.wholesalePrice != null && Number(item.price) < item.wholesalePrice) || item.price === '' ? 'border-amber-500' : ''}`}
                           />
-                          <span className="whitespace-nowrap">of {formatAmount(currency, item.listPrice)}</span>
+                          <span className="whitespace-nowrap">{item.wholesalePrice != null ? `${formatAmount(currency, item.wholesalePrice)} to ${formatAmount(currency, item.retailPrice)}` : `of ${formatAmount(currency, item.listPrice)}`}</span>
                         </label>
                       ) : (
                         <button
@@ -766,6 +817,16 @@ export default function POS() {
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3 opacity-50 group-hover/price:opacity-100" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                         </button>
                       )}
+                      {!item.isService && item.priceSource && item.priceSource !== 'retail' ? (
+                        <p className="mt-0.5 text-[10px] font-medium text-[var(--accent)]">
+                          {item.priceSource === 'special' ? 'Special price' : item.priceSource === 'loyalty' ? `Loyalty ${loyaltyPercent}%` : 'Wholesale price'}
+                        </p>
+                      ) : null}
+                      {isAdminUser && customerId && !isWalkIn && !item.isService && item.priceInput !== undefined && Number(item.price) > 0 && Number(item.price) !== customerPrices.get(item.productId) ? (
+                        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => rememberPrice(item)} className="mt-0.5 text-[10px] font-semibold text-[var(--accent)] hover:underline">
+                          Save {formatAmount(currency, item.price)} for {selectedCustomer?.name}
+                        </button>
+                      ) : null}
                     </div>
                     <div className="flex items-center rounded-lg border border-[var(--border-strong)]">
                       <button

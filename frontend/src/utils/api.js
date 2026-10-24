@@ -197,6 +197,9 @@ export const cancelPaymentRequest = (requestId) => request(`/admin/payment-reque
 export const fetchCustomers = (query = '') => request(`/customers${query}`);
 export const createCustomer = (body) => request('/customers', { method: 'POST', body: JSON.stringify(body) });
 export const updateCustomer = (id, body) => request(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+export const fetchCustomerPrices = (id) => request(`/customers/${id}/prices`);
+export const saveCustomerPrice = (id, productId, price) => request(`/customers/${id}/prices/${productId}`, { method: 'PUT', body: JSON.stringify({ price }) });
+export const deleteCustomerPrice = (id, productId) => request(`/customers/${id}/prices/${productId}`, { method: 'DELETE' });
 export const deleteCustomer = (id) => request(`/customers/${id}`, { method: 'DELETE' });
 export const fetchCustomerCredit = (id) => request(`/customers/${id}/credit`);
 export const recordCreditPayment = (id, body) => request(`/customers/${id}/payments`, { method: 'POST', body: JSON.stringify(body) });
