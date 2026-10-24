@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { login, signup, forgotPassword, resendVerification } from '../utils/api';
 import { consumeSessionNotice, saveSession } from '../utils/auth';
 import { useTheme } from '../components/ThemeProvider';
@@ -161,7 +161,11 @@ function AuthField({ label, type = 'text', value, onChange, placeholder, autoCom
 }
 
 export default function Login() {
-  const [mode, setMode] = useState('login');
+  const location = useLocation();
+  // The marketing site links to /signup and /login?mode=signup.
+  const [mode, setMode] = useState(() =>
+    location.pathname === '/signup' || new URLSearchParams(location.search).get('mode') === 'signup' ? 'signup' : 'login',
+  );
   const { resolvedTheme, themeMode, setThemeMode } = useTheme();
   const activeTheme = themeMode === 'system' ? resolvedTheme : themeMode;
   const [loginForm, setLoginForm] = useState({ shopName: '', username: '', password: '' });
