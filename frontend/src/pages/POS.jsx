@@ -36,7 +36,6 @@ function repriceLine(item, ctx) {
   let priceSource = 'retail';
   if (special != null) {
     listPrice = Math.min(retail, special);
-    if (floor != null) listPrice = Math.max(listPrice, floor);
     priceSource = 'special';
   } else if (ctx.wholesale && floor != null && item.quantity >= (item.wholesaleMinQty || 1)) {
     listPrice = floor;
@@ -437,10 +436,13 @@ export default function POS() {
         setMessage(`Enter the amount charged for ${unpriced.name}.`);
         return;
       }
-      const underFloor = cart.find((item) => !item.isService && item.wholesalePrice != null && Number(item.price) < item.wholesalePrice - 0.005);
+      const underFloor = cart.find((item) => !item.isService && item.wholesalePrice != null && Number(item.price) < item.wholesalePrice - 0.005 && Number(item.price) !== customerPrices.get(item.productId));
       if (underFloor) {
-        setMessage(`${underFloor.name} can't be sold below its wholesale price of ${formatMoney(currency, underFloor.wholesalePrice)}.`);
-        return;
+        if (!isAdminUser) {
+          setMessage(`${underFloor.name} can't be sold below its wholesale price of ${formatMoney(currency, underFloor.wholesalePrice)}. Ask an admin.`);
+          return;
+        }
+        if (!window.confirm(`${underFloor.name} is below its wholesale price of ${formatMoney(currency, underFloor.wholesalePrice)}. Sell at ${formatMoney(currency, underFloor.price)} anyway?`)) return;
       }
       const overpriced = cart.find((item) => !item.isService && Number(item.price) > (item.retailPrice ?? item.listPrice) + 0.005);
       if (overpriced) {

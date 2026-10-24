@@ -3,8 +3,9 @@
 //   2. the wholesale price (wholesale customer or admin switch, quantity met)
 //   3. the customer's loyalty % off retail
 //   4. retail
-// The wholesale price is the lowest any price may go. Products without one
-// never go below cost through loyalty.
+// The wholesale price is the lowest staff may go and the lowest a loyalty
+// discount reaches (cost when there is no wholesale price). Admins may go
+// lower; a special price is set by an admin and is used as saved.
 
 const roundShillings = (n) => Math.round(Number(n) || 0);
 
@@ -15,8 +16,8 @@ function linePrice({ product, quantity, customer, specialPrice, wholesaleSale })
   const floor = wholesale;
 
   if (specialPrice != null) {
-    let price = Math.min(retail, Number(specialPrice));
-    if (floor != null) price = Math.max(price, floor);
+    // Set by an admin, so it may sit below the wholesale price.
+    const price = Math.min(retail, Number(specialPrice));
     return { listPrice: price, source: 'special', floor, retail };
   }
   if (wholesaleSale && wholesale != null && quantity >= (product.wholesaleMinQty || 1)) {

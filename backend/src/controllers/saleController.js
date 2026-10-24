@@ -238,8 +238,11 @@ exports.createSale = async (req, res, next) => {
         if (!isService && charged > retailPrice + 0.005) {
           throw httpError(400, `${product.name} cannot be sold above its price of ${retailPrice}. Change the product price instead.`);
         }
-        if (!isService && priced.floor != null && charged < priced.floor - 0.005) {
-          throw httpError(400, `${product.name} cannot be sold below its wholesale price of ${priced.floor}.`);
+        // Staff can't go below the wholesale price; admins may (the till asks them to confirm).
+        // A customer's special price (set by an admin) may itself be below wholesale.
+        const staffFloor = priced.floor != null && priced.source === 'special' ? Math.min(priced.floor, catalogPrice) : priced.floor;
+        if (!isService && !isAdmin && staffFloor != null && charged < staffFloor - 0.005) {
+          throw httpError(400, `${product.name} cannot be sold below its wholesale price of ${priced.floor}. Ask an admin.`);
         }
         unitPrice = charged;
       }

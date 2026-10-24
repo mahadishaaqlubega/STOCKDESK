@@ -218,16 +218,12 @@ exports.setPrice = async (req, res, next) => {
     if (product.type === 'service') return res.status(400).json({ message: 'Services are priced at the counter, so they have no saved price.' });
     const price = Number(req.body.price);
     const retail = Number(product.sellPrice) || 0;
-    const floor = product.wholesalePrice != null ? Number(product.wholesalePrice) : Number(product.buyPrice) || 0;
+    // Admins set these, so they may go below the wholesale price, but never
+    // below cost (protects against a mistyped price selling at a loss).
+    const floor = Number(product.buyPrice) || 0;
     if (!Number.isFinite(price) || price <= 0) return res.status(400).json({ message: 'Enter a price' });
     if (price > retail + 0.005) return res.status(400).json({ message: `The price can't be above the retail price of ${retail}.` });
-    if (price < floor - 0.005) {
-      return res.status(400).json({
-        message: product.wholesalePrice != null
-          ? `The price can't be below the wholesale price of ${floor}.`
-          : `The price can't be below the cost price of ${floor}.`,
-      });
-    }
+    if (price < floor - 0.005) return res.status(400).json({ message: `The price can't be below the cost price of ${floor}.` });
     const [row] = await CustomerPrice.findOrBuild({ where: { shopId: req.user.shopId, customerId: customer.id, productId: product.id } });
     row.price = price;
     row.updatedByUserId = req.user.id;

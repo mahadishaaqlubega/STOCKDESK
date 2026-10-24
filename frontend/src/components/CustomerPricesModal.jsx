@@ -4,8 +4,7 @@ import { formatMoney } from '../utils/format';
 import { Alert, EmptyState, Field, IconButton, Modal, SkeletonRows, fieldInput, icons } from './ui';
 
 // Prices agreed with one customer. The till uses them automatically for that
-// customer. Each must sit between the product's wholesale price (or cost when
-// it has none) and its retail price.
+// customer. Each must sit between the product's cost and its retail price.
 export default function CustomerPricesModal({ customer, currency, onClose }) {
   const [prices, setPrices] = useState([]);
   const [products, setProducts] = useState([]);
@@ -32,7 +31,8 @@ export default function CustomerPricesModal({ customer, currency, onClose }) {
   useEffect(() => { load(); }, [customer.id]);
 
   const selected = products.find((p) => String(p.id) === String(productId));
-  const floor = selected ? (selected.wholesalePrice != null ? Number(selected.wholesalePrice) : Number(selected.buyPrice || 0)) : null;
+  const floor = selected ? Number(selected.buyPrice || 0) : null;
+  const wholesale = selected && selected.wholesalePrice != null ? Number(selected.wholesalePrice) : null;
   const retail = selected ? Number(selected.sellPrice || 0) : null;
   const options = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -51,7 +51,7 @@ export default function CustomerPricesModal({ customer, currency, onClose }) {
     const value = Number(price);
     if (!(value > 0)) return setError('Enter a price.');
     if (value > retail) return setError(`The price can't be above the retail price of ${formatMoney(currency, retail)}.`);
-    if (value < floor) return setError(`The price can't be below the ${selected.wholesalePrice != null ? 'wholesale' : 'cost'} price of ${formatMoney(currency, floor)}.`);
+    if (value < floor) return setError(`The price can't be below the cost price of ${formatMoney(currency, floor)}.`);
     setSaving(true);
     try {
       await saveCustomerPrice(customer.id, selected.id, value);
@@ -94,7 +94,7 @@ export default function CustomerPricesModal({ customer, currency, onClose }) {
           <button type="submit" disabled={saving} className="app-btn-primary rounded-lg px-4 py-2.5 text-sm font-semibold disabled:opacity-60">{saving ? 'Saving…' : 'Save price'}</button>
           {selected ? (
             <p className="text-xs text-[var(--text-muted)] sm:col-span-3">
-              Allowed: {formatMoney(currency, floor)} ({selected.wholesalePrice != null ? 'wholesale' : 'cost'}) to {formatMoney(currency, retail)} (retail).
+              Cost {formatMoney(currency, floor)}{wholesale != null ? ` · wholesale ${formatMoney(currency, wholesale)}` : ''} · retail {formatMoney(currency, retail)}. Any price from cost up to retail is allowed.
             </p>
           ) : null}
         </form>
