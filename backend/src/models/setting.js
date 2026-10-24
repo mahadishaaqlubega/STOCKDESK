@@ -49,6 +49,14 @@ Setting.init(
       type: DataTypes.DECIMAL(5, 2),
       allowNull: true,
     },
+    // Automatic emails (all off until the shop turns them on).
+    autoEmailReceipts: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoEmailPaymentThanks: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoEmailReminders: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    reminderDaysBefore: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 2 },
+    reminderRepeatDays: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 7 },
+    ownerDailySummary: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    lastDailySummaryDate: { type: DataTypes.DATEONLY, allowNull: true },
     shopLogoUrl: {
       // TEXT: holds either an https URL or an uploaded logo as a data: URL.
       type: DataTypes.TEXT,

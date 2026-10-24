@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Link } from 'react-router-dom';
-import { fetchBestSelling, fetchCreditSummary, fetchDashboardStats, fetchDashboardSummary } from '../utils/api';
+import { fetchBestSelling, fetchCreditSummary, fetchDashboardStats, fetchDashboardSummary, fetchSales } from '../utils/api';
 import { getUser } from '../utils/auth';
 import { formatMoney } from '../utils/format';
 import { IconChip, tileEdge } from '../components/ui';
@@ -114,18 +114,26 @@ export default function Dashboard() {
   const [bestSelling, setBestSelling] = useState([]);
   const [summary, setSummary] = useState(null);
   const [credit, setCredit] = useState(null);
+  const [recentSales, setRecentSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState([]);
 
   useEffect(() => {
     async function loadStats() {
       const errors = [];
-      const [statsResult, bestResult, summaryResult, creditResult] = await Promise.allSettled([
+      const [statsResult, bestResult, summaryResult, creditResult, recentResult] = await Promise.allSettled([
         fetchDashboardStats(),
         fetchBestSelling(),
         fetchDashboardSummary(),
         fetchCreditSummary(),
+        fetchSales({ limit: 15 }),
       ]);
+
+      // Recent sales fill the rest of the snapshot panel; optional like credit.
+      if (recentResult.status === 'fulfilled') {
+        const list = recentResult.value;
+        setRecentSales(Array.isArray(list) ? list : list?.rows || list?.sales || []);
+      }
 
       // Credit is supplementary; a failure here should not alarm the user.
       if (creditResult.status === 'fulfilled') {
@@ -207,7 +215,9 @@ export default function Dashboard() {
   const hasAlerts = credit?.totalOutstanding > 0 || outOfStockCount > 0 || lowStockCount > 0;
 
   return (
-    <div className="space-y-3">
+    // On laptop and desktop the dashboard fills the window: the bottom row
+    // stretches so the chart and snapshot use the space below them.
+    <div className="space-y-3 xl:flex xl:flex-1 xl:flex-col xl:gap-3 xl:space-y-0">
       {/* Error banner */}
       {!loading && loadErrors.length > 0 && (
         <div className="rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3">
@@ -318,7 +328,7 @@ export default function Dashboard() {
             />
           </section>
 
-          <section className="grid gap-3 xl:grid-cols-[1.55fr_0.95fr]">
+          <section className="grid gap-3 xl:flex-1 xl:grid-cols-[1.55fr_0.95fr]">
             <SectionCard
               title="Sales Overview"
               subtitle="Net sales across the last 7 days."
@@ -363,7 +373,7 @@ export default function Dashboard() {
               subtitle="Top products, and inventory health in one compact view."
               action={<div className="app-panel-soft num shrink-0 rounded-[0.85rem] border px-2.5 py-1.5 text-[13px] text-[var(--text-muted)]">{Number(summary?.periods?.thisMonth?.orderCount || 0).toLocaleString()} orders this month</div>}
             >
-              <div className="space-y-3">
+              <div className="flex flex-1 flex-col gap-3">
                 {lowStockCount > 0 ? (
                   <Link to="/app/products" className="flex items-center justify-between gap-3 rounded-[0.85rem] border border-amber-400/30 bg-amber-400/10 px-3 py-2 transition hover:bg-amber-400/15">
                     <div className="min-w-0">
@@ -411,6 +421,41 @@ export default function Dashboard() {
                       <SummaryTile label="Units this week" value={Number(summary?.periods?.thisWeek?.itemsSold || 0).toLocaleString()} />
                     </div>
                   </div>
+                </div>
+
+                {/* Recent sales: grows to fill the panel's remaining height. Hidden
+                    on mid-size laptops, where the snapshot is already full. */}
+                <div className="flex min-h-[9rem] flex-1 flex-col xl:hidden 2xl:flex 2xl:min-h-[6rem]">
+                  <div className="mb-1.5 flex items-center justify-between gap-3">
+                    <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Recent Sales</h3>
+                    {user?.role === 'Admin' ? <Link to="/app/reports" className="text-[11px] font-medium text-[var(--accent)] hover:underline">All sales</Link> : <span className="text-[11px] font-medium text-[var(--text-muted)]">Latest first</span>}
+                  </div>
+                  {recentSales.length === 0 ? (
+                    <div className="app-panel-soft flex flex-1 items-center justify-center rounded-[0.85rem] border px-3 py-6 text-center text-xs text-[var(--text-muted)]">
+                      No sales yet. Sales appear here as soon as they are rung up.
+                    </div>
+                  ) : (
+                    <div className="app-panel-soft relative min-h-0 flex-1 overflow-hidden rounded-[0.85rem] border">
+                      <ul className="absolute inset-0 divide-y divide-[var(--border-default)] overflow-y-auto">
+                        {recentSales.map((sale) => {
+                          const when = new Date(sale.createdAt);
+                          const today = when.toDateString() === new Date().toDateString();
+                          return (
+                            <li key={sale.id} className="flex items-center gap-3 px-3 py-2">
+                              <span className="num w-14 shrink-0 text-[11px] text-[var(--text-muted)]">
+                                {today ? when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : when.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                              </span>
+                              <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--text-primary)]" title={sale.customer?.name || 'Walk-in customer'}>
+                                {sale.customer?.name && sale.customer.name !== 'Walk-in Customer' ? sale.customer.name : 'Walk-in'}
+                                <span className="text-[11px] text-[var(--text-muted)]"> · {sale.paymentMethod}{sale.cashier?.name ? ` · ${sale.cashier.name}` : ''}</span>
+                              </span>
+                              <span className="num shrink-0 text-[13px] font-semibold text-[var(--text-primary)]">{formatMoney(currency, sale.total)}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
             </SectionCard>

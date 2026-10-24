@@ -19,7 +19,10 @@ exports.updateSettings = async (req, res, next) => {
 
     // Whitelist updatable fields - prevents a shop admin from reassigning
     // shopId and taking over another tenant's settings row.
-    const allowed = ['shopName', 'address', 'phone', 'currency', 'vat', 'receiptHeader', 'receiptFooter', 'shopLogoUrl', 'maxDiscountPercent'];
+    const allowed = [
+      'shopName', 'address', 'phone', 'currency', 'vat', 'receiptHeader', 'receiptFooter', 'shopLogoUrl', 'maxDiscountPercent',
+      'autoEmailReceipts', 'autoEmailPaymentThanks', 'autoEmailReminders', 'reminderDaysBefore', 'reminderRepeatDays', 'ownerDailySummary',
+    ];
     const updates = {};
     for (const field of allowed) {
       if (req.body[field] !== undefined) {
@@ -37,6 +40,16 @@ exports.updateSettings = async (req, res, next) => {
         updates.maxDiscountPercent = percent;
       }
     }
+    for (const flag of ['autoEmailReceipts', 'autoEmailPaymentThanks', 'autoEmailReminders', 'ownerDailySummary']) {
+      if (updates[flag] !== undefined) updates[flag] = updates[flag] === true || updates[flag] === 'true';
+    }
+    const days = (value, min, max, label) => {
+      const n = Number(value);
+      if (!Number.isInteger(n) || n < min || n > max) throw Object.assign(new Error(`${label} must be a whole number from ${min} to ${max}.`), { status: 400 });
+      return n;
+    };
+    if (updates.reminderDaysBefore !== undefined) updates.reminderDaysBefore = days(updates.reminderDaysBefore, 0, 30, 'Days before the due date');
+    if (updates.reminderRepeatDays !== undefined) updates.reminderRepeatDays = days(updates.reminderRepeatDays, 1, 30, 'Days between reminders');
     if (updates.shopLogoUrl) {
       const logo = String(updates.shopLogoUrl);
       const isImageData = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(logo);

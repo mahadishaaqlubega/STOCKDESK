@@ -276,11 +276,15 @@ exports.adminOverview = async (req, res, next) => {
 
     const counts = { trial: 0, active: 0, past_due: 0, expired: 0 };
     let monthlyRecurring = 0;
+    const byPlan = new Map(config.plans.map((p) => [p.key, { key: p.key, name: p.name, price: p.price, paying: 0, lapsed: 0 }]));
     const attention = [];
     for (const shop of shops) {
       const st = computeStatus(shop, config, now);
       counts[st.state] += 1;
       if (st.state === 'active') monthlyRecurring += findPlan(config, shop.plan)?.price || 0;
+      const planRow = byPlan.get(shop.plan);
+      if (planRow && st.state === 'active') planRow.paying += 1;
+      if (planRow && (st.state === 'past_due' || st.state === 'expired')) planRow.lapsed += 1;
       const soon = (st.state === 'trial' || st.state === 'active') && st.daysLeft != null && st.daysLeft <= 7;
       if (soon || st.state === 'past_due' || st.state === 'expired') {
         const owner = ownerByShop.get(shop.id);
@@ -311,6 +315,7 @@ exports.adminOverview = async (req, res, next) => {
         revenueLastMonth: money(lastMonth),
         monthlyRecurring,
       },
+      plans: [...byPlan.values()].map((p) => ({ ...p, monthly: p.paying * p.price })),
       pending: pending.map(serializePayment),
       recent: recent.map(serializePayment),
       attention,

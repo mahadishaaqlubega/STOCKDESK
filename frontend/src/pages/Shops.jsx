@@ -229,7 +229,7 @@ export default function Shops() {
                     <td data-label="Subscription" className="px-4 py-2.5">
                       {shop.billing ? (
                         <>
-                          <Badge tone={STATE_META[shop.billing.state]?.tone}>{STATE_META[shop.billing.state]?.label}</Badge>
+                          <Badge tone={STATE_META[shop.billing.state]?.tone}>{STATE_META[shop.billing.state]?.label}{shop.billing.plan ? ` · ${shop.billing.plan[0].toUpperCase()}${shop.billing.plan.slice(1)}` : ''}</Badge>
                           {shop.billing.daysLeft != null && shop.billing.daysLeft >= 0 && shop.billing.state !== 'expired' ? <p className="mt-0.5 text-xs text-[var(--text-muted)]">{shop.billing.daysLeft} day{shop.billing.daysLeft === 1 ? '' : 's'} left</p> : null}
                         </>
                       ) : null}

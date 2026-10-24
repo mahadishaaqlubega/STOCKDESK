@@ -35,6 +35,11 @@ Customer.init(
       type: DataTypes.STRING(32),
       allowNull: true,
     },
+    // When an automatic payment reminder was last emailed.
+    lastEmailReminderAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     lastReminderAt: {
       // When a debt reminder was last sent, so staff don't nag twice.
       type: DataTypes.DATE,

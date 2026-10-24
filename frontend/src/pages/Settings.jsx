@@ -450,6 +450,37 @@ export default function Settings() {
                   </div>
                 </Panel>
 
+                <Panel>
+                  <PanelHeader title="Automatic emails" description="Sent for you from noreply@stockdeskinventory.com under your shop's name. Customers' replies come to your email." />
+                  <div className="divide-y divide-[var(--border-default)]">
+                    {[
+                      ['autoEmailReceipts', 'Thank-you receipt after every sale', 'Customers with an email address get their receipt with the PDF attached as soon as the sale is made.'],
+                      ['autoEmailPaymentThanks', 'Thank-you when a customer pays what they owe', 'Confirms the amount received and shows their remaining balance.'],
+                      ['autoEmailReminders', 'Payment reminders for customers who owe', 'A polite reminder before the due date, then again while the payment is overdue. Sent between 8am and 7pm.'],
+                      ['ownerDailySummary', 'Daily summary for me', "Every evening at 8pm: today's sales, profit, top sellers, low stock and money owed, sent to the owner's email."],
+                    ].map(([key, title, hint]) => (
+                      <label key={key} className={`flex items-start gap-3 px-5 py-3.5 ${disabled ? '' : 'cursor-pointer'}`}>
+                        <input type="checkbox" checked={Boolean(settings[key])} onChange={(e) => update(key, e.target.checked)} disabled={disabled} className="mt-1 h-4 w-4 accent-[var(--accent)]" />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-[var(--text-primary)]">{title}</span>
+                          <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{hint}</span>
+                        </span>
+                      </label>
+                    ))}
+                    {settings.autoEmailReminders ? (
+                      <div className="grid grid-cols-1 gap-4 px-5 py-4 sm:grid-cols-2">
+                        <Field label="First reminder (days before due date)" hint="0 = on the due date">
+                          <input type="number" min="0" max="30" value={settings.reminderDaysBefore ?? 2} onChange={(e) => update('reminderDaysBefore', e.target.value === '' ? '' : Number(e.target.value))} disabled={disabled} className={fieldInput} />
+                        </Field>
+                        <Field label="Then repeat every (days)" hint="While anything stays unpaid">
+                          <input type="number" min="1" max="30" value={settings.reminderRepeatDays ?? 7} onChange={(e) => update('reminderRepeatDays', e.target.value === '' ? '' : Number(e.target.value))} disabled={disabled} className={fieldInput} />
+                        </Field>
+                        <p className="text-xs text-[var(--text-muted)] sm:col-span-2">Credit sales without a due date are treated as due 30 days after the sale. Only customers with an email address get emails; add emails on the Customers page.</p>
+                      </div>
+                    ) : null}
+                  </div>
+                </Panel>
+
                 {isAdmin ? (
                   <div className="flex items-center justify-end gap-3">
                     {dirty ? <span className="text-sm text-[var(--text-muted)]">Unsaved changes</span> : null}

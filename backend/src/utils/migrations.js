@@ -172,6 +172,15 @@ const STATEMENTS = [
   { name: 'customers.loyaltyPercent', sql: `ALTER TABLE IF EXISTS "customers" ADD COLUMN IF NOT EXISTS "loyaltyPercent" NUMERIC(5, 2);` },
   { name: 'index: one price per customer and product', sql: `CREATE UNIQUE INDEX IF NOT EXISTS "customer_prices_customer_product_uq" ON "customer_prices" ("customerId", "productId");` },
   { name: 'index: customer prices by shop', sql: `CREATE INDEX IF NOT EXISTS "customer_prices_shop_idx" ON "customer_prices" ("shopId", "customerId");` },
+  // Automatic customer and owner emails.
+  { name: 'settings.autoEmailReceipts', sql: `ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "autoEmailReceipts" BOOLEAN NOT NULL DEFAULT false;` },
+  { name: 'settings.autoEmailPaymentThanks', sql: `ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "autoEmailPaymentThanks" BOOLEAN NOT NULL DEFAULT false;` },
+  { name: 'settings.autoEmailReminders', sql: `ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "autoEmailReminders" BOOLEAN NOT NULL DEFAULT false;` },
+  { name: 'settings.reminderDaysBefore', sql: `ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "reminderDaysBefore" INTEGER NOT NULL DEFAULT 2;` },
+  { name: 'settings.reminderRepeatDays', sql: `ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "reminderRepeatDays" INTEGER NOT NULL DEFAULT 7;` },
+  { name: 'settings.ownerDailySummary', sql: `ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "ownerDailySummary" BOOLEAN NOT NULL DEFAULT false;` },
+  { name: 'settings.lastDailySummaryDate', sql: `ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "lastDailySummaryDate" DATE;` },
+  { name: 'customers.lastEmailReminderAt', sql: `ALTER TABLE IF EXISTS "customers" ADD COLUMN IF NOT EXISTS "lastEmailReminderAt" TIMESTAMPTZ;` },
   // Indexes for the queries every screen runs, so lists and reports stay
   // fast as shops grow to thousands of customers and sales.
   { name: 'index: sales by shop and date', sql: `CREATE INDEX IF NOT EXISTS "sales_shop_created_idx" ON "sales" ("shopId", "createdAt");` },

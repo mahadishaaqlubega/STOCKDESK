@@ -21,6 +21,7 @@ const app = require('./app');
 const { sequelize, initAppData } = require('./models');
 const { startAutoCloseScheduler } = require('./utils/autoCloseBusinessDay');
 const { startBillingReminders } = require('./utils/billingReminders');
+const { startCustomerEmailScheduler } = require('./services/customerEmails');
 const { runMigrations } = require('./utils/migrations');
 
 async function initializeDatabase() {
@@ -47,6 +48,7 @@ async function initializeDatabase() {
   }
   startAutoCloseScheduler();
   startBillingReminders();
+  startCustomerEmailScheduler();
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
