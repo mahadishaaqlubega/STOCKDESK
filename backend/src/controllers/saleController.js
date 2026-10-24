@@ -1,7 +1,9 @@
 const crypto = require('crypto');
 const { Sale, SaleItem, Product, Receipt, User, Setting, Shop, Customer, CustomerPrice, DayClosure, SaleReturn, SaleReturnItem } = require('../models');
 const { linePrice } = require('../utils/pricing');
+const { PassThrough } = require('stream');
 const { generateReceiptPdf } = require('../utils/receiptGenerator');
+const { sendReceiptEmail } = require('../services/emailService');
 const { startOfDay, endOfDay, getMetricsForRange } = require('../utils/businessMetrics');
 const { localDateString } = require('../config/timezone');
 const { Op } = require('sequelize');
@@ -511,6 +513,81 @@ exports.getSaleReceipt = async (req, res, next) => {
     await sendReceiptPdf(res, sale, settings);
   } catch (error) {
     console.error('Receipt generation error:', error);
+    next(error);
+  }
+};
+
+// The A4 receipt PDF as a Buffer (for email attachments).
+async function receiptPdfBuffer(sale, settings) {
+  const stream = new PassThrough();
+  const chunks = [];
+  stream.on('data', (chunk) => chunks.push(chunk));
+  const done = new Promise((resolve, reject) => {
+    stream.on('end', resolve);
+    stream.on('error', reject);
+  });
+  await generateReceiptPdf(stream, sale, settings || {});
+  await done;
+  return Buffer.concat(chunks);
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// POST /api/sales/:id/email { email, saveToCustomer } - emails the customer a
+// receipt with the PDF attached. Replies go to the shop owner.
+exports.emailReceipt = async (req, res, next) => {
+  try {
+    const { sale, settings } = await loadReceiptData(req.params.id, req.user.shopId);
+    if (!sale) return res.status(404).json({ message: 'Sale not found' });
+    const to = String(req.body.email || sale.customer?.email || '').trim().toLowerCase();
+    if (!EMAIL_RE.test(to) || to.length > 160) return res.status(400).json({ message: 'Enter a valid email address' });
+
+    const currency = sale.currency || settings?.currency || 'UGX';
+    const money = (n) => `${currency} ${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+    const items = (sale.items || []).map((it) => ({ name: it.Product?.name || 'Item', quantity: Number(it.quantity || 0), price: Number(it.price || 0) }));
+    const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+    const discount = Number(sale.discount || 0);
+    const tax = Number(sale.taxAmount || 0);
+    const totals = [
+      ...(discount > 0 || tax > 0 ? [['Subtotal', money(subtotal)]] : []),
+      ...(discount > 0 ? [['Discount', `-${money(discount)}`]] : []),
+      ...(tax > 0 ? [[`VAT ${Number(sale.tax || 0)}%`, money(tax)]] : []),
+      ['Total', money(sale.total), true],
+    ];
+    const owner = await User.findOne({ where: { shopId: req.user.shopId, role: 'Admin' }, attributes: ['email'], order: [['createdAt', 'ASC']] });
+    const receiptNumber = sale.receipt?.receiptNumber || buildReceiptNumber(sale.id);
+    const shopName = settings?.shop?.name || settings?.shopName || 'StockDesk';
+    const customerName = sale.customer && sale.customer.name !== 'Walk-in Customer' ? sale.customer.name : null;
+
+    const pdf = await receiptPdfBuffer(sale, settings);
+    try {
+      await sendReceiptEmail(to, {
+        shopName,
+        shopPhone: settings?.phone || '',
+        shopAddress: settings?.address || '',
+        replyTo: owner?.email || undefined,
+        receiptNumber,
+        date: new Date(sale.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: process.env.APP_TIMEZONE || 'Africa/Kampala' }),
+        cashier: sale.cashier?.name || '-',
+        customerName,
+        items,
+        totals,
+        paymentMethod: sale.paymentMethod,
+        balanceDue: Number(sale.balanceDue || 0),
+        currency,
+        pdf,
+      });
+    } catch (mailError) {
+      console.error('[receipt email] failed:', mailError.message);
+      return res.status(502).json({ message: 'The email could not be sent right now. Try again, or send the receipt on WhatsApp.' });
+    }
+
+    if (req.body.saveToCustomer && sale.customer && !sale.customer.email) {
+      await Customer.update({ email: to }, { where: { id: sale.customer.id, shopId: req.user.shopId } });
+    }
+    await auditController.logAction(req.user.id, req.user.shopId, 'SEND', 'RECEIPT_EMAIL', sale.id, { to }, req);
+    res.json({ sent: true, to });
+  } catch (error) {
     next(error);
   }
 };

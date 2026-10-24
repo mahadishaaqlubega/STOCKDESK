@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { currencyDecimals } from '../../utils/format';
 import { PAPER_SIZES, getPrintSettings, savePrintSettings } from '../../utils/printSettings';
-import { API_BASE, shareSaleReceipt } from '../../utils/api';
+import { API_BASE, emailSaleReceipt, fetchReceiptBlob, shareSaleReceipt } from '../../utils/api';
 import { customerWhatsApp, publicReceiptUrl, receiptMessage, whatsappLink } from '../../utils/whatsapp';
 
 /**
@@ -362,10 +362,41 @@ function WhatsAppIcon() {
 
 export { WhatsAppIcon };
 
+// Phones and tablets can hand the PDF file itself to WhatsApp through the
+// system share sheet; desktop browsers can't, so they send a link instead.
+function canShareFiles() {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.canShare || !window.matchMedia('(pointer: coarse)').matches) return false;
+    return navigator.canShare({ files: [new File(['x'], 'x.pdf', { type: 'application/pdf' })] });
+  } catch {
+    return false;
+  }
+}
+
 export default function PosReceipt({ sale, settings, cashierName, onClose, autoPrint = false }) {
   const frameRef = useRef(null);
   const printedRef = useRef(false);
   const [paper, setPaper] = useState(() => getPrintSettings().paper);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState(() => sale?.customer?.email || '');
+  const [saveEmail, setSaveEmail] = useState(true);
+  const [emailState, setEmailState] = useState({ busy: false, error: '', sentTo: '' });
+  const [pdfFile, setPdfFile] = useState(null);
+  const fileShare = useMemo(() => canShareFiles(), []);
+
+  // Fetch the PDF up front on share-capable devices: the share sheet must open
+  // straight from the tap, without waiting for a download.
+  useEffect(() => {
+    if (!fileShare || !sale?.id || sale.offline) return undefined;
+    let cancelled = false;
+    fetchReceiptBlob(sale.id)
+      .then((blob) => {
+        const number = sale.receipt?.receiptNumber || sale.id;
+        if (!cancelled) setPdfFile(new File([blob], `receipt-${number}.pdf`, { type: 'application/pdf' }));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [fileShare, sale?.id, sale?.offline, sale?.receipt?.receiptNumber]);
   const html = useMemo(() => (sale && settings ? buildReceiptHtml(sale, settings, cashierName, { paper }) : ''), [sale, settings, cashierName, paper]);
 
   if (!html) return null;
@@ -398,6 +429,16 @@ export default function PosReceipt({ sale, settings, cashierName, onClose, autoP
   // Opens WhatsApp with the receipt typed out and a link to the PDF. Walk-in
   // customers have no number: WhatsApp then asks which chat to send it to.
   const sendWhatsApp = async () => {
+    // Phones: share the PDF file itself; the customer gets the real document.
+    if (pdfFile) {
+      try {
+        await navigator.share({ files: [pdfFile], title: `Receipt ${receiptNumber}`, text: receiptMessage(sale, settings, '') });
+        return;
+      } catch (error) {
+        if (error?.name === 'AbortError') return; // closed the share sheet
+        // Anything else: fall back to the message with a link.
+      }
+    }
     const number = customerWhatsApp(sale.customer, settings);
     const messageFor = (token) => receiptMessage(sale, settings, publicReceiptUrl(API_BASE, token));
     const token = sale.receipt?.publicToken;
@@ -417,6 +458,18 @@ export default function PosReceipt({ sale, settings, cashierName, onClose, autoP
     const url = whatsappLink(number, messageFor(created));
     if (tab) tab.location.href = url;
     else window.location.href = url;
+  };
+
+  const sendEmail = async (event) => {
+    event.preventDefault();
+    setEmailState({ busy: true, error: '', sentTo: '' });
+    try {
+      const res = await emailSaleReceipt(sale.id, emailTo.trim(), saveEmail && sale.customer && !sale.customer.email);
+      setEmailState({ busy: false, error: '', sentTo: res.to });
+      setEmailOpen(false);
+    } catch (error) {
+      setEmailState({ busy: false, error: error.message || 'Could not send the email.', sentTo: '' });
+    }
   };
 
   const choosePaper = (value) => {
@@ -478,23 +531,54 @@ export default function PosReceipt({ sale, settings, cashierName, onClose, autoP
           </div>
         </div>
 
-        <div className="flex gap-2 border-t border-[var(--border-default)] px-5 py-4">
-          <button type="button" onClick={onClose} className="app-btn-secondary flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium">
+        {emailOpen ? (
+          <form onSubmit={sendEmail} className="space-y-2 border-t border-[var(--border-default)] px-5 py-3">
+            <label className="block text-xs font-medium text-[var(--text-secondary)]" htmlFor="receipt-email">Email the receipt (PDF attached)</label>
+            <div className="flex gap-2">
+              <input id="receipt-email" type="email" required autoFocus value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="customer@example.com" className="app-input min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm" />
+              <button type="submit" disabled={emailState.busy} className="app-btn-primary shrink-0 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60">{emailState.busy ? 'Sending…' : 'Send'}</button>
+              <button type="button" onClick={() => setEmailOpen(false)} className="app-btn-secondary shrink-0 rounded-lg border px-3 py-2 text-sm">Cancel</button>
+            </div>
+            {sale.customer && sale.customer.name !== 'Walk-in Customer' && !sale.customer.email ? (
+              <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                <input type="checkbox" checked={saveEmail} onChange={(e) => setSaveEmail(e.target.checked)} />
+                Save this email to {sale.customer.name}
+              </label>
+            ) : null}
+            {emailState.error ? <p className="text-xs text-[var(--danger)]">{emailState.error}</p> : null}
+          </form>
+        ) : emailState.sentTo ? (
+          <p className="border-t border-[var(--border-default)] px-5 py-2.5 text-xs text-[var(--success)]">Receipt emailed to {emailState.sentTo} with the PDF attached.</p>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-2 border-t border-[var(--border-default)] px-5 py-4 sm:flex">
+          <button type="button" onClick={onClose} className="app-btn-secondary flex-1 whitespace-nowrap rounded-xl border px-3 py-2.5 text-sm font-medium">
             New sale
           </button>
           {sale.offline ? null : (
           <button
             type="button"
             onClick={sendWhatsApp}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1ebe5b]"
+            className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#25D366] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1ebe5b]"
             title={customerWhatsApp(sale.customer, settings) ? `Send to ${sale.customer.name} on WhatsApp` : 'Choose a WhatsApp chat to send the receipt to'}
           >
             <WhatsAppIcon />
             WhatsApp
           </button>
           )}
-          <button type="button" onClick={handlePrint} className="app-btn-primary flex-1 rounded-xl px-4 py-2.5 text-sm">
-            Print receipt
+          {sale.offline ? null : (
+          <button
+            type="button"
+            onClick={() => { setEmailOpen((open) => !open); setEmailState((st) => ({ ...st, error: '' })); }}
+            className="app-btn-secondary inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border px-3 py-2.5 text-sm font-medium"
+            title="Email the receipt with the PDF attached"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
+            Email
+          </button>
+          )}
+          <button type="button" onClick={handlePrint} className="app-btn-primary flex-1 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm" title="Print receipt">
+            Print
           </button>
         </div>
       </div>

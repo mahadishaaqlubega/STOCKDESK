@@ -205,6 +205,14 @@ export const fetchCustomerCredit = (id) => request(`/customers/${id}/credit`);
 export const recordCreditPayment = (id, body) => request(`/customers/${id}/payments`, { method: 'POST', body: JSON.stringify(body) });
 export const recordCustomerReminder = (id, body) => request(`/customers/${id}/reminders`, { method: 'POST', body: JSON.stringify(body) });
 export const shareSaleReceipt = (id) => request(`/sales/${id}/share`, { method: 'POST' });
+export const emailSaleReceipt = (id, email, saveToCustomer = false) => request(`/sales/${id}/email`, { method: 'POST', body: JSON.stringify({ email, saveToCustomer }) });
+// The receipt PDF as a Blob, for sharing the file itself (e.g. to WhatsApp).
+export const fetchReceiptBlob = async (saleId) => {
+  const token = getToken();
+  const response = await fetch(`${API_BASE}/sales/${saleId}/receipt`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) throw new Error('Could not load the receipt PDF');
+  return response.blob();
+};
 export const fetchCreditSummary = () => request('/credit/summary');
 export const importProducts = (body) => request('/import/products', { method: 'POST', body: JSON.stringify(body) });
 export const importCustomers = (body) => request('/import/customers', { method: 'POST', body: JSON.stringify(body) });
