@@ -207,7 +207,9 @@ export default function Dashboard() {
   const hasAlerts = credit?.totalOutstanding > 0 || outOfStockCount > 0 || lowStockCount > 0;
 
   return (
-    <div className="space-y-3">
+    // On laptop and desktop the dashboard fills the window: the bottom row
+    // stretches so the chart and snapshot use the space below them.
+    <div className="space-y-3 xl:flex xl:flex-1 xl:flex-col xl:gap-3 xl:space-y-0">
       {/* Error banner */}
       {!loading && loadErrors.length > 0 && (
         <div className="rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3">
@@ -318,7 +320,7 @@ export default function Dashboard() {
             />
           </section>
 
-          <section className="grid gap-3 xl:grid-cols-[1.55fr_0.95fr]">
+          <section className="grid gap-3 xl:flex-1 xl:grid-cols-[1.55fr_0.95fr]">
             <SectionCard
               title="Sales Overview"
               subtitle="Net sales across the last 7 days."

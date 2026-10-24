@@ -180,6 +180,28 @@ export default function OwnerBilling() {
         <StatTile label="Collected this month" value={money(summary.revenueThisMonth, currency)} hint={`Last month ${money(summary.revenueLastMonth, currency)}`} icon={statIcons.money} />
       </StatGrid>
 
+      {data.plans?.length ? (
+        <Panel>
+          <PanelHeader title="Plans" description="Shops paying for each plan and what they bring in per month" />
+          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3 sm:p-5">
+            {data.plans.map((p) => {
+              const share = summary.monthlyRecurring > 0 ? Math.round((p.monthly / summary.monthlyRecurring) * 100) : 0;
+              return (
+                <div key={p.key} className="rounded-xl border border-[var(--border-default)] p-4">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">{p.name}</p>
+                    <p className="num text-xs text-[var(--text-muted)]">{money(p.price, currency)} / month</p>
+                  </div>
+                  <p className="num mt-2 text-2xl font-semibold text-[var(--text-primary)]">{p.paying} <span className="text-sm font-normal text-[var(--text-muted)]">paying</span></p>
+                  <p className="num text-sm text-[var(--text-secondary)]">{money(p.monthly, currency)} a month{p.lapsed ? ` · ${p.lapsed} lapsed` : ''}</p>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--surface-secondary)]" aria-hidden="true"><span className="block h-full bg-[var(--accent)]" style={{ width: `${share}%` }} /></div>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      ) : null}
+
       {error ? <Alert tone="danger">{error}</Alert> : null}
       {!config.payTo?.mtnNumber && !config.payTo?.airtelNumber ? (
         <Alert tone="warning">Add your MTN or Airtel Money number in Billing settings below so shops know where to pay.</Alert>

@@ -31,7 +31,10 @@ export default function Layout() {
             onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
             sidebarCollapsed={sidebarCollapsed}
           />
-          <main className="mx-auto w-full max-w-[1440px] lg:max-w-[1600px]">
+          {/* On large screens main fills the window below the header (85px) and
+              above the page padding (40px), so pages like the dashboard can
+              stretch into the space that banners leave. */}
+          <main className="mx-auto w-full max-w-[1440px] lg:max-w-[1600px] xl:flex xl:min-h-[calc(100dvh/var(--app-zoom,1)-125px)] xl:flex-col">
             {user?.shopId ? <OfflineBar shopId={user.shopId} /> : null}
             {user?.shopId && user?.role !== 'SuperAdmin' ? <SubscriptionBanner user={user} /> : null}
             <Suspense fallback={<PageLoader />}>
