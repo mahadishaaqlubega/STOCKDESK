@@ -158,14 +158,24 @@ exports.signup = async (req, res, next) => {
       username,
       password,
       confirmPassword,
+      phone: rawPhone,
+      businessType: rawBusinessType,
+      location: rawLocation,
     } = req.body;
 
     const normalizedShopName = shopName ? String(shopName).trim() : '';
+    const phone = rawPhone ? String(rawPhone).trim().slice(0, 32) : '';
+    const businessType = rawBusinessType ? String(rawBusinessType).trim().slice(0, 60) : null;
+    const location = rawLocation ? String(rawLocation).trim().slice(0, 120) : null;
     const normalizedUsername = normalizeUsername(username);
     const normalizedEmail = rawEmail ? String(rawEmail).trim().toLowerCase() : '';
 
     if (!normalizedShopName || !normalizedEmail || !normalizedUsername || !password || !confirmPassword) {
       return res.status(400).json({ message: 'Shop name, email, username, password, and confirm password are required' });
+    }
+
+    if (phone.replace(/[^\d]/g, '').length < 9) {
+      return res.status(400).json({ message: 'Please enter a phone number we can reach you on (WhatsApp if you have it)' });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -228,6 +238,9 @@ exports.signup = async (req, res, next) => {
       pendingExisting.username = normalizedUsername;
       pendingExisting.passwordHash = hash;
       pendingExisting.verificationToken = verificationToken;
+      pendingExisting.phone = phone;
+      pendingExisting.businessType = businessType;
+      pendingExisting.location = location;
       await pendingExisting.save();
 
       try {
@@ -255,6 +268,9 @@ exports.signup = async (req, res, next) => {
       email: normalizedEmail,
       passwordHash: hash,
       verificationToken,
+      phone,
+      businessType,
+      location,
     });
 
     try {
@@ -318,6 +334,9 @@ exports.verifyEmail = async (req, res, next) => {
           {
             name: pending.shopName,
             slug: await generateUniqueShopSlug(Shop, pending.shopName),
+            ownerPhone: pending.phone || null,
+            businessType: pending.businessType || null,
+            location: pending.location || null,
           },
           { transaction }
         );
@@ -326,8 +345,8 @@ exports.verifyEmail = async (req, res, next) => {
           {
             shopName: shop.name,
             address: '',
-            phone: '',
-            currency: 'USD',
+            phone: pending.phone || '',
+            currency: 'UGX',
             shopId: shop.id,
           },
           { transaction }

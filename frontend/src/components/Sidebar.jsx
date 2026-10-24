@@ -23,6 +23,7 @@ const icons = {
   expenses: <Icon><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /><path d="M7 15h3" /></Icon>,
   users: <Icon><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></Icon>,
   audit: <Icon><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></Icon>,
+  billing: <Icon><rect x="2.5" y="5" width="19" height="14" rx="2" /><path d="M2.5 10h19M6.5 15h4" /></Icon>,
   settings: <Icon><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></Icon>,
   profile: <Icon><circle cx="12" cy="12" r="9" /><circle cx="12" cy="10" r="3" /><path d="M6.2 18.4a7 7 0 0 1 11.6 0" /></Icon>,
   shops: <Icon><path d="M3 21h18" /><path d="M5 21V8l7-4 7 4v13" /><path d="M10 21v-4h4v4" /></Icon>,
@@ -60,6 +61,7 @@ const shopSections = [
       { to: '/app/users', label: 'Team', icon: icons.users, adminOnly: true },
       { to: '/app/audit-logs', label: 'Activity log', icon: icons.audit, adminOnly: true },
       { to: '/app/settings', label: 'Settings', icon: icons.settings, adminOnly: true },
+      { to: '/app/billing', label: 'Billing', icon: icons.billing, adminOnly: true },
       { to: '/app/profile', label: 'My account', icon: icons.profile, adminOnly: true },
     ],
   },
@@ -71,6 +73,7 @@ const ownerSections = [
     items: [
       { to: '/app/owner', label: 'Dashboard', icon: icons.dashboard, end: true },
       { to: '/app/shops', label: 'Shops', icon: icons.shops },
+      { to: '/app/owner-billing', label: 'Billing', icon: icons.billing },
       { to: '/app/profile', label: 'My account', icon: icons.profile },
     ],
   },

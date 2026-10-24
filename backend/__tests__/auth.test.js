@@ -134,6 +134,17 @@ describe('POST /api/auth/signup', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 400 when no phone number is given', async () => {
+    const res = await request(app)
+      .post('/api/auth/signup')
+      .send({
+        shopName: 'NewShop', email: 'user@test.com', username: 'user1',
+        password: 'Pass123!', confirmPassword: 'Pass123!',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/phone/i);
+  });
+
   it('returns 201 for valid signup', async () => {
     Shop.findOne.mockResolvedValue(null);
     PendingSignup.findOne.mockResolvedValue(null);
@@ -144,7 +155,8 @@ describe('POST /api/auth/signup', () => {
       .post('/api/auth/signup')
       .send({
         shopName: 'NewShop', email: 'user@test.com', username: 'user1',
-        password: 'Pass123!', confirmPassword: 'Pass123!',
+        password: 'Pass123!', confirmPassword: 'Pass123!', phone: '0772 123456',
+        businessType: 'Hardware', location: 'Kampala',
       });
 
     expect(res.status).toBe(201);

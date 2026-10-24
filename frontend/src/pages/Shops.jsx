@@ -4,6 +4,7 @@ import { fetchPlatformOverview, deleteShop } from '../utils/api';
 import { getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { Alert, Badge, EmptyState, IconButton, Modal, Panel, SearchInput, SkeletonRows, StatGrid, StatTile, Tabs, Toast, fieldInput, icons, statIcons } from '../components/ui';
+import { STATE_META } from '../utils/billing';
 
 function relativeTime(value) {
   if (!value) return null;
@@ -52,6 +53,7 @@ const SORTS = {
   products: (s) => Number(s.metrics?.productCount || 0),
   sales: (s) => Number(s.metrics?.saleCount || 0),
   lastActive: (s) => (s.activity?.lastLoginAt ? new Date(s.activity.lastLoginAt).getTime() : 0),
+  billing: (s) => (s.billing?.endsAt ? new Date(s.billing.endsAt).getTime() : 0),
   joined: (s) => new Date(s.createdAt).getTime(),
 };
 
@@ -105,6 +107,9 @@ export default function Shops() {
       active: shops.filter(isActive),
       attention: shops.filter((s) => !s.activity?.lastLoginAt && Number(s.metrics?.saleCount || 0) === 0),
       disabled: shops.filter((s) => !s.isActive),
+      trial: shops.filter((s) => s.billing?.state === 'trial'),
+      paying: shops.filter((s) => s.billing?.state === 'active'),
+      due: shops.filter((s) => s.billing?.state === 'past_due' || s.billing?.state === 'expired'),
       newToday: shops.filter((s) => new Date(s.createdAt).toDateString() === new Date().toDateString()),
     };
   }, [shops, windowHours]);
@@ -113,7 +118,7 @@ export default function Shops() {
     const q = search.trim().toLowerCase();
     const base = groups[filter] || shops;
     const filtered = q
-      ? base.filter((s) => [s.name, s.slug, s.owner?.name, s.owner?.username, s.owner?.email].some((v) => String(v || '').toLowerCase().includes(q)))
+      ? base.filter((s) => [s.name, s.slug, s.owner?.name, s.owner?.username, s.owner?.email, s.contact?.phone, s.contact?.location, s.contact?.businessType].some((v) => String(v || '').toLowerCase().includes(q)))
       : base;
     const pick = SORTS[sort.key];
     return [...filtered].sort((a, b) => {
@@ -176,6 +181,9 @@ export default function Shops() {
               { key: 'all', label: 'All', count: groups.all.length },
               { key: 'active', label: 'Active', count: groups.active.length },
               { key: 'attention', label: 'Need attention', count: groups.attention.length },
+              { key: 'trial', label: 'Trial', count: groups.trial.length },
+              { key: 'paying', label: 'Paying', count: groups.paying.length },
+              { key: 'due', label: 'Due / read-only', count: groups.due.length },
               { key: 'disabled', label: 'Disabled', count: groups.disabled.length },
             ]}
           />
@@ -192,6 +200,7 @@ export default function Shops() {
                 <tr>
                   <SortHeader id="name">Shop</SortHeader>
                   <SortHeader id="owner">Owner</SortHeader>
+                  <SortHeader id="billing">Subscription</SortHeader>
                   <SortHeader id="users" align="right">Team</SortHeader>
                   <SortHeader id="products" align="right">Products</SortHeader>
                   <SortHeader id="sales" align="right">Sales</SortHeader>
@@ -213,8 +222,17 @@ export default function Shops() {
                         <>
                           <p className="text-[var(--text-primary)]">{shop.owner.name}</p>
                           <p className="text-xs text-[var(--text-muted)]">{shop.owner.email || `@${shop.owner.username}`}{shop.owner.email && !shop.owner.isVerified ? ' · unverified' : ''}</p>
+                          {shop.contact?.phone ? <p className="text-xs text-[var(--text-muted)]">{shop.contact.phone}</p> : null}
                         </>
                       ) : <span className="text-[var(--text-muted)]">No admin</span>}
+                    </td>
+                    <td data-label="Subscription" className="px-4 py-2.5">
+                      {shop.billing ? (
+                        <>
+                          <Badge tone={STATE_META[shop.billing.state]?.tone}>{STATE_META[shop.billing.state]?.label}</Badge>
+                          {shop.billing.daysLeft != null && shop.billing.daysLeft >= 0 && shop.billing.state !== 'expired' ? <p className="mt-0.5 text-xs text-[var(--text-muted)]">{shop.billing.daysLeft} day{shop.billing.daysLeft === 1 ? '' : 's'} left</p> : null}
+                        </>
+                      ) : null}
                     </td>
                     <td data-label="Team" className="num px-4 py-2.5 text-right">{shop.metrics?.userCount || 0}</td>
                     <td data-label="Products" className="num px-4 py-2.5 text-right">{(shop.metrics?.productCount || 0).toLocaleString()}</td>

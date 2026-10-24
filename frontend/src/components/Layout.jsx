@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import PageLoader from './PageLoader';
 import OfflineBar from './OfflineBar';
+import SubscriptionBanner from './SubscriptionBanner';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { logout, getUser } from '../utils/auth';
 
@@ -32,6 +33,7 @@ export default function Layout() {
           />
           <main className="mx-auto w-full max-w-[1440px] lg:max-w-[1600px]">
             {user?.shopId ? <OfflineBar shopId={user.shopId} /> : null}
+            {user?.shopId && user?.role !== 'SuperAdmin' ? <SubscriptionBanner user={user} /> : null}
             <Suspense fallback={<PageLoader />}>
               <Outlet />
             </Suspense>

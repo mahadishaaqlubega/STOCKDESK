@@ -20,6 +20,7 @@ process.on('unhandledRejection', (reason) => {
 const app = require('./app');
 const { sequelize, initAppData } = require('./models');
 const { startAutoCloseScheduler } = require('./utils/autoCloseBusinessDay');
+const { startBillingReminders } = require('./utils/billingReminders');
 const { runMigrations } = require('./utils/migrations');
 
 async function initializeDatabase() {
@@ -45,6 +46,7 @@ async function initializeDatabase() {
     console.error('[db-init] Application data initialization failed:', error.message);
   }
   startAutoCloseScheduler();
+  startBillingReminders();
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

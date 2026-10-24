@@ -23,6 +23,7 @@ const publicRoutes = require('./routes/public');
 const supplierRoutes = require('./routes/suppliers');
 const purchaseRoutes = require('./routes/purchases');
 const importRoutes = require('./routes/imports');
+const billingRoutes = require('./routes/billing');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -168,6 +169,7 @@ app.use('/api/stock-reconciliation', crudLimiter);
 app.use('/api/credit', crudLimiter);
 app.use('/api/suppliers', crudLimiter);
 app.use('/api/purchases', crudLimiter);
+app.use('/api/billing', crudLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -187,6 +189,7 @@ app.use('/api/credit', creditRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/purchases', purchaseRoutes);
+app.use('/api/billing', billingRoutes);
 app.use('/api', importRoutes);
 
 app.use(errorHandler);

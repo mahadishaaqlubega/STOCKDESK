@@ -22,6 +22,9 @@ const Supplier = require('./supplier');
 const Purchase = require('./purchase');
 const PurchaseItem = require('./purchaseItem');
 const SupplierPayment = require('./supplierPayment');
+const SubscriptionPayment = require('./subscriptionPayment');
+const PaymentRequest = require('./paymentRequest');
+const PlatformSetting = require('./platformSetting');
 const { backfillMissingUsernames, generateUniqueUsername } = require('../utils/username');
 const { generateUniqueShopSlug } = require('../utils/shop');
 
@@ -129,6 +132,16 @@ Purchase.hasMany(SupplierPayment, { foreignKey: 'purchaseId', as: 'payments', on
 SupplierPayment.belongsTo(Purchase, { foreignKey: 'purchaseId', as: 'purchase', onDelete: 'CASCADE' });
 SupplierPayment.belongsTo(User, { foreignKey: 'paidByUserId', as: 'paidBy' });
 
+// Subscription billing
+Shop.hasMany(SubscriptionPayment, { foreignKey: 'shopId', as: 'subscriptionPayments', onDelete: 'CASCADE', hooks: true });
+SubscriptionPayment.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', onDelete: 'CASCADE' });
+SubscriptionPayment.belongsTo(User, { foreignKey: 'submittedByUserId', as: 'submittedBy' });
+SubscriptionPayment.belongsTo(User, { foreignKey: 'reviewedByUserId', as: 'reviewedBy' });
+Shop.hasMany(PaymentRequest, { foreignKey: 'shopId', as: 'paymentRequests', onDelete: 'CASCADE', hooks: true });
+PaymentRequest.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', onDelete: 'CASCADE' });
+PaymentRequest.hasMany(SubscriptionPayment, { foreignKey: 'requestId', as: 'payments' });
+SubscriptionPayment.belongsTo(PaymentRequest, { foreignKey: 'requestId', as: 'request' });
+
 async function findOrCreateLegacyShop() {
   let shop = await Shop.findOne({ where: { slug: 'stockdesk-shop' } });
 
@@ -217,7 +230,9 @@ async function initAppData() {
 
   await backfillShopOwnership(legacyShop.id);
   await backfillMissingUsernames(User);
-  await User.update({ role: 'Staff' }, { where: { role: { [Op.in]: ['Cashier', 'Manager'] } } });
+  // Compare as text: on a fresh database the role enum has no legacy values,
+  // and an enum comparison with them would throw and stop the rest of init.
+  await sequelize.query(`UPDATE "users" SET "role" = 'Staff' WHERE "role"::text IN ('Cashier', 'Manager')`);
   // NOTE: do NOT blanket-verify all users here - unverified users must click their email link
 
   const defaultSettings = await Setting.findOne({ where: { shopId: legacyShop.id } });
@@ -273,5 +288,8 @@ module.exports = {
   Purchase,
   PurchaseItem,
   SupplierPayment,
+  SubscriptionPayment,
+  PaymentRequest,
+  PlatformSetting,
   initAppData,
 };

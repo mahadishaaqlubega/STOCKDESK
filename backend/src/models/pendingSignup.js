@@ -30,6 +30,18 @@ PendingSignup.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    phone: {
+      type: DataTypes.STRING(32),
+      allowNull: true,
+    },
+    businessType: {
+      type: DataTypes.STRING(60),
+      allowNull: true,
+    },
+    location: {
+      type: DataTypes.STRING(120),
+      allowNull: true,
+    },
     verificationToken: {
       type: DataTypes.STRING,
       allowNull: false,

@@ -127,6 +127,46 @@ function MailIcon() {
   );
 }
 
+function PhoneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <rect x="6" y="2" width="12" height="20" rx="2" />
+      <path d="M11 18h2" />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z" />
+      <circle cx="12" cy="9.5" r="2.5" />
+    </svg>
+  );
+}
+
+const BUSINESS_TYPES = [
+  'Supermarket / general store', 'Hardware', 'Pharmacy / drug shop', 'Phone & electronics', 'Boutique / fashion',
+  'Salon / barber', 'Restaurant / cafe / bar', 'Wholesale', 'Agro inputs', 'Stationery / bookshop', 'Other',
+];
+
+function AuthSelect({ label, value, onChange, options, Icon }) {
+  return (
+    <div>
+      <label className="block text-[13px] font-medium text-[var(--text-secondary)]">{label}</label>
+      <div className="relative mt-2">
+        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-[var(--text-muted)]">
+          <Icon />
+        </div>
+        <select value={value} onChange={onChange} className="app-input w-full rounded-xl border py-2.5 pl-12 pr-4 text-sm shadow-sm">
+          <option value="">Choose…</option>
+          {options.map((o) => <option key={o}>{o}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 function AuthField({ label, type = 'text', value, onChange, placeholder, autoComplete, Icon }) {
   const [showPw, setShowPw] = useState(false);
   const inputType = type === 'password' ? (showPw ? 'text' : 'password') : type;
@@ -175,6 +215,9 @@ export default function Login() {
     username: '',
     password: '',
     confirmPassword: '',
+    phone: '',
+    businessType: '',
+    location: '',
   });
   const [pendingEmail, setPendingEmail] = useState('');
   const [forgotEmail, setForgotEmail] = useState('');
@@ -579,6 +622,15 @@ export default function Login() {
                     Icon={ShopIcon}
                   />
                   <AuthField
+                    label="Phone (WhatsApp)"
+                    type="tel"
+                    value={signupForm.phone}
+                    onChange={(event) => setSignupForm((prev) => ({ ...prev, phone: event.target.value }))}
+                    placeholder="07XX XXX XXX"
+                    autoComplete="tel"
+                    Icon={PhoneIcon}
+                  />
+                  <AuthField
                     label="Admin Email"
                     type="email"
                     value={signupForm.email}
@@ -594,6 +646,21 @@ export default function Login() {
                     placeholder="Create an admin username"
                     autoComplete="username"
                     Icon={UserIcon}
+                  />
+                  <AuthSelect
+                    label="Type of business"
+                    value={signupForm.businessType}
+                    onChange={(event) => setSignupForm((prev) => ({ ...prev, businessType: event.target.value }))}
+                    options={BUSINESS_TYPES}
+                    Icon={ShopIcon}
+                  />
+                  <AuthField
+                    label="Town / area"
+                    value={signupForm.location}
+                    onChange={(event) => setSignupForm((prev) => ({ ...prev, location: event.target.value }))}
+                    placeholder="e.g. Kampala, Nakawa"
+                    autoComplete="address-level2"
+                    Icon={PinIcon}
                   />
                   <AuthField
                     label="Password"

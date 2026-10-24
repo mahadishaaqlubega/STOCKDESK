@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fetchShopDetail, deleteShop } from '../utils/api';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { Alert, Badge, EmptyState, Modal, Panel, PanelHeader, SkeletonRows, StatTile, fieldInput, icons } from '../components/ui';
+import ShopSubscriptionPanel from '../components/ShopSubscriptionPanel';
 
 function relativeTime(value) {
   if (!value) return null;
@@ -163,6 +164,8 @@ export default function ShopDetail() {
       </Panel>
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
+
+      <ShopSubscriptionPanel shopId={shop.id} shopName={shop.name} isActive={shop.isActive} onActiveChange={(value) => setShop((s) => ({ ...s, isActive: value }))} />
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         <StatTile label="Team" value={(m.users || 0).toLocaleString()} />
