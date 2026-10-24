@@ -221,7 +221,7 @@ function button(label, url) {
 function renderEmail(o) {
   const paragraphs = (o.paragraphs || [])
     .filter(Boolean)
-    .map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${BRAND.text};">${escapeHtml(p)}</p>`)
+    .map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${BRAND.text};">${escapeHtml(p).split('\n').join('<br>')}</p>`)
     .join('');
   const cta = o.cta ? button(o.cta.label, o.cta.url) : '';
   const link = o.cta && o.showLink
@@ -410,4 +410,10 @@ async function sendShopEmail(to, { shop, replyTo, subject, attachments, ...conte
   await sendEmail({ to, subject, html, text, fromName: `${shop.name} via StockDesk`.slice(0, 70), replyTo, attachments });
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendBillingEmail, sendReceiptEmail, sendShopEmail, renderEmail, escapeHtml };
+// An email from StockDesk (the platform owner) to a shop owner.
+async function sendPlatformEmail(to, { subject, ...content }) {
+  const { html, text } = renderEmail(content);
+  await sendEmail({ to, subject, html, text, replyTo: process.env.SUPPORT_EMAIL || undefined });
+}
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendBillingEmail, sendReceiptEmail, sendShopEmail, sendPlatformEmail, renderEmail, escapeHtml };

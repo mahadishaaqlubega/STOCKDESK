@@ -26,6 +26,7 @@ const SubscriptionPayment = require('./subscriptionPayment');
 const PaymentRequest = require('./paymentRequest');
 const PlatformSetting = require('./platformSetting');
 const CustomerPrice = require('./customerPrice');
+const PlatformMessage = require('./platformMessage');
 const { backfillMissingUsernames, generateUniqueUsername } = require('../utils/username');
 const { generateUniqueShopSlug } = require('../utils/shop');
 
@@ -301,5 +302,6 @@ module.exports = {
   PaymentRequest,
   PlatformSetting,
   CustomerPrice,
+  PlatformMessage,
   initAppData,
 };

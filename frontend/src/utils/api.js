@@ -194,6 +194,12 @@ export const setShopActive = (id, isActive) => request(`/admin/shops/${id}/activ
 export const confirmSubscriptionPayment = (paymentId, payload = {}) => request(`/admin/payments/${paymentId}/confirm`, { method: 'POST', body: JSON.stringify(payload) });
 export const rejectSubscriptionPayment = (paymentId, note) => request(`/admin/payments/${paymentId}/reject`, { method: 'POST', body: JSON.stringify({ note }) });
 export const cancelPaymentRequest = (requestId) => request(`/admin/payment-requests/${requestId}/cancel`, { method: 'POST' });
+
+// Emails from the platform owner to shop owners
+export const fetchOwnerMessages = () => request('/admin/messages');
+export const previewOwnerMessage = (payload) => request('/admin/messages/preview', { method: 'POST', body: JSON.stringify(payload) });
+export const sendOwnerMessage = (payload) => request('/admin/messages', { method: 'POST', body: JSON.stringify(payload) });
+export const fetchOwnerMessage = (id) => request(`/admin/messages/${id}`);
 export const fetchCustomers = (query = '') => request(`/customers${query}`);
 export const createCustomer = (body) => request('/customers', { method: 'POST', body: JSON.stringify(body) });
 export const updateCustomer = (id, body) => request(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(body) });
