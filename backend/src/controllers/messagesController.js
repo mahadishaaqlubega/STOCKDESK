@@ -5,6 +5,7 @@ const { Op } = require('sequelize');
 const { Shop, User, PlatformMessage } = require('../models');
 const { getBillingConfig, computeStatus, findPlan } = require('../utils/subscription');
 const { renderEmail, sendPlatformEmail } = require('../services/emailService');
+const docs = require('../services/billingDocs');
 
 const TEMPLATES = [
   {
@@ -20,6 +21,7 @@ const TEMPLATES = [
     subject: 'Your free trial ends on {endDate}',
     body: "Your free month of StockDesk for {shop} ends on {endDate} ({daysLeft} days left).\n\nTo keep selling without a break, choose a plan and pay with MTN Mobile Money or Airtel Money from the Billing page. Paying early doesn't cost you any trial days.\n\nThank you for using StockDesk.",
     cta: { label: 'Choose a plan', path: '/app/billing' },
+    attach: 'invoice',
   },
   {
     key: 'payment_reminder',
@@ -27,6 +29,7 @@ const TEMPLATES = [
     subject: 'Payment reminder for {shop}',
     body: "This is a friendly reminder that the StockDesk payment for {shop} is due ({plan} plan, {amount}).\n\nYou can pay by Mobile Money from the Billing page in StockDesk. If you have already paid, thank you, and please ignore this message.",
     cta: { label: 'Pay now', path: '/app/billing' },
+    attach: 'invoice',
   },
   {
     key: 'thank_you',
@@ -34,6 +37,7 @@ const TEMPLATES = [
     subject: 'Thank you, {name}',
     body: 'Thank you for your payment and for trusting StockDesk to run {shop}. We truly appreciate your business.\n\nIf there is anything we can do better, just reply to this email. We read every message.',
     cta: null,
+    attach: 'receipt',
   },
   {
     key: 'announcement',
@@ -136,6 +140,7 @@ function validate(body) {
   if (!text || text.length > 5000) return 'Write a message (up to 5000 characters).';
   if (!AUDIENCES[body.audience]) return 'Choose who should receive the email.';
   if (body.audience === 'custom' && !(Array.isArray(body.shopIds) && body.shopIds.length)) return 'Choose at least one shop.';
+  if (body.attach && !['none', 'invoice', 'receipt'].includes(body.attach)) return 'Choose what to attach.';
   return null;
 }
 
@@ -196,6 +201,7 @@ exports.send = async (req, res, next) => {
 
     // Send in the background at a gentle pace (email providers rate-limit).
     const input = { subject: req.body.subject, body: req.body.body, ctaLabel: req.body.ctaLabel, ctaPath: req.body.ctaPath };
+    const attach = req.body.attach || 'none';
     setImmediate(async () => {
       const results = [];
       let sent = 0;
@@ -203,9 +209,18 @@ exports.send = async (req, res, next) => {
       for (const r of list) {
         const { subject, content } = buildEmail(input, r.values);
         try {
-          await sendPlatformEmail(r.email, { subject, ...content });
+          // Each shop gets its own invoice or its latest payment receipt.
+          let attachment = null;
+          let note = null;
+          if (attach !== 'none') {
+            const shop = await docs.loadShop(r.shopId);
+            const doc = attach === 'invoice' ? await docs.invoiceForShop(shop) : await docs.latestReceiptForShop(shop);
+            if (doc) attachment = docs.asAttachment(doc);
+            else note = 'no confirmed payment, so no receipt attached';
+          }
+          await sendPlatformEmail(r.email, { subject, ...content, attachments: attachment || undefined });
           sent += 1;
-          results.push({ shopId: r.shopId, shopName: r.shopName, email: r.email, status: 'sent' });
+          results.push({ shopId: r.shopId, shopName: r.shopName, email: r.email, status: 'sent', ...(note ? { error: note } : {}), ...(attachment ? { attachment: attachment[0].filename } : {}) });
         } catch (error) {
           failed += 1;
           results.push({ shopId: r.shopId, shopName: r.shopName, email: r.email, status: 'failed', error: String(error.message).slice(0, 200) });

@@ -5,6 +5,7 @@ import {
   createPaymentRequest,
   extendShopTrial,
   fetchShopBilling,
+  openPdf,
   recordShopPayment,
   rejectSubscriptionPayment,
   setShopActive,
@@ -106,6 +107,7 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
           <button type="button" onClick={() => open('record', { plan: defaultPlan, months: 1, amount: '', method: 'Cash', reference: '', note: '' })} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Record payment</button>
           <button type="button" onClick={() => open('extend', { days: 7 })} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Extend trial</button>
           <a href={`/app/messages?shop=${shopId}`} className="app-btn-secondary inline-flex items-center rounded-lg border px-3.5 py-2 text-sm font-medium">Email owner</a>
+          <button type="button" onClick={() => openPdf(`/admin/shops/${shopId}/invoice.pdf`).catch((e) => setError(e.message))} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Invoice (PDF)</button>
           {profile.whatsapp ? <a href={whatsappLink(profile.whatsapp, followUp)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center rounded-lg bg-[#25d366] px-3.5 py-2 text-sm font-semibold text-white hover:opacity-90">WhatsApp owner</a> : null}
           <button type="button" onClick={() => open('profile', { ownerPhone: profile.ownerPhone || '', businessType: profile.businessType || '', location: profile.location || '', billingNotes: profile.billingNotes || '', staffLimitOverride: staff?.override ?? '' })} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Edit contact, staff &amp; notes</button>
           <button
@@ -139,7 +141,10 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
               {requests.filter((r) => r.status === 'open').map((r) => (
                 <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border-default)] px-3 py-2 text-sm">
                   <span>{money(r.amount, currency)} · {planName(config, r.plan)} · {r.months} mo{r.dueDate ? ` · due ${fmtDate(r.dueDate)}` : ''}<span className="block text-xs text-[var(--text-muted)]">Sent {fmtDate(r.createdAt)}{r.emailedAt ? ' · emailed' : ''}</span></span>
-                  <button type="button" onClick={() => run(() => cancelPaymentRequest(r.id), () => flash('Request cancelled.'))} className="text-xs font-medium text-[var(--danger)]">Cancel</button>
+                  <span className="flex gap-3">
+                    <button type="button" onClick={() => openPdf(`/admin/payment-requests/${r.id}/invoice.pdf`).catch((e) => setError(e.message))} className="text-xs font-semibold text-[var(--accent)]">Invoice</button>
+                    <button type="button" onClick={() => run(() => cancelPaymentRequest(r.id), () => flash('Request cancelled.'))} className="text-xs font-medium text-[var(--danger)]">Cancel</button>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -163,7 +168,12 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
                       <button type="button" disabled={busy} onClick={() => run(() => rejectSubscriptionPayment(p.id, 'We could not find this transaction on our statement.'), () => flash('Payment rejected.'))} className="app-btn-secondary rounded-lg border px-2.5 py-1 text-xs">Reject</button>
                       <button type="button" disabled={busy} onClick={() => run(() => confirmSubscriptionPayment(p.id), () => flash('Payment confirmed.'))} className="app-btn-primary rounded-lg px-2.5 py-1 text-xs font-semibold">Confirm</button>
                     </div>
-                  ) : <Badge tone={PAYMENT_TONES[p.status]}>{p.status}</Badge>}
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      {p.status === 'confirmed' ? <button type="button" onClick={() => openPdf(`/admin/payments/${p.id}/receipt.pdf`).catch((e) => setError(e.message))} className="text-xs font-semibold text-[var(--accent)]">Receipt</button> : null}
+                      <Badge tone={PAYMENT_TONES[p.status]}>{p.status}</Badge>
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

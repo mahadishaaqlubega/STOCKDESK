@@ -244,3 +244,17 @@ exports.deletePrice = async (req, res, next) => {
     next(error);
   }
 };
+
+// GET /customers/:id/statement.pdf - what the customer owes, sale by sale.
+exports.statementPdf = async (req, res, next) => {
+  try {
+    const { customerStatementPdf } = require('../services/customerEmails');
+    const doc = await customerStatementPdf(req.user.shopId, req.params.id);
+    if (!doc) return res.status(404).json({ message: 'Customer not found' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${doc.filename}"`);
+    res.send(doc.pdf);
+  } catch (error) {
+    next(error);
+  }
+};

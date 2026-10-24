@@ -27,6 +27,9 @@ router.put('/shops/:id/active', billing.setShopActive);
 router.post('/payments/:paymentId/confirm', billing.confirmPayment);
 router.post('/payments/:paymentId/reject', billing.rejectPayment);
 router.post('/payment-requests/:requestId/cancel', billing.cancelRequest);
+router.get('/payments/:paymentId/receipt.pdf', billing.adminPaymentReceipt);
+router.get('/payment-requests/:requestId/invoice.pdf', billing.adminRequestInvoice);
+router.get('/shops/:id/invoice.pdf', billing.adminShopInvoice);
 
 // Emails to shop owners
 router.get('/messages', messages.overview);

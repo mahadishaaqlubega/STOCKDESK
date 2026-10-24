@@ -334,7 +334,7 @@ try {
 
 // Subscription emails: trial and renewal reminders, payment requests and
 // payment confirmations. `lines` are plain-text paragraphs.
-async function sendBillingEmail(to, { subject, heading, lines = [], details, ctaLabel = 'Open billing', ctaPath = '/app/billing', preheader, name, greeting }) {
+async function sendBillingEmail(to, { subject, heading, lines = [], details, ctaLabel = 'Open billing', ctaPath = '/app/billing', preheader, name, greeting, attachments }) {
   const { html, text } = renderEmail({
     preheader: preheader || lines[0] || heading,
     eyebrow: 'Your StockDesk subscription',
@@ -345,7 +345,7 @@ async function sendBillingEmail(to, { subject, heading, lines = [], details, cta
     cta: { label: ctaLabel, url: `${getFrontendUrl()}${ctaPath}` },
     note: 'Questions about billing? Reply to this email or message us on WhatsApp and a person will help.',
   });
-  await sendEmail({ to, subject, html, text });
+  await sendEmail({ to, subject, html, text, attachments });
 }
 
 // A sale receipt for a customer, with the PDF attached.
@@ -411,9 +411,9 @@ async function sendShopEmail(to, { shop, replyTo, subject, attachments, ...conte
 }
 
 // An email from StockDesk (the platform owner) to a shop owner.
-async function sendPlatformEmail(to, { subject, ...content }) {
+async function sendPlatformEmail(to, { subject, attachments, ...content }) {
   const { html, text } = renderEmail(content);
-  await sendEmail({ to, subject, html, text, replyTo: process.env.SUPPORT_EMAIL || undefined });
+  await sendEmail({ to, subject, html, text, replyTo: process.env.SUPPORT_EMAIL || undefined, attachments });
 }
 
 module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendBillingEmail, sendReceiptEmail, sendShopEmail, sendPlatformEmail, renderEmail, escapeHtml };

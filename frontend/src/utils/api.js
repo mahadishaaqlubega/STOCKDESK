@@ -200,6 +200,26 @@ export const fetchOwnerMessages = () => request('/admin/messages');
 export const previewOwnerMessage = (payload) => request('/admin/messages/preview', { method: 'POST', body: JSON.stringify(payload) });
 export const sendOwnerMessage = (payload) => request('/admin/messages', { method: 'POST', body: JSON.stringify(payload) });
 export const fetchOwnerMessage = (id) => request(`/admin/messages/${id}`);
+
+// Opens a PDF from the API (invoice, receipt, statement) in a new tab, or
+// downloads it where the browser can't show PDFs.
+export const openPdf = async (path) => {
+  const tab = window.open('', '_blank');
+  try {
+    const response = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${getToken()}` } });
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.message || 'Could not open the document');
+    }
+    const url = URL.createObjectURL(await response.blob());
+    if (tab) tab.location.href = url;
+    else window.location.href = url;
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (error) {
+    if (tab) tab.close();
+    throw error;
+  }
+};
 export const fetchCustomers = (query = '') => request(`/customers${query}`);
 export const createCustomer = (body) => request('/customers', { method: 'POST', body: JSON.stringify(body) });
 export const updateCustomer = (id, body) => request(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(body) });

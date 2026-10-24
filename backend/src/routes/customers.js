@@ -8,6 +8,7 @@ const creditController = require('../controllers/creditController');
 router.get('/', authenticate, customerController.listCustomers);
 router.get('/:id', authenticate, customerController.getCustomer);
 router.get('/:id/prices', authenticate, customerController.listPrices);
+router.get('/:id/statement.pdf', authenticate, authorize(['Admin', 'Staff']), customerController.statementPdf);
 router.put('/:id/prices/:productId', authenticate, authorize(['Admin']), customerController.setPrice);
 router.delete('/:id/prices/:productId', authenticate, authorize(['Admin']), customerController.deletePrice);
 router.get('/:id/credit', authenticate, authorize(['Admin', 'Staff']), creditController.customerStatement);

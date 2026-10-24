@@ -27,7 +27,7 @@ export default function OwnerMessages() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
-  const [form, setForm] = useState({ audience: 'all', template: 'custom', subject: '', body: '', ctaPath: '', shopIds: [] });
+  const [form, setForm] = useState({ audience: 'all', template: 'custom', subject: '', body: '', ctaPath: '', shopIds: [], attach: 'none' });
   const [shopSearch, setShopSearch] = useState('');
   const [preview, setPreview] = useState(null);
   const [previewing, setPreviewing] = useState(false);
@@ -78,7 +78,7 @@ export default function OwnerMessages() {
 
   const chooseTemplate = (key) => {
     const t = templates.find((x) => x.key === key);
-    setForm((f) => ({ ...f, template: key, subject: t?.subject || '', body: t?.body || '', ctaPath: t?.cta?.path || '' }));
+    setForm((f) => ({ ...f, template: key, subject: t?.subject || '', body: t?.body || '', ctaPath: t?.cta?.path || '', attach: t?.attach || 'none' }));
     setPreview(null);
   };
 
@@ -98,6 +98,7 @@ export default function OwnerMessages() {
     template: form.template,
     subject: form.subject,
     body: form.body,
+    attach: form.attach,
     ctaPath: form.ctaPath || undefined,
     // The template's own button text when its button is chosen, e.g. "Choose a plan".
     ctaLabel: (() => {
@@ -200,6 +201,14 @@ export default function OwnerMessages() {
               </select>
             </Field>
 
+            <Field label="Attach a PDF" hint={form.attach === 'invoice' ? 'Each shop gets its own invoice: its open payment request, or one month of its plan.' : form.attach === 'receipt' ? 'Each shop gets the receipt for its latest confirmed payment. Shops that have not paid yet get the email without one.' : 'No attachment'}>
+              <select value={form.attach} onChange={(e) => setForm((f) => ({ ...f, attach: e.target.value }))} className={fieldInput}>
+                <option value="none">No attachment</option>
+                <option value="invoice">Invoice (amount due)</option>
+                <option value="receipt">Payment receipt (paid)</option>
+              </select>
+            </Field>
+
             <div className="flex flex-col gap-3 border-t border-[var(--border-default)] pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-[var(--text-secondary)]">
                 <span className="font-semibold text-[var(--text-primary)]">{recipientCount}</span> recipient{recipientCount === 1 ? '' : 's'}
@@ -261,7 +270,7 @@ export default function OwnerMessages() {
           <ul className="divide-y divide-[var(--border-default)] rounded-lg border border-[var(--border-default)] text-sm">
             {(detail.recipients || []).map((r) => (
               <li key={`${r.shopId}-${r.email}`} className="flex items-center gap-3 px-3 py-2">
-                <span className="min-w-0 flex-1 truncate text-[var(--text-primary)]">{r.shopName}<span className="block truncate text-xs text-[var(--text-muted)]">{r.email}{r.error ? ` · ${r.error}` : ''}</span></span>
+                <span className="min-w-0 flex-1 truncate text-[var(--text-primary)]">{r.shopName}<span className="block truncate text-xs text-[var(--text-muted)]">{r.email}{r.attachment ? ` · ${r.attachment}` : ''}{r.error ? ` · ${r.error}` : ''}</span></span>
                 <Badge tone={r.status === 'sent' ? 'success' : r.status === 'failed' ? 'danger' : 'info'}>{r.status}</Badge>
               </li>
             ))}

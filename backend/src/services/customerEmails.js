@@ -9,6 +9,7 @@ const {
   Sale, SaleItem, Product, Receipt, User, Setting, Shop, Customer, sequelize,
 } = require('../models');
 const { generateReceiptPdf } = require('../utils/receiptGenerator');
+const { generateBillingPdf } = require('../utils/billingPdf');
 const { startOfDay, endOfDay, getMetricsForRange } = require('../utils/businessMetrics');
 const { sendReceiptEmail, sendShopEmail, escapeHtml } = require('./emailService');
 
@@ -179,6 +180,44 @@ async function autoPaymentThanks({ shopId, customerId, amount, method }) {
   }
 }
 
+// A customer's statement: every sale with a balance still owed, as a PDF.
+async function customerStatementPdf(shopId, customerId) {
+  const [settings, customer] = await Promise.all([
+    shopSettings(shopId),
+    Customer.findOne({ where: { id: customerId, shopId }, attributes: ['id', 'name', 'phone', 'email', 'address'] }),
+  ]);
+  if (!customer) return null;
+  const open = await Sale.findAll({
+    where: { shopId, customerId, balanceDue: { [Op.gt]: 0 } },
+    include: [{ model: Receipt, as: 'receipt', attributes: ['receiptNumber'] }],
+    attributes: ['id', 'createdAt', 'total', 'balanceDue', 'dueDate'],
+    order: [['createdAt', 'ASC']],
+  });
+  const shop = shopInfo(settings);
+  const currency = settings?.currency || 'UGX';
+  const dueOf = (s) => (s.dueDate ? new Date(`${s.dueDate}T23:59:59`) : new Date(new Date(s.createdAt).getTime() + 30 * DAY));
+  const pdf = await generateBillingPdf({
+    type: 'statement',
+    number: `ST-${customer.id}-${localDate().replace(/-/g, '')}`,
+    date: new Date(),
+    seller: { name: shop.name, lines: [shop.address, shop.phone] },
+    shop: { name: customer.name, phone: customer.phone, email: customer.email, location: customer.address },
+    items: open.map((s) => ({
+      description: `Sale ${receiptNumberFor(s)}`,
+      detail: `${fmtDate(s.createdAt)} · due ${fmtDate(dueOf(s))} · sale total ${currency} ${Number(s.total).toLocaleString('en-US')}${dueOf(s) < new Date() ? ' · OVERDUE' : ''}`,
+      quantity: 1,
+      unitPrice: Number(s.balanceDue),
+    })),
+    summary: `As of ${fmtDate(new Date())}`,
+    currency,
+    panelLines: [
+      `Please pay at ${shop.name}${shop.phone ? ` or call ${shop.phone}` : ''}.`,
+      'If you have already paid, thank you, and please ignore this statement.',
+    ],
+  });
+  return { pdf, filename: `Statement-${customer.name.replace(/[^\w]+/g, '-')}-${localDate()}.pdf`, count: open.length };
+}
+
 // ── Scheduled emails ──────────────────────────────────────────────────────────
 
 // Payment reminders: for each customer who owes money and has an email, send
@@ -231,9 +270,11 @@ async function runPaymentReminders(now = new Date()) {
         </tr>`;
       }).join('');
       try {
+        const statement = await customerStatementPdf(shopId, customer.id).catch(() => null);
         await sendShopEmail(customer.email, {
           shop,
           replyTo: owner?.email,
+          attachments: statement ? [{ filename: statement.filename, content: statement.pdf, contentType: 'application/pdf' }] : undefined,
           subject: overdue ? `Payment overdue: ${money(total)} (${shop.name})` : `Friendly reminder: ${money(total)} due ${daysToDue <= 0 ? 'today' : `in ${daysToDue} day${daysToDue === 1 ? '' : 's'}`}`,
           preheader: `You have ${money(total)} outstanding with ${shop.name}.`,
           eyebrow: overdue ? 'Payment overdue' : 'Payment reminder',
@@ -357,5 +398,6 @@ module.exports = {
   runDailySummaries,
   runScheduledCustomerEmails,
   startCustomerEmailScheduler,
+  customerStatementPdf,
   isEmail,
 };
