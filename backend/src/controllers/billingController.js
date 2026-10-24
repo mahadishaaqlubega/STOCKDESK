@@ -8,6 +8,7 @@ const {
   nextPeriod,
   invalidateShopStatus,
   toWhatsappNumber,
+  staffUsage,
 } = require('../utils/subscription');
 const { sendBillingEmail } = require('../services/emailService');
 
@@ -128,6 +129,7 @@ exports.getStatus = async (req, res, next) => {
     ]);
     res.json({
       status: computeStatus(shop, config),
+      staff: await staffUsage(shop, config),
       config: publicConfig(config),
       openRequests: openRequests.map(serializeRequest),
       pendingPayments: pendingPayments.map(serializePayment),
@@ -388,6 +390,7 @@ exports.shopBilling = async (req, res, next) => {
     ]);
     res.json({
       status: computeStatus(shop, config),
+      staff: { ...(await staffUsage(shop, config)), override: shop.staffLimitOverride },
       config: publicConfig(config),
       profile: {
         ownerPhone: shop.ownerPhone,
@@ -590,6 +593,15 @@ exports.updateShopProfile = async (req, res, next) => {
     if ('businessType' in req.body) shop.businessType = clean(req.body.businessType, 60);
     if ('location' in req.body) shop.location = clean(req.body.location, 120);
     if ('billingNotes' in req.body) shop.billingNotes = clean(req.body.billingNotes, 2000);
+    if ('staffLimitOverride' in req.body) {
+      const v = req.body.staffLimitOverride;
+      if (v === null || v === '') shop.staffLimitOverride = null;
+      else {
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 0 || n > 500) return res.status(400).json({ message: 'Staff limit must be a whole number from 0 to 500, or empty for the plan limit.' });
+        shop.staffLimitOverride = n;
+      }
+    }
     if ('plan' in req.body) {
       const config = await getBillingConfig();
       shop.plan = findPlan(config, req.body.plan) ? req.body.plan : null;

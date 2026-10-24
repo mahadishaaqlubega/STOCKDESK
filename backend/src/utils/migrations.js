@@ -181,6 +181,7 @@ const STATEMENTS = [
   { name: 'settings.ownerDailySummary', sql: `ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "ownerDailySummary" BOOLEAN NOT NULL DEFAULT false;` },
   { name: 'settings.lastDailySummaryDate', sql: `ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "lastDailySummaryDate" DATE;` },
   { name: 'customers.lastEmailReminderAt', sql: `ALTER TABLE IF EXISTS "customers" ADD COLUMN IF NOT EXISTS "lastEmailReminderAt" TIMESTAMPTZ;` },
+  { name: 'shops.staffLimitOverride', sql: `ALTER TABLE IF EXISTS "shops" ADD COLUMN IF NOT EXISTS "staffLimitOverride" INTEGER;` },
   // Indexes for the queries every screen runs, so lists and reports stay
   // fast as shops grow to thousands of customers and sales.
   { name: 'index: sales by shop and date', sql: `CREATE INDEX IF NOT EXISTS "sales_shop_created_idx" ON "sales" ("shopId", "createdAt");` },

@@ -169,6 +169,9 @@ export default function Billing() {
                   <p className="text-sm font-semibold text-[var(--text-primary)]">{p.name}</p>
                   <p className="num mt-1 text-xl font-semibold text-[var(--text-primary)]">{money(p.price, currency)}</p>
                   <p className="text-xs text-[var(--text-muted)]">per month · {p.staffLimit ? `owner + ${p.staffLimit} staff` : 'unlimited staff'}</p>
+                  {data.staff && p.staffLimit != null && data.staff.used >= p.staffLimit ? (
+                    <p className="mt-1.5 text-[11px] font-medium text-[var(--warning)]">You have {data.staff.used} staff: you couldn&apos;t add more on this plan</p>
+                  ) : null}
                 </button>
               );
             })}

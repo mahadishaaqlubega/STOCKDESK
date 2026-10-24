@@ -79,7 +79,7 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
   if (loading) return <Panel><SkeletonRows rows={4} /></Panel>;
   if (!data) return <Panel><EmptyState title={error || 'Billing not available'} /></Panel>;
 
-  const { status, config, profile, payments, requests } = data;
+  const { status, config, profile, payments, requests, staff } = data;
   const currency = config.currency || 'UGX';
   const meta = STATE_META[status.state];
   const defaultPlan = status.plan || 'starter';
@@ -106,7 +106,7 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
           <button type="button" onClick={() => open('record', { plan: defaultPlan, months: 1, amount: '', method: 'Cash', reference: '', note: '' })} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Record payment</button>
           <button type="button" onClick={() => open('extend', { days: 7 })} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Extend trial</button>
           {profile.whatsapp ? <a href={whatsappLink(profile.whatsapp, followUp)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center rounded-lg bg-[#25d366] px-3.5 py-2 text-sm font-semibold text-white hover:opacity-90">WhatsApp owner</a> : null}
-          <button type="button" onClick={() => open('profile', { ownerPhone: profile.ownerPhone || '', businessType: profile.businessType || '', location: profile.location || '', billingNotes: profile.billingNotes || '' })} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Edit contact &amp; notes</button>
+          <button type="button" onClick={() => open('profile', { ownerPhone: profile.ownerPhone || '', businessType: profile.businessType || '', location: profile.location || '', billingNotes: profile.billingNotes || '', staffLimitOverride: staff?.override ?? '' })} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Edit contact, staff &amp; notes</button>
           <button
             type="button"
             onClick={() => run(() => setShopActive(shopId, !isActive), (res) => { onActiveChange?.(res.isActive); flash(res.isActive ? 'Shop enabled.' : 'Shop disabled: it can only view its data now.'); })}
@@ -119,6 +119,15 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
         <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
           <div><dt className="text-[var(--text-muted)]">Phone / WhatsApp</dt><dd className="text-[var(--text-primary)]">{profile.ownerPhone || 'Not given'}</dd></div>
           <div><dt className="text-[var(--text-muted)]">Business</dt><dd className="text-[var(--text-primary)]">{[profile.businessType, profile.location].filter(Boolean).join(' · ') || 'Not given'}</dd></div>
+          {staff ? (
+            <div>
+              <dt className="text-[var(--text-muted)]">Staff logins</dt>
+              <dd className={staff.canAdd ? 'text-[var(--text-primary)]' : 'font-medium text-[var(--warning)]'}>
+                {staff.limit == null ? `${staff.used} (unlimited)` : `${staff.used} of ${staff.limit}`}
+                <span className="text-[var(--text-muted)]"> · {staff.source === 'custom' ? 'custom limit' : staff.source === 'trial' ? 'free trial' : `${staff.planName || 'no'} plan`}</span>
+              </dd>
+            </div>
+          ) : null}
           {profile.billingNotes ? <div className="sm:col-span-2"><dt className="text-[var(--text-muted)]">Notes</dt><dd className="whitespace-pre-line text-[var(--text-primary)]">{profile.billingNotes}</dd></div> : null}
         </dl>
 
@@ -245,6 +254,9 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
               </Field>
               <Field label="Town / area"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className={fieldInput} /></Field>
             </div>
+            <Field label="Custom staff limit" hint={`Leave empty to use the plan's limit${staff ? ` (this shop has ${staff.used} staff now)` : ''}. Applies even during the trial.`}>
+              <input type="number" min="0" max="500" value={form.staffLimitOverride} onChange={(e) => setForm({ ...form, staffLimitOverride: e.target.value })} className={fieldInput} placeholder="Plan limit" />
+            </Field>
             <Field label="Private notes" hint="Only you see these"><textarea rows={3} value={form.billingNotes} onChange={(e) => setForm({ ...form, billingNotes: e.target.value })} className={fieldInput} /></Field>
           </div>
         </Modal>
