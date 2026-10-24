@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { autoPaymentThanks } = require('../services/customerEmails');
 const { Op, QueryTypes } = require('sequelize');
 const { Customer, Sale, Receipt, CreditPayment, User, sequelize } = require('../models');
 const auditController = require('./auditController');
@@ -177,6 +178,8 @@ exports.recordPayment = async (req, res, next) => {
       { amount, method, receiptGroup, allocations },
       req
     );
+
+    setImmediate(() => autoPaymentThanks({ shopId: req.user.shopId, customerId: customer.id, amount, method }));
 
     res.status(201).json({
       receiptGroup,

@@ -21,6 +21,6 @@ describe('email template', () => {
   it('shows the shop in the footer for receipts', () => {
     const { html } = renderEmail({ heading: 'Receipt', fromShop: { name: 'Kato Store', phone: '0700' } });
     expect(html).toContain('Kato Store');
-    expect(html).toContain('Receipt sent with');
+    expect(html).toContain('Sent with');
   });
 });

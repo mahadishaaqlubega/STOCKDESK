@@ -1,9 +1,8 @@
 const crypto = require('crypto');
 const { Sale, SaleItem, Product, Receipt, User, Setting, Shop, Customer, CustomerPrice, DayClosure, SaleReturn, SaleReturnItem } = require('../models');
 const { linePrice } = require('../utils/pricing');
-const { PassThrough } = require('stream');
 const { generateReceiptPdf } = require('../utils/receiptGenerator');
-const { sendReceiptEmail } = require('../services/emailService');
+const { loadReceiptData, sendSaleReceipt, autoReceiptAfterSale, isEmail } = require('../services/customerEmails');
 const { startOfDay, endOfDay, getMetricsForRange } = require('../utils/businessMetrics');
 const { localDateString } = require('../config/timezone');
 const { Op } = require('sequelize');
@@ -380,6 +379,9 @@ exports.createSale = async (req, res, next) => {
       );
     }
 
+    // Automatic receipt email (if switched on); runs after the response.
+    setImmediate(() => autoReceiptAfterSale(sale.id, req.user.shopId));
+
     res.status(201).json({
       saleId: sale.id,
       receipt: receiptNumber,
@@ -471,32 +473,6 @@ exports.getSale = async (req, res, next) => {
   }
 };
 
-// Everything the PDF needs for one sale of one shop.
-async function loadReceiptData(saleId, shopId) {
-  const [sale, settings] = await Promise.all([
-    Sale.findOne({
-      where: { id: saleId, shopId },
-      include: [
-        {
-          model: SaleItem,
-          as: 'items',
-          where: { shopId },
-          required: false,
-          include: [{ model: Product, attributes: ['name', 'category', 'type'] }],
-        },
-        { model: User, as: 'cashier', attributes: ['id', 'name'] },
-        { model: Customer, as: 'customer', attributes: ['id', 'name', 'phone', 'email'] },
-        { model: Receipt, as: 'receipt' },
-      ],
-    }),
-    Setting.findOne({
-      where: { shopId },
-      include: [{ model: Shop, as: 'shop', attributes: ['id', 'name', 'slug'] }],
-    }),
-  ]);
-  return { sale, settings };
-}
-
 async function sendReceiptPdf(res, sale, settings) {
   const number = sale.receipt?.receiptNumber || sale.id;
   res.setHeader('Content-Type', 'application/pdf');
@@ -517,71 +493,20 @@ exports.getSaleReceipt = async (req, res, next) => {
   }
 };
 
-// The A4 receipt PDF as a Buffer (for email attachments).
-async function receiptPdfBuffer(sale, settings) {
-  const stream = new PassThrough();
-  const chunks = [];
-  stream.on('data', (chunk) => chunks.push(chunk));
-  const done = new Promise((resolve, reject) => {
-    stream.on('end', resolve);
-    stream.on('error', reject);
-  });
-  await generateReceiptPdf(stream, sale, settings || {});
-  await done;
-  return Buffer.concat(chunks);
-}
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
 // POST /api/sales/:id/email { email, saveToCustomer } - emails the customer a
 // receipt with the PDF attached. Replies go to the shop owner.
 exports.emailReceipt = async (req, res, next) => {
   try {
-    const { sale, settings } = await loadReceiptData(req.params.id, req.user.shopId);
+    const sale = await Sale.findOne({ where: { id: req.params.id, shopId: req.user.shopId }, include: [{ model: Customer, as: 'customer', attributes: ['id', 'email'] }] });
     if (!sale) return res.status(404).json({ message: 'Sale not found' });
     const to = String(req.body.email || sale.customer?.email || '').trim().toLowerCase();
-    if (!EMAIL_RE.test(to) || to.length > 160) return res.status(400).json({ message: 'Enter a valid email address' });
-
-    const currency = sale.currency || settings?.currency || 'UGX';
-    const money = (n) => `${currency} ${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-    const items = (sale.items || []).map((it) => ({ name: it.Product?.name || 'Item', quantity: Number(it.quantity || 0), price: Number(it.price || 0) }));
-    const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
-    const discount = Number(sale.discount || 0);
-    const tax = Number(sale.taxAmount || 0);
-    const totals = [
-      ...(discount > 0 || tax > 0 ? [['Subtotal', money(subtotal)]] : []),
-      ...(discount > 0 ? [['Discount', `-${money(discount)}`]] : []),
-      ...(tax > 0 ? [[`VAT ${Number(sale.tax || 0)}%`, money(tax)]] : []),
-      ['Total', money(sale.total), true],
-    ];
-    const owner = await User.findOne({ where: { shopId: req.user.shopId, role: 'Admin' }, attributes: ['email'], order: [['createdAt', 'ASC']] });
-    const receiptNumber = sale.receipt?.receiptNumber || buildReceiptNumber(sale.id);
-    const shopName = settings?.shop?.name || settings?.shopName || 'StockDesk';
-    const customerName = sale.customer && sale.customer.name !== 'Walk-in Customer' ? sale.customer.name : null;
-
-    const pdf = await receiptPdfBuffer(sale, settings);
+    if (!isEmail(to) || to.length > 160) return res.status(400).json({ message: 'Enter a valid email address' });
     try {
-      await sendReceiptEmail(to, {
-        shopName,
-        shopPhone: settings?.phone || '',
-        shopAddress: settings?.address || '',
-        replyTo: owner?.email || undefined,
-        receiptNumber,
-        date: new Date(sale.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: process.env.APP_TIMEZONE || 'Africa/Kampala' }),
-        cashier: sale.cashier?.name || '-',
-        customerName,
-        items,
-        totals,
-        paymentMethod: sale.paymentMethod,
-        balanceDue: Number(sale.balanceDue || 0),
-        currency,
-        pdf,
-      });
+      await sendSaleReceipt(sale.id, req.user.shopId, to);
     } catch (mailError) {
       console.error('[receipt email] failed:', mailError.message);
       return res.status(502).json({ message: 'The email could not be sent right now. Try again, or send the receipt on WhatsApp.' });
     }
-
     if (req.body.saveToCustomer && sale.customer && !sale.customer.email) {
       await Customer.update({ email: to }, { where: { id: sale.customer.id, shopId: req.user.shopId } });
     }

@@ -229,7 +229,7 @@ function renderEmail(o) {
     : '';
   const note = o.note ? `<p style="margin:22px 0 0;padding-top:18px;border-top:1px solid ${BRAND.line};font-size:13px;line-height:1.6;color:${BRAND.muted};">${escapeHtml(o.note)}</p>` : '';
   const footer = o.fromShop
-    ? `${escapeHtml(o.fromShop.name)}${o.fromShop.address ? ` · ${escapeHtml(o.fromShop.address)}` : ''}${o.fromShop.phone ? ` · ${escapeHtml(o.fromShop.phone)}` : ''}<br><span style="color:#94a3b8;">Receipt sent with <a href="${BRAND.site}" style="color:#94a3b8;">StockDesk</a></span>`
+    ? `${escapeHtml(o.fromShop.name)}${o.fromShop.address ? ` · ${escapeHtml(o.fromShop.address)}` : ''}${o.fromShop.phone ? ` · ${escapeHtml(o.fromShop.phone)}` : ''}<br><span style="color:#94a3b8;">Sent with <a href="${BRAND.site}" style="color:#94a3b8;">StockDesk</a></span>`
     : `StockDesk Inventory · Kampala, Uganda<br><a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.muted};">${BRAND.supportEmail}</a> · WhatsApp ${escapeHtml(BRAND.supportWhatsapp)} · <a href="${BRAND.site}" style="color:${BRAND.muted};">stockdeskinventory.com</a>`;
 
   const html = `<!doctype html>
@@ -397,4 +397,15 @@ async function sendReceiptEmail(to, { shopName, shopPhone, shopAddress, replyTo,
   });
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendBillingEmail, sendReceiptEmail, renderEmail };
+// Any email a shop sends to its customers (or its owner): branded with the
+// shop's name, from "<Shop> via StockDesk", replies to the shop owner.
+async function sendShopEmail(to, { shop, replyTo, subject, attachments, ...content }) {
+  const { html, text } = renderEmail({
+    brandName: shop.name,
+    fromShop: { name: shop.name, phone: shop.phone, address: shop.address },
+    ...content,
+  });
+  await sendEmail({ to, subject, html, text, fromName: `${shop.name} via StockDesk`.slice(0, 70), replyTo, attachments });
+}
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendBillingEmail, sendReceiptEmail, sendShopEmail, renderEmail, escapeHtml };
