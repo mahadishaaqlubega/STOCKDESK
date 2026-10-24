@@ -314,7 +314,7 @@ export default function Settings() {
     if (!file) return;
     try {
       update('shopLogoUrl', await resizeLogo(file));
-      flash('Logo ready — save changes to keep it.');
+      flash('Logo ready. Save changes to keep it.');
     } catch (error) {
       flash(error.message);
     }
@@ -382,10 +382,10 @@ export default function Settings() {
                     <Field label="Currency">
                       <select value={settings.currency} onChange={(e) => update('currency', e.target.value)} disabled={disabled} className={fieldInput}>
                         <optgroup label="Common">
-                          {orderedCurrencies.pinned.map((c) => <option key={c.code} value={c.code}>{c.code} — {c.country.split(' - ')[1] || c.country}</option>)}
+                          {orderedCurrencies.pinned.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.country.split(' - ')[1] || c.country}</option>)}
                         </optgroup>
                         <optgroup label="All currencies">
-                          {orderedCurrencies.rest.map((c) => <option key={c.code} value={c.code}>{c.code} — {c.country}</option>)}
+                          {orderedCurrencies.rest.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.country}</option>)}
                         </optgroup>
                       </select>
                     </Field>
@@ -471,7 +471,7 @@ export default function Settings() {
             <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
               <div className="space-y-5">
                 <Panel>
-                  <PanelHeader title="Printing on this device" description="Receipts print through this computer or phone, so any printer it can use works — USB, Wi-Fi or Bluetooth receipt printers and normal A4 printers." />
+                  <PanelHeader title="Printing on this device" description="Receipts print through this computer or phone, so any printer it can use works: USB, Wi-Fi or Bluetooth receipt printers and normal A4 printers." />
                   <div className="space-y-5 p-5">
                     <div>
                       <p className="text-sm font-medium text-[var(--text-secondary)]">Paper</p>

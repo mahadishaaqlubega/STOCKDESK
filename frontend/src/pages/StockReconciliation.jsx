@@ -123,7 +123,7 @@ export default function StockReconciliation() {
     setSaving(false);
     setCounts({});
     setNotes('');
-    flash(failed.length ? `${saved} saved, ${failed.length} failed — ${failed[0]}` : `Stock count saved for ${saved} product${saved === 1 ? '' : 's'}${differences.length ? `, ${differences.length} adjusted` : ''}.`);
+    flash(failed.length ? `${saved} saved, ${failed.length} failed: ${failed[0]}` : `Stock count saved for ${saved} product${saved === 1 ? '' : 's'}${differences.length ? `, ${differences.length} adjusted` : ''}.`);
     await loadProducts();
   };
 
@@ -185,12 +185,12 @@ export default function StockReconciliation() {
                                 inputMode="numeric"
                                 value={value}
                                 onChange={(e) => setCount(product.id, e.target.value.trim())}
-                                placeholder="—"
+                                placeholder="-"
                                 aria-label={`Counted quantity of ${product.name}`}
                                 className="app-input num w-20 rounded-lg border px-2.5 py-1.5 text-right text-sm"
                               />
                             </td>
-                            <td className="px-4 py-2 text-right">{variance === null ? <span className="text-[var(--text-muted)]">—</span> : <VarianceBadge value={variance} />}</td>
+                            <td className="px-4 py-2 text-right">{variance === null ? <span className="text-[var(--text-muted)]">-</span> : <VarianceBadge value={variance} />}</td>
                           </tr>
                         );
                       })}
@@ -276,8 +276,8 @@ export default function StockReconciliation() {
                         <td data-label="System" className="num px-4 py-2.5 text-right text-[var(--text-secondary)]">{Number(row.systemQuantity)}</td>
                         <td data-label="Counted" className="num px-4 py-2.5 text-right text-[var(--text-primary)]">{Number(row.physicalQuantity)}</td>
                         <td data-label="Difference" className="px-4 py-2.5 text-right"><VarianceBadge value={row.variance} /></td>
-                        <td data-label="Reason" className="px-4 py-2.5 text-[var(--text-secondary)]">{row.reason || '—'}{row.notes ? <span className="block text-xs text-[var(--text-muted)]">{row.notes}</span> : null}</td>
-                        <td data-label="By" className="px-4 py-2.5 text-[var(--text-secondary)]">{row.adjustedBy?.name || '—'}</td>
+                        <td data-label="Reason" className="px-4 py-2.5 text-[var(--text-secondary)]">{row.reason || '-'}{row.notes ? <span className="block text-xs text-[var(--text-muted)]">{row.notes}</span> : null}</td>
+                        <td data-label="By" className="px-4 py-2.5 text-[var(--text-secondary)]">{row.adjustedBy?.name || '-'}</td>
                       </tr>
                     ))}
                   </tbody>

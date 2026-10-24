@@ -65,7 +65,7 @@ export function receiptMessage(sale, settings, link) {
   const items = sale.items || [];
   const lines = items.slice(0, 15).map((item) => {
     const name = (item.Product?.name || item.name || 'Item').trim();
-    return `${item.quantity} × ${name} — ${formatMoney(currency, Number(item.price) * Number(item.quantity))}`;
+    return `${item.quantity} × ${name}: ${formatMoney(currency, Number(item.price) * Number(item.quantity))}`;
   });
   if (items.length > 15) lines.push(`+ ${items.length - 15} more item${items.length - 15 === 1 ? '' : 's'}`);
   const total = Number(sale.total || 0);
@@ -98,7 +98,7 @@ export function reminderMessage(customer, balance, settings, openSales = []) {
   const lines = openSales.slice(0, 8).map((sale) => {
     const overdue = sale.dueDate && new Date(`${sale.dueDate}T23:59:59`) < today;
     const due = sale.dueDate ? `, ${overdue ? 'was due' : 'due'} ${dueDate(sale.dueDate)}` : '';
-    return `• ${sale.receipt?.receiptNumber || `#${sale.id}`} (${shortDate(sale.createdAt)}) — ${formatMoney(currency, sale.balanceDue)}${due}`;
+    return `• ${sale.receipt?.receiptNumber || `#${sale.id}`} (${shortDate(sale.createdAt)}): ${formatMoney(currency, sale.balanceDue)}${due}`;
   });
   const anyOverdue = openSales.some((sale) => sale.dueDate && new Date(`${sale.dueDate}T23:59:59`) < today);
 

@@ -112,7 +112,7 @@ export default function OwnerLogin() {
   };
 
   return (
-    <div className="relative min-h-dvh overflow-x-hidden px-3 py-2 sm:px-4 sm:py-3 lg:px-5 lg:py-2.5" style={{ background: 'var(--bg-auth)' }}>
+    <div className="relative min-h-app overflow-x-hidden px-3 py-2 sm:px-4 sm:py-3 lg:px-5 lg:py-2.5" style={{ background: 'var(--bg-auth)' }}>
       {/* Background blobs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-24 top-8 h-64 w-64 rounded-full bg-[var(--accent)]/15 blur-3xl" />
@@ -145,8 +145,8 @@ export default function OwnerLogin() {
         </button>
       </div>
 
-      <div className="app-modal relative mx-auto grid w-full max-w-5xl overflow-visible rounded-2xl border backdrop-blur lg:min-h-[calc(100dvh-6rem)] lg:grid-cols-[0.98fr_minmax(0,1.02fr)]">
-        {/* Left panel — branding */}
+      <div className="app-modal relative mx-auto grid w-full max-w-5xl overflow-visible rounded-2xl border backdrop-blur lg:min-h-[calc(100dvh/var(--app-zoom,1)_-_6rem)] lg:grid-cols-[0.98fr_minmax(0,1.02fr)]">
+        {/* Left panel - branding */}
         <section className="relative hidden overflow-hidden lg:block lg:px-7 lg:py-6 xl:px-8 xl:py-7" style={{ background: 'var(--sidebar-bg)' }}>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(13,148,136,0.24),transparent_34%)]" />
           <div className="absolute right-8 top-8 h-24 w-24 rounded-full border border-white/10 bg-white/5 blur-2xl" />
@@ -166,7 +166,7 @@ export default function OwnerLogin() {
                 Manage the entire network from one owner dashboard.
               </h1>
               <p className="mt-2.5 max-w-lg text-[14px] leading-6 text-white/70">
-                Monitor shop signups, track tenant activity, and oversee platform health — all in real time.
+                Monitor shop signups, track tenant activity, and oversee platform health, all in real time.
               </p>
             </div>
 
@@ -199,7 +199,7 @@ export default function OwnerLogin() {
           </div>
         </section>
 
-        {/* Right panel — login form */}
+        {/* Right panel - login form */}
         <section className="px-5 py-5 sm:px-7 sm:py-6 lg:px-7 lg:py-6 xl:px-8 xl:py-7">
           <div className="mx-auto max-w-xl lg:flex lg:h-full lg:flex-col lg:justify-center">
             {/* Mobile logo */}

@@ -17,11 +17,12 @@ const PRODUCT_SHEET_COLUMNS = [
   { header: 'Type', key: 'type', width: 10 },
   { header: 'Cost price', key: 'buyPrice', width: 14, money: true },
   { header: 'Selling price', key: 'sellPrice', width: 14, money: true },
+  { header: 'Wholesale price', key: 'wholesalePrice', width: 15, money: true },
   { header: 'Quantity', key: 'quantity', width: 11 },
   { header: 'Reorder level', key: 'lowStock', width: 14 },
 ];
 
-const emptyForm = { name: '', sku: '', category: '', buyPrice: '', sellPrice: '', quantity: 0, lowStock: 5, type: 'goods' };
+const emptyForm = { name: '', sku: '', category: '', buyPrice: '', sellPrice: '', wholesalePrice: '', wholesaleMinQty: '', quantity: 0, lowStock: 5, type: 'goods' };
 const PAGE_SIZE = 50;
 
 const isService = (product) => product?.type === 'service';
@@ -71,7 +72,7 @@ function IconButton({ label, onClick, danger, children }) {
 function Modal({ title, subtitle, onClose, children, wide }) {
   return (
     <div className="app-overlay fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={`app-modal max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border p-5 sm:rounded-2xl sm:p-6 ${wide ? 'max-w-xl' : 'max-w-lg'}`} role="dialog" aria-modal="true">
+      <div className={`app-modal max-h-[calc(92dvh/var(--app-zoom,1))] w-full overflow-y-auto rounded-t-2xl border p-5 sm:rounded-2xl sm:p-6 ${wide ? 'max-w-xl' : 'max-w-lg'}`} role="dialog" aria-modal="true">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
@@ -131,6 +132,7 @@ export default function Products() {
       type: p.type || 'goods',
       buyPrice: Number(p.buyPrice || 0),
       sellPrice: Number(p.sellPrice || 0),
+      wholesalePrice: p.wholesalePrice == null ? '' : Number(p.wholesalePrice),
       quantity: p.type === 'service' ? '' : Number(p.quantity || 0),
       lowStock: p.type === 'service' ? '' : Number(p.lowStock || 0),
       stockValue: p.type === 'service' ? '' : Number(p.buyPrice || 0) * Number(p.quantity || 0),
@@ -225,6 +227,8 @@ export default function Products() {
       category: product.category,
       buyPrice: product.buyPrice,
       sellPrice: product.sellPrice,
+      wholesalePrice: product.wholesalePrice ?? '',
+      wholesaleMinQty: product.wholesaleMinQty ?? '',
       quantity: product.quantity,
       lowStock: product.lowStock,
       type: product.type || 'goods',
@@ -242,6 +246,7 @@ export default function Products() {
     if (!isServiceForm && (form.sellPrice === '' || Number(form.sellPrice) <= 0)) errors.push('Enter a selling price');
     if (form.sellPrice !== '' && Number(form.sellPrice) < 0) errors.push('Price cannot be negative');
     if (form.buyPrice !== '' && Number(form.buyPrice) < 0) errors.push('Cost cannot be negative');
+    if (form.wholesalePrice !== '' && Number(form.wholesalePrice) > Number(form.sellPrice || 0)) errors.push('Wholesale price cannot be higher than the selling price');
     if (errors.length) {
       setFormError(`${errors.join(', ')}.`);
       return;
@@ -436,7 +441,7 @@ export default function Products() {
         </div>
 
         {!isAdmin ? (
-          <p className="border-b border-[var(--border-default)] bg-[var(--panel-soft-bg)] px-4 py-2 text-xs text-[var(--text-muted)]">View only — ask an admin to add or change products.</p>
+          <p className="border-b border-[var(--border-default)] bg-[var(--panel-soft-bg)] px-4 py-2 text-xs text-[var(--text-muted)]">View only. Ask an admin to add or change products.</p>
         ) : null}
 
         {/* Content */}
@@ -510,7 +515,7 @@ export default function Products() {
                       </td>
                       <td data-label="Status" className="px-4 py-2.5"><StatusBadge product={product} /></td>
                       <td data-label="In stock" className="num px-4 py-2.5 text-right text-[var(--text-primary)]">
-                        {service ? <span className="text-[var(--text-muted)]">—</span> : (
+                        {service ? <span className="text-[var(--text-muted)]">-</span> : (
                           <>
                             {Number(product.quantity || 0).toLocaleString()}
                             <span className="block text-[11px] text-[var(--text-muted)]">reorder at {product.lowStock}</span>
@@ -518,10 +523,10 @@ export default function Products() {
                         )}
                       </td>
                       {isAdmin ? <td data-label="Cost" className="num px-4 py-2.5 text-right text-[var(--text-muted)]">{formatAmount(currency, product.buyPrice)}</td> : null}
-                      <td data-label="Price" className="num px-4 py-2.5 text-right font-medium text-[var(--text-primary)]">{service && !(Number(product.sellPrice) > 0) ? <span className="font-normal text-[var(--text-muted)]">At checkout</span> : formatAmount(currency, product.sellPrice)}</td>
+                      <td data-label="Price" className="num px-4 py-2.5 text-right font-medium text-[var(--text-primary)]">{service && !(Number(product.sellPrice) > 0) ? <span className="font-normal text-[var(--text-muted)]">At checkout</span> : formatAmount(currency, product.sellPrice)}{product.wholesalePrice != null ? <span className="block text-[11px] font-normal text-[var(--text-muted)]">wholesale {formatAmount(currency, product.wholesalePrice)}{product.wholesaleMinQty ? ` · ${product.wholesaleMinQty}+` : ''}</span> : null}</td>
                       {isAdmin ? (
                         <td data-label="Margin" className={`num px-4 py-2.5 text-right ${margin == null ? 'text-[var(--text-muted)]' : margin < 0 ? 'text-red-600' : margin < 10 ? 'text-amber-600' : 'text-[var(--text-secondary)]'}`}>
-                          {margin == null ? '—' : `${margin}%`}
+                          {margin == null ? '-' : `${margin}%`}
                         </td>
                       ) : null}
                       {isAdmin ? (
@@ -629,6 +634,24 @@ export default function Products() {
               {form.type !== 'service' ? (
                 <div className="grid grid-cols-2 gap-3">
                   <label className={fieldLabel}>
+                    Wholesale price <span className="font-normal text-[var(--text-muted)]">(optional)</span>
+                    <input type="number" step="any" min="0" inputMode="decimal" value={form.wholesalePrice} onChange={(e) => setForm((prev) => ({ ...prev, wholesalePrice: e.target.value }))} placeholder="Same as selling price" className={fieldInput} />
+                  </label>
+                  <label className={fieldLabel}>
+                    Wholesale from <span className="font-normal text-[var(--text-muted)]">(units)</span>
+                    <input type="number" step="1" min="1" inputMode="numeric" value={form.wholesaleMinQty} onChange={(e) => setForm((prev) => ({ ...prev, wholesaleMinQty: e.target.value }))} placeholder="Any quantity" disabled={form.wholesalePrice === ''} className={`${fieldInput} disabled:opacity-50`} />
+                  </label>
+                  {form.wholesalePrice !== '' ? (
+                    <p className="col-span-2 -mt-1 text-xs text-[var(--text-muted)]">
+                      Wholesale customers pay <span className="num font-medium">{formatMoney(currency, Number(form.wholesalePrice))}</span>{form.wholesaleMinQty ? ` when they buy ${form.wholesaleMinQty} or more` : ''}. Profit per unit: <span className="num font-medium">{formatMoney(currency, Number(form.wholesalePrice) - Number(form.buyPrice || 0))}</span>
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {form.type !== 'service' ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <label className={fieldLabel}>
                     {editingId ? 'Quantity in stock' : 'Opening stock'}
                     <input type="number" min="0" inputMode="numeric" value={form.quantity} onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value) }))} className={fieldInput} />
                   </label>
@@ -638,7 +661,7 @@ export default function Products() {
                   </label>
                 </div>
               ) : (
-                <p className="rounded-lg bg-[var(--panel-soft-bg)] px-3 py-2.5 text-xs text-[var(--text-muted)]">Services have no stock count, so they can always be sold. Leave the price empty when it depends on the job — the cashier enters the amount at checkout.</p>
+                <p className="rounded-lg bg-[var(--panel-soft-bg)] px-3 py-2.5 text-xs text-[var(--text-muted)]">Services have no stock count, so they can always be sold. Leave the price empty when it depends on the job; the cashier enters the amount at checkout.</p>
               )}
 
               {formError ? <p className="app-alert-danger rounded-lg px-3 py-2 text-sm" role="alert">{formError}</p> : null}
@@ -688,7 +711,7 @@ export default function Products() {
                 {stockHistory.map((entry) => (
                   <li key={entry.id} className="flex items-center justify-between gap-3 py-2">
                     <span className="num font-medium text-[var(--text-primary)]">+{entry.quantity}</span>
-                    <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{entry.supplier || '—'}</span>
+                    <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{entry.supplier || '-'}</span>
                     <span className="text-xs text-[var(--text-muted)]">{new Date(entry.createdAt).toLocaleDateString()}</span>
                   </li>
                 ))}

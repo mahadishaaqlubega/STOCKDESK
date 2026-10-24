@@ -12,6 +12,8 @@ const pageTitles = {
   '/app/pos': 'Point of sale',
   '/app/reports': 'Reports',
   '/app/settings': 'Settings',
+  '/app/billing': 'Billing',
+  '/app/owner-billing': 'Billing',
   '/app/users': 'Team',
   '/app/profile': 'My account',
   '/app/expenses': 'Expenses',

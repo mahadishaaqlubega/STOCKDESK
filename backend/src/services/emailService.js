@@ -218,4 +218,40 @@ try {
   console.log(`[emailService] Provider on boot: unavailable (${error.message})`);
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail };
+function escapeHtml(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Subscription emails: trial and renewal reminders, payment requests and
+// payment confirmations. `lines` are plain-text paragraphs.
+async function sendBillingEmail(to, { subject, heading, lines = [], ctaLabel = 'Open billing', ctaPath = '/app/billing' }) {
+  const url = `${getFrontendUrl()}${ctaPath}`;
+  const paragraphs = lines
+    .map((line) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.7">${escapeHtml(line)}</p>`)
+    .join('');
+
+  await sendEmail({
+    to,
+    subject,
+    html: `
+      <div style="font-family:Segoe UI,Arial,sans-serif;background:#f8fafc;padding:32px;color:#0f172a">
+        <div style="max-width:600px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden">
+          <div style="background:linear-gradient(135deg,#0f766e,#1f7a8c);padding:24px 32px;color:#fff;text-align:center">
+            <img src="${getBrandLogoUrl()}" alt="StockDesk" width="220" style="display:block;margin:0 auto 14px;max-width:220px;height:auto;border-radius:10px;background:#ffffff;padding:8px 14px" />
+            <h1 style="margin:0;font-size:24px">${escapeHtml(heading)}</h1>
+          </div>
+          <div style="padding:32px">
+            ${paragraphs}
+            <div style="margin:28px 0 8px">
+              <a href="${url}" style="display:inline-block;background:#0f766e;color:#fff;text-decoration:none;padding:13px 28px;border-radius:999px;font-weight:600">${escapeHtml(ctaLabel)}</a>
+            </div>
+            <p style="margin:18px 0 0;font-size:13px;color:#64748b">Questions? Reply to this email or WhatsApp +256 742 226 839.</p>
+          </div>
+        </div>
+      </div>
+    `,
+    text: [heading, ...lines, `${ctaLabel}: ${url}`].join('\n\n'),
+  });
+}
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendBillingEmail };

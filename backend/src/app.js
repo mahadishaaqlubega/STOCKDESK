@@ -23,6 +23,7 @@ const publicRoutes = require('./routes/public');
 const supplierRoutes = require('./routes/suppliers');
 const purchaseRoutes = require('./routes/purchases');
 const importRoutes = require('./routes/imports');
+const billingRoutes = require('./routes/billing');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -96,7 +97,7 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting — generous limits to avoid blocking legitimate users
+// Rate limiting - generous limits to avoid blocking legitimate users
 const signupLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10,
@@ -143,7 +144,7 @@ app.post('/api/auth/login', loginLimiter);
 app.post('/api/auth/forgot-password', authLimiter);
 app.post('/api/auth/resend-verification', authLimiter);
 
-// CRUD rate limiter — protects all data endpoints. Keyed per session token
+// CRUD rate limiter - protects all data endpoints. Keyed per session token
 // (falling back to IP) because several tills in one shop usually share a
 // single public IP and would otherwise exhaust one shared budget.
 const crudLimiter = rateLimit({
@@ -168,6 +169,7 @@ app.use('/api/stock-reconciliation', crudLimiter);
 app.use('/api/credit', crudLimiter);
 app.use('/api/suppliers', crudLimiter);
 app.use('/api/purchases', crudLimiter);
+app.use('/api/billing', crudLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -187,6 +189,7 @@ app.use('/api/credit', creditRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/purchases', purchaseRoutes);
+app.use('/api/billing', billingRoutes);
 app.use('/api', importRoutes);
 
 app.use(errorHandler);

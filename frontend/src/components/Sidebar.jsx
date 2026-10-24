@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { getUser } from '../utils/auth';
 import { useTheme } from './ThemeProvider';
 import logo from '../assets/logo.png';
@@ -22,6 +23,7 @@ const icons = {
   expenses: <Icon><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /><path d="M7 15h3" /></Icon>,
   users: <Icon><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></Icon>,
   audit: <Icon><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></Icon>,
+  billing: <Icon><rect x="2.5" y="5" width="19" height="14" rx="2" /><path d="M2.5 10h19M6.5 15h4" /></Icon>,
   settings: <Icon><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></Icon>,
   profile: <Icon><circle cx="12" cy="12" r="9" /><circle cx="12" cy="10" r="3" /><path d="M6.2 18.4a7 7 0 0 1 11.6 0" /></Icon>,
   shops: <Icon><path d="M3 21h18" /><path d="M5 21V8l7-4 7 4v13" /><path d="M10 21v-4h4v4" /></Icon>,
@@ -59,6 +61,7 @@ const shopSections = [
       { to: '/app/users', label: 'Team', icon: icons.users, adminOnly: true },
       { to: '/app/audit-logs', label: 'Activity log', icon: icons.audit, adminOnly: true },
       { to: '/app/settings', label: 'Settings', icon: icons.settings, adminOnly: true },
+      { to: '/app/billing', label: 'Billing', icon: icons.billing, adminOnly: true },
       { to: '/app/profile', label: 'My account', icon: icons.profile, adminOnly: true },
     ],
   },
@@ -70,6 +73,7 @@ const ownerSections = [
     items: [
       { to: '/app/owner', label: 'Dashboard', icon: icons.dashboard, end: true },
       { to: '/app/shops', label: 'Shops', icon: icons.shops },
+      { to: '/app/owner-billing', label: 'Billing', icon: icons.billing },
       { to: '/app/profile', label: 'My account', icon: icons.profile },
     ],
   },
@@ -89,6 +93,13 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
 
   const hideWhenCollapsed = collapsed ? 'lg:hidden' : '';
 
+  // Keep the current page's link visible when the menu is taller than the window.
+  const navRef = useRef(null);
+  const { pathname } = useLocation();
+  useEffect(() => {
+    navRef.current?.querySelector('.app-sidebar-link-active')?.scrollIntoView({ block: 'nearest' });
+  }, [pathname]);
+
   return (
     <>
       <div
@@ -96,13 +107,13 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
         onClick={onClose}
       />
       <aside
-        className={`app-sidebar-shell fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col border-r transition-[width,transform] duration-300 lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0 lg:shadow-none ${
+        className={`app-sidebar-shell fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col border-r transition-[width,transform] duration-300 lg:sticky lg:top-0 lg:h-app lg:translate-x-0 lg:shadow-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } ${collapsed ? 'lg:w-[72px]' : 'lg:w-[248px]'}`}
         aria-label="Main navigation"
       >
         {/* Brand + shop */}
-        <div className={`flex items-center gap-3 px-4 pb-4 pt-5 ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}>
+        <div className={`flex items-center gap-3 px-4 pb-3 pt-4 tall:pb-4 tall:pt-5 ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}>
           <img src={logo} alt="" className="h-9 w-9 shrink-0 object-contain" />
           <div className={`min-w-0 flex-1 ${hideWhenCollapsed}`}>
             <p className="text-[15px] font-semibold leading-tight tracking-tight text-[var(--sidebar-text)]">StockDesk</p>
@@ -118,9 +129,9 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
           </button>
         </div>
 
-        <nav className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        <nav ref={navRef} className="sidebar-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           {sections.map((section, index) => (
-            <div key={section.title || index} className={index ? 'mt-5' : 'mt-1'}>
+            <div key={section.title || index} className={index ? 'mt-3.5 tall:mt-5' : 'mt-1'}>
               {section.title ? (
                 <p className={`mb-1.5 px-3 text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--sidebar-muted)] opacity-80 ${hideWhenCollapsed}`}>
                   {section.title}
@@ -135,7 +146,7 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
                     onClick={onClose}
                     title={collapsed ? item.label : undefined}
                     className={({ isActive }) =>
-                      `app-sidebar-link flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] font-medium transition ${
+                      `app-sidebar-link flex items-center gap-3 rounded-lg px-3 py-1.5 text-[13.5px] font-medium transition tall:py-2 ${
                         collapsed ? 'lg:justify-center lg:px-0' : ''
                       } ${isActive ? 'app-sidebar-link-active' : ''}`
                     }
@@ -150,7 +161,7 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
         </nav>
 
         {/* Account */}
-        <div className="border-t border-[var(--sidebar-border)] p-3">
+        <div className="border-t border-[var(--sidebar-border)] p-2.5 tall:p-3">
           <div className={`flex items-center gap-3 rounded-lg px-2 py-2 ${collapsed ? 'lg:flex-col lg:px-0' : ''}`}>
             {user?.avatarUrl ? (
               <img src={user.avatarUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />

@@ -38,7 +38,7 @@ export default function VerifyEmail() {
 
   return (
     <div
-      className="flex min-h-dvh items-center justify-center px-4 py-8"
+      className="flex min-h-app items-center justify-center px-4 py-8"
       style={{ background: 'var(--bg-auth)' }}
     >
       <div className="app-modal w-full max-w-md overflow-hidden rounded-2xl border p-8 text-center">

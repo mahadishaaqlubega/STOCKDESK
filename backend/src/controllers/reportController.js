@@ -172,7 +172,7 @@ exports.bestSelling = async (req, res, next) => {
     });
     res.json(best);
   } catch (error) {
-    // Return empty list instead of crashing — dashboard degrades gracefully
+    // Return empty list instead of crashing - dashboard degrades gracefully
     console.error('bestSelling query failed:', error.message);
     res.json([]);
   }
@@ -200,14 +200,14 @@ exports.rangeReport = async (req, res, next) => {
     const rangeStart = startOfDay(parseLocalDate(start));
     const rangeEnd = endOfDay(parseLocalDate(end));
 
-    const [metrics, sales, topProducts] = await Promise.all([
+    const [metrics, sales, topProducts, tierRows] = await Promise.all([
       getMetricsForRange(req.user.shopId, rangeStart, rangeEnd),
       // Sale headers only (no line items) and capped: a month of a busy shop
       // was 31 MB and a minute of database time when every item was included.
       // Totals come from `metrics`, which always covers the whole range.
       Sale.findAll({
         where: { shopId: req.user.shopId, createdAt: { [Op.gte]: rangeStart, [Op.lte]: rangeEnd } },
-        attributes: ['id', 'createdAt', 'total', 'taxAmount', 'discount', 'paymentMethod', 'balanceDue'],
+        attributes: ['id', 'createdAt', 'total', 'taxAmount', 'discount', 'paymentMethod', 'balanceDue', 'priceTier'],
         include: [
           { model: User, as: 'cashier', attributes: ['id', 'name'] },
           { model: Customer, as: 'customer', attributes: ['id', 'name'] },
@@ -226,14 +226,26 @@ exports.rangeReport = async (req, res, next) => {
         order: [[fn('SUM', col('SaleItem.quantity')), 'DESC']],
         limit: 10,
       }),
+      // Retail vs wholesale takings for the whole range.
+      Sale.findAll({
+        where: { shopId: req.user.shopId, createdAt: { [Op.gte]: rangeStart, [Op.lte]: rangeEnd } },
+        attributes: ['priceTier', [fn('COUNT', col('id')), 'orders'], [fn('SUM', col('total')), 'total']],
+        group: ['priceTier'],
+        raw: true,
+      }),
     ]);
+    const byPriceTier = { retail: { orders: 0, total: 0 }, wholesale: { orders: 0, total: 0 } };
+    for (const row of tierRows) {
+      const key = row.priceTier === 'wholesale' ? 'wholesale' : 'retail';
+      byPriceTier[key] = { orders: Number(row.orders) || 0, total: Number(row.total) || 0 };
+    }
 
     const expensesInRange = await Expense.findAll({
       where: { shopId: req.user.shopId, date: { [Op.gte]: start, [Op.lte]: end } },
     });
     const totalExpenses = expensesInRange.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
 
-    res.json({ metrics, sales, salesTruncated: sales.length === RANGE_SALES_LIMIT, topProducts, totalExpenses, start, end });
+    res.json({ metrics, sales, salesTruncated: sales.length === RANGE_SALES_LIMIT, topProducts, totalExpenses, byPriceTier, start, end });
   } catch (error) {
     next(error);
   }

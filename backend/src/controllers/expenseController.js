@@ -45,7 +45,7 @@ exports.updateExpense = async (req, res, next) => {
     const expense = await Expense.findOne({ where: { id: req.params.id, shopId: req.user.shopId } });
     if (!expense) return res.status(404).json({ message: 'Expense not found' });
 
-    // Whitelist updatable fields — prevents mass-assignment of shopId/id.
+    // Whitelist updatable fields - prevents mass-assignment of shopId/id.
     const allowed = ['category', 'description', 'amount', 'date', 'notes'];
     const updates = {};
     for (const field of allowed) {

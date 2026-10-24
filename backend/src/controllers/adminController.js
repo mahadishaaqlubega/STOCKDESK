@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { localDateString } = require('../config/timezone');
+const { getBillingConfig, computeStatus, toWhatsappNumber } = require('../utils/subscription');
 const {
   Audit,
   Customer,
@@ -106,7 +107,7 @@ exports.getOverview = async (req, res, next) => {
 
     const [shops, shopMetrics, owners] = await Promise.all([
       Shop.findAll({
-        attributes: ['id', 'name', 'slug', 'isActive', 'createdAt'],
+        attributes: ['id', 'name', 'slug', 'isActive', 'createdAt', 'plan', 'trialEndsAt', 'paidUntil', 'ownerPhone', 'businessType', 'location'],
         include: [{ model: Setting, as: 'settings', attributes: ['currency'], required: false }],
         order: [['createdAt', 'DESC']],
       }),
@@ -140,6 +141,7 @@ exports.getOverview = async (req, res, next) => {
     ]);
 
     const metricsMap = new Map(shopMetrics.map((m) => [m.shopId, m]));
+    const billingConfig = await getBillingConfig();
 
     const results = shops.map((shop) => {
       const m = metricsMap.get(shop.id) || {};
@@ -152,6 +154,16 @@ exports.getOverview = async (req, res, next) => {
         currency: shop.settings?.currency || 'USD',
         owner: owners.get(shop.id) || null,
         metrics: { userCount: Number(m.userCount) || 0, productCount: Number(m.productCount) || 0, saleCount: Number(m.saleCount) || 0 },
+        billing: (() => {
+          const st = computeStatus(shop, billingConfig, now);
+          return { state: st.state, plan: shop.plan, daysLeft: st.daysLeft, endsAt: st.endsAt };
+        })(),
+        contact: {
+          phone: shop.ownerPhone,
+          whatsapp: toWhatsappNumber(shop.ownerPhone),
+          businessType: shop.businessType,
+          location: shop.location,
+        },
         activity: {
           lastLoginAt: m.lastSaleAt || null,
           lastActiveUser: m.lastCashierName ? { username: m.lastCashierName, role: m.lastCashierRole } : null,

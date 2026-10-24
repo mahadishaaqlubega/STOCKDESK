@@ -28,6 +28,7 @@ const CUSTOMER_SHEET_COLUMNS = [
 import { getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import ConfirmDialog from '../components/ConfirmDialog';
+import CustomerPricesModal from '../components/CustomerPricesModal';
 import { formatMoney as formatCurrency } from '../utils/format';
 import { StatTile, statIcons } from '../components/ui';
 
@@ -40,6 +41,8 @@ const initialForm = {
   address: '',
   notes: '',
   creditLimit: '',
+  priceTier: 'retail',
+  loyaltyPercent: '',
   isActive: true,
 };
 
@@ -66,6 +69,7 @@ export default function Customers() {
   const [currency, setCurrency] = useState('UGX');
   const [shopSettings, setShopSettings] = useState(null);
   const [historyCustomer, setHistoryCustomer] = useState(null);
+  const [pricesCustomer, setPricesCustomer] = useState(null);
   const [historyData, setHistoryData] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -80,7 +84,7 @@ export default function Customers() {
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
-  useBodyScrollLock(Boolean(historyCustomer) || Boolean(deleteTarget) || Boolean(creditCustomer) || drawerOpen || importOpen);
+  useBodyScrollLock(Boolean(historyCustomer) || Boolean(pricesCustomer) || Boolean(deleteTarget) || Boolean(creditCustomer) || drawerOpen || importOpen);
 
   const owing = useMemo(() => customers.filter((customer) => Number(customer.balance || 0) > 0), [customers]);
   const totalOwed = useMemo(() => owing.reduce((sum, customer) => sum + Number(customer.balance || 0), 0), [owing]);
@@ -158,6 +162,8 @@ export default function Customers() {
       address: customer.address || '',
       notes: customer.notes || '',
       creditLimit: customer.creditLimit ?? '',
+      priceTier: customer.priceTier || 'retail',
+      loyaltyPercent: customer.loyaltyPercent ?? '',
       isActive: customer.isActive !== false,
     });
     setMessage('');
@@ -371,6 +377,8 @@ export default function Customers() {
                           <div className="min-w-0">
                             <p className="font-medium text-[var(--text-primary)]">
                               {customer.name}
+                              {customer.priceTier === 'wholesale' ? <span className="ml-2 rounded-full bg-[var(--accent-soft)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--accent-strong)]">Wholesale</span> : null}
+                              {Number(customer.loyaltyPercent) > 0 ? <span className="ml-2 rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300">Loyalty {Number(customer.loyaltyPercent)}%</span> : null}
                               {customer.isActive === false ? <span className="ml-2 rounded-full bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[11px] font-normal text-[var(--text-muted)]">Inactive</span> : null}
                             </p>
                             <p className="text-xs text-[var(--text-muted)]">Since {new Date(customer.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</p>
@@ -379,7 +387,7 @@ export default function Customers() {
                       </td>
                       <td data-label="Contact" className="px-4 py-2.5">
                         <p className="flex items-center gap-1.5 text-[var(--text-secondary)]">
-                          {customer.phone || (customer.whatsapp ? null : '—')}
+                          {customer.phone || (customer.whatsapp ? null : '-')}
                           {customer.whatsapp && customer.whatsapp !== customer.phone ? (
                             <span className="inline-flex items-center gap-1 text-xs text-[#1a9e4b]"><WhatsAppIcon /> {customer.whatsapp}</span>
                           ) : null}
@@ -393,7 +401,7 @@ export default function Customers() {
                             <span className="font-semibold text-amber-600 dark:text-amber-300">{formatMoney(balance)}</span>
                             {customer.lastReminderAt ? <span className="block text-[11px] font-normal text-[var(--text-muted)]">Reminded {timeAgo(customer.lastReminderAt)}</span> : null}
                           </>
-                        ) : <span className="text-[var(--text-muted)]">—</span>}
+                        ) : <span className="text-[var(--text-muted)]">-</span>}
                       </td>
                       <td data-label="Actions" className="px-4 py-2.5">
                         <div className="flex items-center justify-end gap-1">
@@ -414,6 +422,11 @@ export default function Customers() {
                           <button type="button" onClick={() => openCredit(customer)} title="Credit account" aria-label={`Credit account for ${customer.name}`} className={`h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-secondary)] hover:text-[var(--text-primary)] ${balance > 0 ? 'hidden' : 'flex'}`}>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /></svg>
                           </button>
+                          {canDelete ? (
+                            <button type="button" onClick={() => setPricesCustomer(customer)} title="Special prices" aria-label={`Special prices for ${customer.name}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-secondary)] hover:text-[var(--text-primary)]">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" /><circle cx="7.5" cy="7.5" r="1.5" /></svg>
+                            </button>
+                          ) : null}
                           <button type="button" onClick={() => openHistory(customer)} title="Purchase history" aria-label={`Purchase history for ${customer.name}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-secondary)] hover:text-[var(--text-primary)]">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></svg>
                           </button>
@@ -474,6 +487,26 @@ export default function Customers() {
                   Credit limit ({currency})
                   <input type="number" min="0" step="any" inputMode="decimal" value={form.creditLimit} onChange={(event) => setForm((prev) => ({ ...prev, creditLimit: event.target.value }))} placeholder="No limit" className={field} />
                   <span className="mt-1 block text-xs font-normal text-[var(--text-muted)]">The most this customer can owe when buying on credit.</span>
+                </label>
+              ) : null}
+              {canDelete ? (
+                <div className={label}>
+                  Prices
+                  <div className="mt-1.5 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Prices for this customer">
+                    {[['retail', 'Retail'], ['wholesale', 'Wholesale']].map(([value, text]) => (
+                      <button key={value} type="button" role="radio" aria-checked={form.priceTier === value} onClick={() => setForm((prev) => ({ ...prev, priceTier: value }))} className={`rounded-lg border px-3 py-2 text-sm font-medium ${form.priceTier === value ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]' : 'border-[var(--border-default)] text-[var(--text-secondary)]'}`}>
+                        {text}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="mt-1 block text-xs font-normal text-[var(--text-muted)]">Wholesale customers automatically get each product&apos;s wholesale price at the till.</span>
+                </div>
+              ) : null}
+              {canDelete ? (
+                <label className={label}>
+                  Loyalty discount (%)
+                  <input type="number" min="0" max="90" step="any" inputMode="decimal" value={form.loyaltyPercent} onChange={(event) => setForm((prev) => ({ ...prev, loyaltyPercent: event.target.value }))} placeholder="None" className={field} />
+                  <span className="mt-1 block text-xs font-normal text-[var(--text-muted)]">Taken off retail prices automatically, never below a product&apos;s wholesale price. For a price on one product, use Special prices.</span>
                 </label>
               ) : null}
               <label className={label}>
@@ -542,7 +575,7 @@ export default function Customers() {
 
       {creditCustomer && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={(e) => { if (e.target === e.currentTarget) setCreditCustomer(null); }}>
-          <div className="app-panel flex max-h-[92vh] w-full max-w-2xl flex-col rounded-2xl border p-6" role="dialog" aria-modal="true" aria-labelledby="credit-title">
+          <div className="app-panel flex max-h-[calc(92dvh/var(--app-zoom,1))] w-full max-w-2xl flex-col rounded-2xl border p-6" role="dialog" aria-modal="true" aria-labelledby="credit-title">
             <div className="flex items-start justify-between gap-3 border-b border-[var(--border-default)] pb-4">
               <div>
                 <h3 id="credit-title" className="text-lg font-semibold text-[var(--text-primary)]">{creditCustomer.name} · Credit account</h3>
@@ -671,6 +704,8 @@ export default function Customers() {
           </div>
         </div>
       )}
+
+      {pricesCustomer ? <CustomerPricesModal customer={pricesCustomer} currency={currency} onClose={() => setPricesCustomer(null)} /> : null}
 
       {deleteTarget ? (
         <ConfirmDialog

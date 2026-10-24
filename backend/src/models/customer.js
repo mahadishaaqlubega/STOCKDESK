@@ -45,6 +45,17 @@ Customer.init(
       type: DataTypes.DECIMAL(12, 2),
       allowNull: true,
     },
+    // 'retail' or 'wholesale': wholesale customers get products' wholesale prices.
+    priceTier: {
+      type: DataTypes.STRING(16),
+      allowNull: false,
+      defaultValue: 'retail',
+    },
+    // Loyalty discount off retail prices, never below a product's wholesale price.
+    loyaltyPercent: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
     isActive: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

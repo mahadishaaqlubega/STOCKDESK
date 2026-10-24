@@ -60,7 +60,7 @@ exports.login = async (req, res, next) => {
     }
 
     if (!user) {
-      // Platform owner lookup — by username or email, regardless of shopId.
+      // Platform owner lookup - by username or email, regardless of shopId.
       // SuperAdmin accounts must never be scoped to a tenant shop.
       user = await User.findOne({ where: { username, role: 'SuperAdmin' } });
       if (!user && isEmail) {
@@ -158,14 +158,24 @@ exports.signup = async (req, res, next) => {
       username,
       password,
       confirmPassword,
+      phone: rawPhone,
+      businessType: rawBusinessType,
+      location: rawLocation,
     } = req.body;
 
     const normalizedShopName = shopName ? String(shopName).trim() : '';
+    const phone = rawPhone ? String(rawPhone).trim().slice(0, 32) : '';
+    const businessType = rawBusinessType ? String(rawBusinessType).trim().slice(0, 60) : null;
+    const location = rawLocation ? String(rawLocation).trim().slice(0, 120) : null;
     const normalizedUsername = normalizeUsername(username);
     const normalizedEmail = rawEmail ? String(rawEmail).trim().toLowerCase() : '';
 
     if (!normalizedShopName || !normalizedEmail || !normalizedUsername || !password || !confirmPassword) {
       return res.status(400).json({ message: 'Shop name, email, username, password, and confirm password are required' });
+    }
+
+    if (phone.replace(/[^\d]/g, '').length < 9) {
+      return res.status(400).json({ message: 'Please enter a phone number we can reach you on (WhatsApp if you have it)' });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -200,18 +210,18 @@ exports.signup = async (req, res, next) => {
 
     const existingEmail = await User.findOne({ where: { email: { [Op.iLike]: escapeLike(normalizedEmail) } } });
     if (existingEmail) {
-      // Check whether the user's shop still exists — if the shop was deleted but the
+      // Check whether the user's shop still exists - if the shop was deleted but the
       // user row wasn't cleaned up (orphaned record), free the email and continue.
       const ownerShop = existingEmail.shopId
         ? await Shop.findByPk(existingEmail.shopId)
         : null;
 
       if (ownerShop || existingEmail.shopId === null) {
-        // Active user (shop exists) or a SuperAdmin — genuinely taken
+        // Active user (shop exists) or a SuperAdmin - genuinely taken
         return res.status(409).json({ message: 'An account with this email already exists' });
       }
 
-      // Orphaned user: shop was deleted but row remained — clear the email so the
+      // Orphaned user: shop was deleted but row remained - clear the email so the
       // unique constraint doesn't block the INSERT below, then delete the row.
       await existingEmail.update({ email: null });
       await existingEmail.destroy();
@@ -228,6 +238,9 @@ exports.signup = async (req, res, next) => {
       pendingExisting.username = normalizedUsername;
       pendingExisting.passwordHash = hash;
       pendingExisting.verificationToken = verificationToken;
+      pendingExisting.phone = phone;
+      pendingExisting.businessType = businessType;
+      pendingExisting.location = location;
       await pendingExisting.save();
 
       try {
@@ -255,6 +268,9 @@ exports.signup = async (req, res, next) => {
       email: normalizedEmail,
       passwordHash: hash,
       verificationToken,
+      phone,
+      businessType,
+      location,
     });
 
     try {
@@ -272,7 +288,7 @@ exports.signup = async (req, res, next) => {
     }
 
     res.status(201).json({
-      message: 'Registration received. Please check your email to verify your account — your shop will be created once your email is verified.',
+      message: 'Registration received. Please check your email to verify your account. Your shop will be created once your email is verified.',
       email: normalizedEmail,
       shopName: normalizedShopName,
     });
@@ -318,6 +334,9 @@ exports.verifyEmail = async (req, res, next) => {
           {
             name: pending.shopName,
             slug: await generateUniqueShopSlug(Shop, pending.shopName),
+            ownerPhone: pending.phone || null,
+            businessType: pending.businessType || null,
+            location: pending.location || null,
           },
           { transaction }
         );
@@ -326,8 +345,8 @@ exports.verifyEmail = async (req, res, next) => {
           {
             shopName: shop.name,
             address: '',
-            phone: '',
-            currency: 'USD',
+            phone: pending.phone || '',
+            currency: 'UGX',
             shopId: shop.id,
           },
           { transaction }

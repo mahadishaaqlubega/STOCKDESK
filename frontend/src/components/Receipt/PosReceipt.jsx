@@ -63,8 +63,9 @@ function receiptModel(sale, settings, cashierName) {
     footerNote: settings?.receiptFooter || 'Thank you for your business!',
     createdAt: new Date(sale.createdAt),
     receiptNumber: sale.receipt?.receiptNumber || `SD-${String(sale.id).padStart(6, '0')}`,
-    cashier: cashierName || sale.cashier?.name || '—',
+    cashier: cashierName || sale.cashier?.name || '-',
     customer: sale.customer && sale.customer.name !== 'Walk-in Customer' ? sale.customer : null,
+    wholesale: sale.priceTier === 'wholesale',
     items,
     units: items.reduce((sum, item) => sum + item.quantity, 0),
     subtotal: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -77,7 +78,7 @@ function receiptModel(sale, settings, cashierName) {
     paid: total - balanceDue,
     isCredit: Number(sale.creditAmount || 0) > 0,
     dueDate: sale.dueDate || null,
-    paymentMethod: sale.paymentMethod || '—',
+    paymentMethod: sale.paymentMethod || '-',
     splits: Array.isArray(sale.paymentSplits) ? sale.paymentSplits.filter((split) => Number(split.amount) > 0) : [],
   };
 }
@@ -157,6 +158,7 @@ function buildThermalHtml(m, paper) {
       ${row('Served by', escapeHtml(m.cashier))}
       ${m.customer ? row('Customer', escapeHtml(m.customer.name)) : ''}
       ${m.customer?.phone ? row('Phone', escapeHtml(m.customer.phone)) : ''}
+      ${m.wholesale ? row('Prices', 'Wholesale') : ''}
     </section>
     <hr />
     <section>${itemsHtml}</section>
@@ -303,7 +305,7 @@ function buildA4Html(m) {
       <div>
         <div class="label">Served by</div>
         <div class="party-name">${escapeHtml(m.cashier)}</div>
-        <div>${m.units} item${m.units === 1 ? '' : 's'}</div>
+        <div>${m.units} item${m.units === 1 ? '' : 's'}${m.wholesale ? ' · wholesale prices' : ''}</div>
       </div>
     </section>
 
@@ -425,7 +427,7 @@ export default function PosReceipt({ sale, settings, cashierName, onClose, autoP
   return (
     <div className="app-overlay fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" onClick={onClose}>
       <div
-        className={`app-modal flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-2xl border sm:rounded-2xl ${isA4 ? 'max-w-4xl' : 'max-w-md'}`}
+        className={`app-modal flex max-h-[calc(94dvh/var(--app-zoom,1))] w-full flex-col overflow-hidden rounded-t-2xl border sm:rounded-2xl ${isA4 ? 'max-w-4xl' : 'max-w-md'}`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"

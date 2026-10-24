@@ -14,7 +14,7 @@ function todayDateString() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-// GET /api/credit/summary — everyone who owes the shop money.
+// GET /api/credit/summary - everyone who owes the shop money.
 exports.summary = async (req, res, next) => {
   try {
     const today = todayDateString();
@@ -53,7 +53,7 @@ exports.summary = async (req, res, next) => {
   }
 };
 
-// GET /api/customers/:id/credit — statement for one customer.
+// GET /api/customers/:id/credit - statement for one customer.
 exports.customerStatement = async (req, res, next) => {
   try {
     const customer = await Customer.findOne({
@@ -94,7 +94,7 @@ exports.customerStatement = async (req, res, next) => {
   }
 };
 
-// POST /api/customers/:id/payments — record money received against credit.
+// POST /api/customers/:id/payments - record money received against credit.
 // Body: { amount, method, notes?, saleId? }. Without saleId the payment
 // settles the customer's oldest debts first.
 exports.recordPayment = async (req, res, next) => {

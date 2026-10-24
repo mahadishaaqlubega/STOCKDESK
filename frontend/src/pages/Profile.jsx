@@ -148,7 +148,7 @@ export default function Profile() {
       if (data.verificationPending) {
         setMessage(
           data.verificationEmailSent
-            ? 'Email updated. A verification link has been sent to your new address — click it to verify your email.'
+            ? 'Email updated. A verification link has been sent to your new address. Click it to verify your email.'
             : data.message || 'Email updated but the verification link could not be sent. You can resend it below.'
         );
         setMessageType('success');
@@ -267,13 +267,13 @@ export default function Profile() {
   ];
 
   const shopFields = isSuperAdmin
-    ? [['Access', 'All registered shops'], ['Username', profile?.username || '—']]
+    ? [['Access', 'All registered shops'], ['Username', profile?.username || '-']]
     : [
-        ['Shop name', profile?.shopDetails?.shopName || profile?.shop?.name || '—'],
-        ['Phone', profile?.shopDetails?.phone || '—'],
-        ['Address', profile?.shopDetails?.address || '—'],
-        ['Currency', profile?.shopDetails?.currency || '—'],
-        ['Shop ID', profile?.shop?.slug || '—'],
+        ['Shop name', profile?.shopDetails?.shopName || profile?.shop?.name || '-'],
+        ['Phone', profile?.shopDetails?.phone || '-'],
+        ['Address', profile?.shopDetails?.address || '-'],
+        ['Currency', profile?.shopDetails?.currency || '-'],
+        ['Shop ID', profile?.shop?.slug || '-'],
       ];
 
   return (
@@ -424,7 +424,7 @@ export default function Profile() {
                 {!isSuperAdmin && profile?.shop ? (
                   <Alert tone="danger">
                     If you are the only person in <strong>{profile.shop.name}</strong>, closing your account also deletes the shop and everything in it
-                    {stats ? <> — <strong className="num">{Number(stats.products || 0).toLocaleString()} products, {Number(stats.sales || 0).toLocaleString()} sales and {Number(stats.customers || 0).toLocaleString()} customers</strong></> : null}. Download any reports you need first.
+                    {stats ? <>: <strong className="num">{Number(stats.products || 0).toLocaleString()} products, {Number(stats.sales || 0).toLocaleString()} sales and {Number(stats.customers || 0).toLocaleString()} customers</strong></> : null}. Download any reports you need first.
                   </Alert>
                 ) : null}
                 {closeStep === 'confirm' ? (

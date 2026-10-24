@@ -91,7 +91,7 @@ async function request(path, options = {}) {
 
   if (response.status === 401) {
     if (path === '/auth/login') {
-      // Login failure — show actual error, don't logout
+      // Login failure - show actual error, don't logout
       throw new Error(data?.error || data?.message || 'Invalid credentials');
     }
     const sessionMessage = data?.error || data?.message || 'Session expired. Please log in again.';
@@ -103,6 +103,14 @@ async function request(path, options = {}) {
     const err = new Error(data.message);
     err.needsVerification = true;
     err.maskedEmail = data.email;
+    throw err;
+  }
+
+  if (response.status === 402 && data?.code === 'SUBSCRIPTION_EXPIRED') {
+    // Let the subscription banner refresh so the shop sees why.
+    window.dispatchEvent(new CustomEvent('sd:subscription'));
+    const err = new Error(data.message);
+    err.code = data.code;
     throw err;
   }
 
@@ -166,9 +174,32 @@ export const fetchPlatformDashboard = (days) => request(`/admin/dashboard${days 
 export const fetchPlatformShops = () => request('/admin/shops');
 export const fetchShopDetail = (id) => request(`/admin/shops/${id}`);
 export const deleteShop = (id) => request(`/admin/shops/${id}`, { method: 'DELETE' });
+
+// Subscription billing (shop side)
+export const fetchBillingStatus = () => request('/billing/status');
+export const fetchBillingPayments = () => request('/billing/payments');
+export const submitBillingPayment = (payload) => request('/billing/payments', { method: 'POST', body: JSON.stringify(payload) });
+export const updateBillingProfile = (payload) => request('/billing/profile', { method: 'PUT', body: JSON.stringify(payload) });
+
+// Subscription billing (platform owner)
+export const fetchPlatformBilling = () => request('/admin/billing');
+export const updatePlatformBillingConfig = (payload) => request('/admin/billing/config', { method: 'PUT', body: JSON.stringify(payload) });
+export const fetchPlatformContacts = () => request('/admin/contacts');
+export const fetchShopBilling = (id) => request(`/admin/shops/${id}/billing`);
+export const extendShopTrial = (id, days) => request(`/admin/shops/${id}/extend-trial`, { method: 'POST', body: JSON.stringify({ days }) });
+export const recordShopPayment = (id, payload) => request(`/admin/shops/${id}/payments`, { method: 'POST', body: JSON.stringify(payload) });
+export const createPaymentRequest = (id, payload) => request(`/admin/shops/${id}/payment-requests`, { method: 'POST', body: JSON.stringify(payload) });
+export const updateShopProfile = (id, payload) => request(`/admin/shops/${id}/profile`, { method: 'PUT', body: JSON.stringify(payload) });
+export const setShopActive = (id, isActive) => request(`/admin/shops/${id}/active`, { method: 'PUT', body: JSON.stringify({ isActive }) });
+export const confirmSubscriptionPayment = (paymentId, payload = {}) => request(`/admin/payments/${paymentId}/confirm`, { method: 'POST', body: JSON.stringify(payload) });
+export const rejectSubscriptionPayment = (paymentId, note) => request(`/admin/payments/${paymentId}/reject`, { method: 'POST', body: JSON.stringify({ note }) });
+export const cancelPaymentRequest = (requestId) => request(`/admin/payment-requests/${requestId}/cancel`, { method: 'POST' });
 export const fetchCustomers = (query = '') => request(`/customers${query}`);
 export const createCustomer = (body) => request('/customers', { method: 'POST', body: JSON.stringify(body) });
 export const updateCustomer = (id, body) => request(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+export const fetchCustomerPrices = (id) => request(`/customers/${id}/prices`);
+export const saveCustomerPrice = (id, productId, price) => request(`/customers/${id}/prices/${productId}`, { method: 'PUT', body: JSON.stringify({ price }) });
+export const deleteCustomerPrice = (id, productId) => request(`/customers/${id}/prices/${productId}`, { method: 'DELETE' });
 export const deleteCustomer = (id) => request(`/customers/${id}`, { method: 'DELETE' });
 export const fetchCustomerCredit = (id) => request(`/customers/${id}/credit`);
 export const recordCreditPayment = (id, body) => request(`/customers/${id}/payments`, { method: 'POST', body: JSON.stringify(body) });

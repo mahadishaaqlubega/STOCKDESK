@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { login, signup, forgotPassword, resendVerification } from '../utils/api';
 import { consumeSessionNotice, saveSession } from '../utils/auth';
 import { useTheme } from '../components/ThemeProvider';
@@ -127,6 +127,46 @@ function MailIcon() {
   );
 }
 
+function PhoneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <rect x="6" y="2" width="12" height="20" rx="2" />
+      <path d="M11 18h2" />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z" />
+      <circle cx="12" cy="9.5" r="2.5" />
+    </svg>
+  );
+}
+
+const BUSINESS_TYPES = [
+  'Supermarket / general store', 'Hardware', 'Pharmacy / drug shop', 'Phone & electronics', 'Boutique / fashion',
+  'Salon / barber', 'Restaurant / cafe / bar', 'Wholesale', 'Agro inputs', 'Stationery / bookshop', 'Other',
+];
+
+function AuthSelect({ label, value, onChange, options, Icon }) {
+  return (
+    <div>
+      <label className="block text-[13px] font-medium text-[var(--text-secondary)]">{label}</label>
+      <div className="relative mt-2">
+        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-[var(--text-muted)]">
+          <Icon />
+        </div>
+        <select value={value} onChange={onChange} className="app-input w-full rounded-xl border py-2.5 pl-12 pr-4 text-sm shadow-sm">
+          <option value="">Choose…</option>
+          {options.map((o) => <option key={o}>{o}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 function AuthField({ label, type = 'text', value, onChange, placeholder, autoComplete, Icon }) {
   const [showPw, setShowPw] = useState(false);
   const inputType = type === 'password' ? (showPw ? 'text' : 'password') : type;
@@ -161,7 +201,11 @@ function AuthField({ label, type = 'text', value, onChange, placeholder, autoCom
 }
 
 export default function Login() {
-  const [mode, setMode] = useState('login');
+  const location = useLocation();
+  // The marketing site links to /signup and /login?mode=signup.
+  const [mode, setMode] = useState(() =>
+    location.pathname === '/signup' || new URLSearchParams(location.search).get('mode') === 'signup' ? 'signup' : 'login',
+  );
   const { resolvedTheme, themeMode, setThemeMode } = useTheme();
   const activeTheme = themeMode === 'system' ? resolvedTheme : themeMode;
   const [loginForm, setLoginForm] = useState({ shopName: '', username: '', password: '' });
@@ -171,6 +215,9 @@ export default function Login() {
     username: '',
     password: '',
     confirmPassword: '',
+    phone: '',
+    businessType: '',
+    location: '',
   });
   const [pendingEmail, setPendingEmail] = useState('');
   const [forgotEmail, setForgotEmail] = useState('');
@@ -296,7 +343,7 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-dvh overflow-x-hidden px-3 py-2 sm:px-4 sm:py-3 lg:px-5 lg:py-2.5" style={{ background: 'var(--bg-auth)' }}>
+    <div className="relative min-h-app overflow-x-hidden px-3 py-2 sm:px-4 sm:py-3 lg:px-5 lg:py-2.5" style={{ background: 'var(--bg-auth)' }}>
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-24 top-8 h-64 w-64 rounded-full bg-[var(--accent)]/15 blur-3xl" />
         <div className="absolute right-0 top-1/4 h-72 w-72 rounded-full bg-[var(--success)]/10 blur-3xl" />
@@ -327,7 +374,7 @@ export default function Login() {
         </button>
       </div>
 
-      <div className="app-modal relative mx-auto grid w-full max-w-5xl overflow-visible rounded-2xl border backdrop-blur lg:min-h-[calc(100dvh-6rem)] lg:grid-cols-[0.98fr_minmax(0,1.02fr)]">
+      <div className="app-modal relative mx-auto grid w-full max-w-5xl overflow-visible rounded-2xl border backdrop-blur lg:min-h-[calc(100dvh/var(--app-zoom,1)_-_6rem)] lg:grid-cols-[0.98fr_minmax(0,1.02fr)]">
         <section className="relative hidden overflow-hidden lg:block lg:px-7 lg:py-6 xl:px-8 xl:py-7" style={{ background: 'var(--sidebar-bg)' }}>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(30,167,189,0.24),transparent_34%)]" />
           <div className="absolute right-8 top-8 h-24 w-24 rounded-full border border-white/10 bg-white/5 blur-2xl" />
@@ -349,7 +396,7 @@ export default function Login() {
                 Run your whole shop from one screen.
               </h1>
               <p className="mt-2.5 max-w-lg text-[14px] leading-6 text-white/70">
-                Sales, stock, customers and credit — clear, fast and built for the way shops in Uganda actually work.
+                Sales, stock, customers and credit. Clear, fast and built for the way shops in Uganda actually work.
               </p>
             </div>
 
@@ -575,6 +622,15 @@ export default function Login() {
                     Icon={ShopIcon}
                   />
                   <AuthField
+                    label="Phone (WhatsApp)"
+                    type="tel"
+                    value={signupForm.phone}
+                    onChange={(event) => setSignupForm((prev) => ({ ...prev, phone: event.target.value }))}
+                    placeholder="07XX XXX XXX"
+                    autoComplete="tel"
+                    Icon={PhoneIcon}
+                  />
+                  <AuthField
                     label="Admin Email"
                     type="email"
                     value={signupForm.email}
@@ -590,6 +646,21 @@ export default function Login() {
                     placeholder="Create an admin username"
                     autoComplete="username"
                     Icon={UserIcon}
+                  />
+                  <AuthSelect
+                    label="Type of business"
+                    value={signupForm.businessType}
+                    onChange={(event) => setSignupForm((prev) => ({ ...prev, businessType: event.target.value }))}
+                    options={BUSINESS_TYPES}
+                    Icon={ShopIcon}
+                  />
+                  <AuthField
+                    label="Town / area"
+                    value={signupForm.location}
+                    onChange={(event) => setSignupForm((prev) => ({ ...prev, location: event.target.value }))}
+                    placeholder="e.g. Kampala, Nakawa"
+                    autoComplete="address-level2"
+                    Icon={PinIcon}
                   />
                   <AuthField
                     label="Password"

@@ -26,6 +26,8 @@ const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
+const Billing = lazy(() => import('./pages/Billing'));
+const OwnerBilling = lazy(() => import('./pages/OwnerBilling'));
 
 function App() {
   const [session, setSession] = useState({
@@ -61,6 +63,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Login />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/owner-login" element={<Navigate to="/owner" replace />} />
@@ -70,6 +73,8 @@ function App() {
           <Route path="owner" element={isSuperAdmin ? <OwnerDashboard /> : <Navigate to="/app" replace />} />
           <Route path="shops" element={isSuperAdmin ? <Shops /> : <Navigate to="/app" replace />} />
           <Route path="shops/:id" element={isSuperAdmin ? <ShopDetail /> : <Navigate to="/app" replace />} />
+          <Route path="owner-billing" element={isSuperAdmin ? <OwnerBilling /> : <Navigate to="/app" replace />} />
+          <Route path="billing" element={isSuperAdmin ? <Navigate to="/app/owner-billing" replace /> : isStaff ? staffBlocked : <Billing />} />
           <Route path="products" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Products />} />
           <Route path="customers" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Customers />} />
           <Route path="pos" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <POS />} />

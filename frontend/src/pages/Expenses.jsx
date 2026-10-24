@@ -175,8 +175,8 @@ export default function Expenses() {
 
       <StatGrid>
         <StatTile label="Spent" value={formatCompactMoney(currency, total)} title={formatMoney(currency, total)} hint={rangeLabel} tone={total ? 'danger' : 'default'} icon={statIcons.money} iconTone="danger" />
-        <StatTile label="Per day" value={days ? formatCompactMoney(currency, total / days) : '—'} hint={days ? `Average over ${days} day${days === 1 ? '' : 's'}` : 'Choose a period'} icon={statIcons.calendar} iconTone="info" />
-        <StatTile label="Biggest cost" value={byCategory[0]?.[0] || '—'} hint={byCategory[0] ? formatMoney(currency, byCategory[0][1]) : 'No expenses'} icon={statIcons.receipt} iconTone="warning" />
+        <StatTile label="Per day" value={days ? formatCompactMoney(currency, total / days) : '-'} hint={days ? `Average over ${days} day${days === 1 ? '' : 's'}` : 'Choose a period'} icon={statIcons.calendar} iconTone="info" />
+        <StatTile label="Biggest cost" value={byCategory[0]?.[0] || '-'} hint={byCategory[0] ? formatMoney(currency, byCategory[0][1]) : 'No expenses'} icon={statIcons.receipt} iconTone="warning" />
         <StatTile label="Records" value={expenses.length.toLocaleString()} hint="In this period"  icon={statIcons.box} />
       </StatGrid>
 

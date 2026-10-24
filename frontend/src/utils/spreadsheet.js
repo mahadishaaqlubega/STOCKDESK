@@ -13,6 +13,7 @@ export const PRODUCT_COLUMNS = {
   type: ['type', 'kind', 'goodsorservice'],
   buyPrice: ['costprice', 'cost', 'buyprice', 'buyingprice', 'purchaseprice', 'unitcost'],
   sellPrice: ['sellingprice', 'sellprice', 'price', 'saleprice', 'retailprice', 'unitprice'],
+  wholesalePrice: ['wholesaleprice', 'wholesale', 'bulkprice', 'tradeprice'],
   quantity: ['quantity', 'qty', 'stock', 'instock', 'onhand', 'stocklevel', 'units'],
   lowStock: ['reorderlevel', 'lowstock', 'reorder', 'minstock', 'minimum', 'alertlevel'],
 };

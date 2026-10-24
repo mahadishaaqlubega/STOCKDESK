@@ -37,7 +37,7 @@ const PAY_METHODS = ['Cash', 'Mobile Money', 'Bank', 'Card'];
 const emptySupplier = { id: null, name: '', phone: '', whatsapp: '', email: '', address: '', notes: '' };
 
 const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const shortDate = (value) => (value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+const shortDate = (value) => (value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '-');
 
 const truckIcon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7h11v9H3z" /><path d="M14 10h4l3 3v3h-7" /><circle cx="7" cy="18" r="1.8" /><circle cx="17.5" cy="18" r="1.8" /></svg>;
 
@@ -312,7 +312,7 @@ export default function Suppliers() {
                       <td data-label="Purchases" className="num px-4 py-2.5 text-right text-[var(--text-secondary)]">{Number(s.purchaseCount || 0).toLocaleString()}</td>
                       <td data-label="Bought" className="num px-4 py-2.5 text-right text-[var(--text-secondary)]">{money(s.purchased)}</td>
                       <td data-label="You owe" className="num px-4 py-2.5 text-right">
-                        {Number(s.balance) > 0 ? <span className="font-semibold text-amber-600 dark:text-amber-300">{money(s.balance)}</span> : <span className="text-[var(--text-muted)]">—</span>}
+                        {Number(s.balance) > 0 ? <span className="font-semibold text-amber-600 dark:text-amber-300">{money(s.balance)}</span> : <span className="text-[var(--text-muted)]">-</span>}
                       </td>
                       <td data-label="Last delivery" className="px-4 py-2.5 text-[var(--text-secondary)]">{shortDate(s.lastPurchaseDate)}</td>
                       <td data-label="Actions" className="px-4 py-2.5">
@@ -357,11 +357,11 @@ export default function Suppliers() {
                 {visiblePurchases.map((p) => (
                   <tr key={p.id} className="app-row-hover cursor-pointer" onClick={() => openPurchase(p)}>
                     <td data-label="Date" className="px-4 py-2.5 text-[var(--text-secondary)]">{shortDate(p.purchaseDate)}</td>
-                    <td data-label="Supplier" className="px-4 py-2.5 font-medium text-[var(--text-primary)]">{p.supplier?.name || '—'}</td>
+                    <td data-label="Supplier" className="px-4 py-2.5 font-medium text-[var(--text-primary)]">{p.supplier?.name || '-'}</td>
                     <td data-label="Invoice" className="px-4 py-2.5 text-[var(--text-secondary)]">{p.reference || `#${p.id}`}</td>
                     <td data-label="Lines" className="num px-4 py-2.5 text-right text-[var(--text-secondary)]">{p.itemCount}</td>
                     <td data-label="Total" className="num px-4 py-2.5 text-right font-medium text-[var(--text-primary)]">{money(p.total)}</td>
-                    <td data-label="Still owed" className="num px-4 py-2.5 text-right">{Number(p.balanceDue) > 0 ? <span className="font-semibold text-amber-600 dark:text-amber-300">{money(p.balanceDue)}</span> : <span className="text-[var(--text-muted)]">—</span>}</td>
+                    <td data-label="Still owed" className="num px-4 py-2.5 text-right">{Number(p.balanceDue) > 0 ? <span className="font-semibold text-amber-600 dark:text-amber-300">{money(p.balanceDue)}</span> : <span className="text-[var(--text-muted)]">-</span>}</td>
                     <td data-label="Status" className="px-4 py-2.5">{paymentBadge(p)}</td>
                   </tr>
                 ))}

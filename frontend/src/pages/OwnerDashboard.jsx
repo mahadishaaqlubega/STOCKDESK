@@ -13,7 +13,7 @@ const RANGE_OPTIONS = [
 ];
 
 function relativeTime(value) {
-  if (!value) return '—';
+  if (!value) return '-';
   const mins = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000));
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins} min ago`;
@@ -132,7 +132,7 @@ export default function OwnerDashboard() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm text-[var(--text-muted)]">Hello {currentUser?.name?.split(' ')[0] || 'there'} — here is how the network is doing.</p>
+          <p className="text-sm text-[var(--text-muted)]">Hello {currentUser?.name?.split(' ')[0] || 'there'}, here is how the network is doing.</p>
           <p className="text-xs text-[var(--text-muted)]">{refreshing ? 'Refreshing…' : data?.generatedAt ? `Updated ${relativeTime(data.generatedAt)} · refreshes every minute` : ''}</p>
         </div>
         <div className="flex items-center gap-2">

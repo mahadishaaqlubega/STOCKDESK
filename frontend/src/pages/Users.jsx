@@ -105,7 +105,7 @@ export default function Users() {
   const handleCreate = async (event) => {
     event.preventDefault();
     if (!STRONG_PASSWORD.test(form.password)) {
-      setFormError('Password needs at least 8 characters with a letter, a number and a symbol — or press Generate.');
+      setFormError('Password needs at least 8 characters with a letter, a number and a symbol, or press Generate.');
       return;
     }
     setSaving(true);
@@ -139,7 +139,7 @@ export default function Users() {
   const handleReset = async (event) => {
     event.preventDefault();
     if (!STRONG_PASSWORD.test(resetPasswordValue)) {
-      setResetError('Password needs at least 8 characters with a letter, a number and a symbol — or press Generate.');
+      setResetError('Password needs at least 8 characters with a letter, a number and a symbol, or press Generate.');
       return;
     }
     try {
@@ -173,7 +173,7 @@ export default function Users() {
       await navigator.clipboard.writeText(text);
       flash('Login details copied.');
     } catch {
-      flash('Copy failed — select and copy the details manually.');
+      flash('Copy failed. Select and copy the details manually.');
     }
   };
 
@@ -234,7 +234,7 @@ export default function Users() {
                             {user.email}
                             {user.isVerified ? <Badge tone="success">Verified</Badge> : <Badge tone="warning">Pending</Badge>}
                           </span>
-                        ) : <span className="text-[var(--text-muted)]">—</span>}
+                        ) : <span className="text-[var(--text-muted)]">-</span>}
                       </td>
                       <td data-label="Joined" className="px-4 py-2.5 text-[var(--text-muted)]">{new Date(user.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                       <td data-label="Actions" className="px-4 py-2.5">
@@ -334,7 +334,7 @@ export default function Users() {
             ].map(([label, value, mono]) => (
               <div key={label} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
                 <dt className="text-[var(--text-muted)]">{label}</dt>
-                <dd className={`select-all text-right font-medium text-[var(--text-primary)] ${mono ? 'font-mono' : ''}`}>{value || '—'}</dd>
+                <dd className={`select-all text-right font-medium text-[var(--text-primary)] ${mono ? 'font-mono' : ''}`}>{value || '-'}</dd>
               </div>
             ))}
           </dl>

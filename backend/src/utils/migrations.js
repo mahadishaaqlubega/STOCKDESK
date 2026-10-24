@@ -143,6 +143,35 @@ const STATEMENTS = [
         END LOOP;
       END $$;`,
   },
+  // Subscription billing and owner contact details.
+  { name: 'shops.plan', sql: `ALTER TABLE IF EXISTS "shops" ADD COLUMN IF NOT EXISTS "plan" VARCHAR(20);` },
+  { name: 'shops.trialEndsAt', sql: `ALTER TABLE IF EXISTS "shops" ADD COLUMN IF NOT EXISTS "trialEndsAt" TIMESTAMPTZ;` },
+  { name: 'shops.paidUntil', sql: `ALTER TABLE IF EXISTS "shops" ADD COLUMN IF NOT EXISTS "paidUntil" TIMESTAMPTZ;` },
+  { name: 'shops.ownerPhone', sql: `ALTER TABLE IF EXISTS "shops" ADD COLUMN IF NOT EXISTS "ownerPhone" VARCHAR(32);` },
+  { name: 'shops.businessType', sql: `ALTER TABLE IF EXISTS "shops" ADD COLUMN IF NOT EXISTS "businessType" VARCHAR(60);` },
+  { name: 'shops.location', sql: `ALTER TABLE IF EXISTS "shops" ADD COLUMN IF NOT EXISTS "location" VARCHAR(120);` },
+  { name: 'shops.billingNotes', sql: `ALTER TABLE IF EXISTS "shops" ADD COLUMN IF NOT EXISTS "billingNotes" TEXT;` },
+  { name: 'shops.lastBillingNotice', sql: `ALTER TABLE IF EXISTS "shops" ADD COLUMN IF NOT EXISTS "lastBillingNotice" VARCHAR(48);` },
+  {
+    // Shops that existed before billing get a full trial from the day billing
+    // goes live, so nobody is locked out on launch. Only fills empty values.
+    name: 'shops.trialEndsAt backfill for existing shops',
+    sql: `UPDATE "shops" SET "trialEndsAt" = now() + interval '30 days' WHERE "trialEndsAt" IS NULL;`,
+  },
+  { name: 'pending_signups.phone', sql: `ALTER TABLE IF EXISTS "pending_signups" ADD COLUMN IF NOT EXISTS "phone" VARCHAR(32);` },
+  { name: 'pending_signups.businessType', sql: `ALTER TABLE IF EXISTS "pending_signups" ADD COLUMN IF NOT EXISTS "businessType" VARCHAR(60);` },
+  { name: 'pending_signups.location', sql: `ALTER TABLE IF EXISTS "pending_signups" ADD COLUMN IF NOT EXISTS "location" VARCHAR(120);` },
+  { name: 'index: subscription payments by shop', sql: `CREATE INDEX IF NOT EXISTS "subscription_payments_shop_idx" ON "subscription_payments" ("shopId", "createdAt");` },
+  { name: 'index: payment requests by shop', sql: `CREATE INDEX IF NOT EXISTS "payment_requests_shop_idx" ON "payment_requests" ("shopId", "status");` },
+  // Wholesale and retail prices.
+  { name: 'products.wholesalePrice', sql: `ALTER TABLE IF EXISTS "products" ADD COLUMN IF NOT EXISTS "wholesalePrice" NUMERIC(12, 2);` },
+  { name: 'products.wholesaleMinQty', sql: `ALTER TABLE IF EXISTS "products" ADD COLUMN IF NOT EXISTS "wholesaleMinQty" INTEGER;` },
+  { name: 'customers.priceTier', sql: `ALTER TABLE IF EXISTS "customers" ADD COLUMN IF NOT EXISTS "priceTier" VARCHAR(16) NOT NULL DEFAULT 'retail';` },
+  { name: 'sales.priceTier', sql: `ALTER TABLE IF EXISTS "sales" ADD COLUMN IF NOT EXISTS "priceTier" VARCHAR(16) NOT NULL DEFAULT 'retail';` },
+  // Loyalty and customer-specific prices.
+  { name: 'customers.loyaltyPercent', sql: `ALTER TABLE IF EXISTS "customers" ADD COLUMN IF NOT EXISTS "loyaltyPercent" NUMERIC(5, 2);` },
+  { name: 'index: one price per customer and product', sql: `CREATE UNIQUE INDEX IF NOT EXISTS "customer_prices_customer_product_uq" ON "customer_prices" ("customerId", "productId");` },
+  { name: 'index: customer prices by shop', sql: `CREATE INDEX IF NOT EXISTS "customer_prices_shop_idx" ON "customer_prices" ("shopId", "customerId");` },
   // Indexes for the queries every screen runs, so lists and reports stay
   // fast as shops grow to thousands of customers and sales.
   { name: 'index: sales by shop and date', sql: `CREATE INDEX IF NOT EXISTS "sales_shop_created_idx" ON "sales" ("shopId", "createdAt");` },

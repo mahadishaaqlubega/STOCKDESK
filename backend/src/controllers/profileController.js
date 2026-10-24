@@ -132,7 +132,7 @@ exports.changePassword = async (req, res, next) => {
   }
 };
 
-// POST /api/profile/sign-out-everywhere — ends every session of this user,
+// POST /api/profile/sign-out-everywhere - ends every session of this user,
 // including this one (lost phone, shared computer).
 exports.signOutEverywhere = async (req, res, next) => {
   try {

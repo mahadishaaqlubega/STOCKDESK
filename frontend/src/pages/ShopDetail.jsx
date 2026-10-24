@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fetchShopDetail, deleteShop } from '../utils/api';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { Alert, Badge, EmptyState, Modal, Panel, PanelHeader, SkeletonRows, StatTile, fieldInput, icons } from '../components/ui';
+import ShopSubscriptionPanel from '../components/ShopSubscriptionPanel';
 
 function relativeTime(value) {
   if (!value) return null;
@@ -52,7 +53,7 @@ function DeleteShopModal({ shop, onCancel, onConfirm, isDeleting }) {
     >
       <div className="space-y-4">
         <Alert tone="danger">
-          This deletes <strong>{shop.name}</strong> and everything in it — {m.users || 0} team accounts, {(m.products || 0).toLocaleString()} products, {(m.sales || 0).toLocaleString()} sales, {(m.customers || 0).toLocaleString()} customers and all history. It cannot be undone.
+          This deletes <strong>{shop.name}</strong> and everything in it: {m.users || 0} team accounts, {(m.products || 0).toLocaleString()} products, {(m.sales || 0).toLocaleString()} sales, {(m.customers || 0).toLocaleString()} customers and all history. It cannot be undone.
         </Alert>
         <label className="block text-sm font-medium text-[var(--text-secondary)]">
           Type <span className="font-mono text-[var(--danger)]">{shop.name}</span> to confirm
@@ -163,6 +164,8 @@ export default function ShopDetail() {
       </Panel>
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
+
+      <ShopSubscriptionPanel shopId={shop.id} shopName={shop.name} isActive={shop.isActive} onActiveChange={(value) => setShop((s) => ({ ...s, isActive: value }))} />
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         <StatTile label="Team" value={(m.users || 0).toLocaleString()} />

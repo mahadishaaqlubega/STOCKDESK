@@ -41,7 +41,7 @@ function supplierPayload(body) {
 
 // ---------------------------------------------------------------- suppliers
 
-// GET /api/suppliers — every supplier with what was bought and what is owed.
+// GET /api/suppliers - every supplier with what was bought and what is owed.
 exports.listSuppliers = async (req, res, next) => {
   try {
     const rows = await sequelize.query(
@@ -108,7 +108,7 @@ exports.deleteSupplier = async (req, res, next) => {
   }
 };
 
-// GET /api/suppliers/:id/statement — unpaid purchases and payments made.
+// GET /api/suppliers/:id/statement - unpaid purchases and payments made.
 exports.supplierStatement = async (req, res, next) => {
   try {
     const supplier = await Supplier.findOne({ where: { id: req.params.id, shopId: req.user.shopId } });
@@ -150,7 +150,7 @@ exports.supplierStatement = async (req, res, next) => {
   }
 };
 
-// POST /api/suppliers/:id/payments — { amount, method, notes?, purchaseId? }.
+// POST /api/suppliers/:id/payments - { amount, method, notes?, purchaseId? }.
 // Without purchaseId the oldest unpaid purchases are settled first.
 exports.paySupplier = async (req, res, next) => {
   let transaction;
@@ -249,7 +249,7 @@ exports.getPurchase = async (req, res, next) => {
   }
 };
 
-// POST /api/purchases — goods received.
+// POST /api/purchases - goods received.
 // Body: { supplierId, reference?, purchaseDate?, dueDate?, notes?,
 //         amountPaid?, paymentMethod?, items: [{ productId, quantity, unitCost, sellPrice? }] }
 exports.createPurchase = async (req, res, next) => {
