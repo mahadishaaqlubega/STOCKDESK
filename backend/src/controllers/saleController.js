@@ -175,6 +175,15 @@ exports.createSale = async (req, res, next) => {
     const itemRecords = [];
     const isAdmin = req.user.role === 'Admin' || req.user.role === 'SuperAdmin';
 
+    // Wholesale prices apply to customers marked wholesale. Admins can also
+    // switch a walk-in sale to wholesale; staff cannot, so it can't be used to
+    // get round their discount limit.
+    if (req.body.priceTier === 'wholesale' && !isAdmin && customer?.priceTier !== 'wholesale') {
+      throw httpError(403, 'Only an admin can use wholesale prices for this customer.');
+    }
+    const wholesaleSale = customer?.priceTier === 'wholesale' || (isAdmin && req.body.priceTier === 'wholesale');
+    let usedWholesale = false;
+
     // Lock rows in ascending product id so two sales touching the same
     // products always queue instead of deadlocking each other.
     const orderedItems = [...items].sort((x, y) => Number(x.productId) - Number(y.productId));
@@ -203,15 +212,19 @@ exports.createSale = async (req, res, next) => {
       // discount off the catalogue price (never above it). Services may be
       // charged any agreed amount (e.g. a repair quoted per job); a service
       // with no catalogue price must have one supplied.
-      const catalogPrice = parseFloat(product.sellPrice) || 0;
+      const retailPrice = parseFloat(product.sellPrice) || 0;
+      const wholesalePrice = product.wholesalePrice == null ? null : parseFloat(product.wholesalePrice);
+      const getsWholesale = wholesaleSale && wholesalePrice != null && quantity >= (product.wholesaleMinQty || 1);
+      if (getsWholesale) usedWholesale = true;
+      const catalogPrice = getsWholesale ? wholesalePrice : retailPrice;
       let unitPrice = catalogPrice;
       if (item.price !== undefined && item.price !== null && item.price !== '') {
         const charged = roundMoney(Number(item.price));
         if (!Number.isFinite(charged) || charged < 0) {
           throw httpError(400, `Enter a valid amount for ${product.name}`);
         }
-        if (!isService && charged > catalogPrice + 0.005) {
-          throw httpError(400, `${product.name} cannot be sold above its price of ${catalogPrice}. Change the product price instead.`);
+        if (!isService && charged > retailPrice + 0.005) {
+          throw httpError(400, `${product.name} cannot be sold above its price of ${retailPrice}. Change the product price instead.`);
         }
         unitPrice = charged;
       }
@@ -306,6 +319,7 @@ exports.createSale = async (req, res, next) => {
         paymentMethod,
         paymentSplits: salePaymentSplits,
         currency: saleCurrency,
+        priceTier: usedWholesale ? 'wholesale' : 'retail',
         creditAmount,
         balanceDue: creditAmount,
         dueDate,
@@ -348,6 +362,7 @@ exports.createSale = async (req, res, next) => {
     res.status(201).json({
       saleId: sale.id,
       receipt: receiptNumber,
+      priceTier: usedWholesale ? 'wholesale' : 'retail',
       total,
       discount: discountAmount,
       itemDiscounts,

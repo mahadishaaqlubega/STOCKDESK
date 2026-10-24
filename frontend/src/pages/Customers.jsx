@@ -40,6 +40,7 @@ const initialForm = {
   address: '',
   notes: '',
   creditLimit: '',
+  priceTier: 'retail',
   isActive: true,
 };
 
@@ -158,6 +159,7 @@ export default function Customers() {
       address: customer.address || '',
       notes: customer.notes || '',
       creditLimit: customer.creditLimit ?? '',
+      priceTier: customer.priceTier || 'retail',
       isActive: customer.isActive !== false,
     });
     setMessage('');
@@ -371,6 +373,7 @@ export default function Customers() {
                           <div className="min-w-0">
                             <p className="font-medium text-[var(--text-primary)]">
                               {customer.name}
+                              {customer.priceTier === 'wholesale' ? <span className="ml-2 rounded-full bg-[var(--accent-soft)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--accent-strong)]">Wholesale</span> : null}
                               {customer.isActive === false ? <span className="ml-2 rounded-full bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[11px] font-normal text-[var(--text-muted)]">Inactive</span> : null}
                             </p>
                             <p className="text-xs text-[var(--text-muted)]">Since {new Date(customer.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</p>
@@ -475,6 +478,19 @@ export default function Customers() {
                   <input type="number" min="0" step="any" inputMode="decimal" value={form.creditLimit} onChange={(event) => setForm((prev) => ({ ...prev, creditLimit: event.target.value }))} placeholder="No limit" className={field} />
                   <span className="mt-1 block text-xs font-normal text-[var(--text-muted)]">The most this customer can owe when buying on credit.</span>
                 </label>
+              ) : null}
+              {canDelete ? (
+                <div className={label}>
+                  Prices
+                  <div className="mt-1.5 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Prices for this customer">
+                    {[['retail', 'Retail'], ['wholesale', 'Wholesale']].map(([value, text]) => (
+                      <button key={value} type="button" role="radio" aria-checked={form.priceTier === value} onClick={() => setForm((prev) => ({ ...prev, priceTier: value }))} className={`rounded-lg border px-3 py-2 text-sm font-medium ${form.priceTier === value ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]' : 'border-[var(--border-default)] text-[var(--text-secondary)]'}`}>
+                        {text}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="mt-1 block text-xs font-normal text-[var(--text-muted)]">Wholesale customers automatically get each product&apos;s wholesale price at the till.</span>
+                </div>
               ) : null}
               <label className={label}>
                 Notes

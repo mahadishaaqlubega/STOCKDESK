@@ -65,6 +65,7 @@ function receiptModel(sale, settings, cashierName) {
     receiptNumber: sale.receipt?.receiptNumber || `SD-${String(sale.id).padStart(6, '0')}`,
     cashier: cashierName || sale.cashier?.name || '-',
     customer: sale.customer && sale.customer.name !== 'Walk-in Customer' ? sale.customer : null,
+    wholesale: sale.priceTier === 'wholesale',
     items,
     units: items.reduce((sum, item) => sum + item.quantity, 0),
     subtotal: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -157,6 +158,7 @@ function buildThermalHtml(m, paper) {
       ${row('Served by', escapeHtml(m.cashier))}
       ${m.customer ? row('Customer', escapeHtml(m.customer.name)) : ''}
       ${m.customer?.phone ? row('Phone', escapeHtml(m.customer.phone)) : ''}
+      ${m.wholesale ? row('Prices', 'Wholesale') : ''}
     </section>
     <hr />
     <section>${itemsHtml}</section>
@@ -303,7 +305,7 @@ function buildA4Html(m) {
       <div>
         <div class="label">Served by</div>
         <div class="party-name">${escapeHtml(m.cashier)}</div>
-        <div>${m.units} item${m.units === 1 ? '' : 's'}</div>
+        <div>${m.units} item${m.units === 1 ? '' : 's'}${m.wholesale ? ' · wholesale prices' : ''}</div>
       </div>
     </section>
 

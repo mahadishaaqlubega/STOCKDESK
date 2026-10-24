@@ -259,6 +259,10 @@ export default function Reports() {
         { item: 'Gross profit', value: Number(m.grossProfit || 0) },
         { item: 'Sold on credit', value: Number(m.creditSales || 0) },
         { item: 'Credit collected', value: Number(m.creditCollected || 0) },
+        ...(rangeData?.byPriceTier ? [
+          { item: 'Retail sales', value: Number(rangeData.byPriceTier.retail?.total || 0) },
+          { item: 'Wholesale sales', value: Number(rangeData.byPriceTier.wholesale?.total || 0) },
+        ] : []),
         { item: 'Currency', value: currency },
         ...(truncated ? [{ item: 'Note', value: 'Only the first 50,000 lines are included. Export a shorter period for the rest.' }] : []),
       ];
@@ -566,6 +570,28 @@ export default function Reports() {
                 </div>
               );
             })()}
+
+            {rangeData.byPriceTier?.wholesale?.orders > 0 ? (() => {
+              const { retail, wholesale } = rangeData.byPriceTier;
+              const all = (retail.total || 0) + (wholesale.total || 0);
+              const share = all > 0 ? Math.round((wholesale.total / all) * 100) : 0;
+              return (
+                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-4">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">Retail vs wholesale</p>
+                    <p className="text-xs text-[var(--text-muted)]">{share}% wholesale</p>
+                  </div>
+                  <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-[var(--surface-tertiary)]" aria-hidden="true">
+                    <span className="bg-[var(--accent)]" style={{ width: `${100 - share}%` }} />
+                    <span className="bg-sky-500" style={{ width: `${share}%` }} />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <p><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[var(--accent)]" />Retail <span className="num block font-semibold text-[var(--text-primary)]">{formatMoney(currency, retail.total)}</span><span className="text-xs text-[var(--text-muted)]">{retail.orders.toLocaleString()} sales</span></p>
+                    <p><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-sky-500" />Wholesale <span className="num block font-semibold text-[var(--text-primary)]">{formatMoney(currency, wholesale.total)}</span><span className="text-xs text-[var(--text-muted)]">{wholesale.orders.toLocaleString()} sales</span></p>
+                  </div>
+                </div>
+              );
+            })() : null}
 
             {rangeData.sales?.length > 0 && (
               <div className="overflow-hidden rounded-xl border border-[var(--border-default)]">

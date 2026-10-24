@@ -79,6 +79,12 @@ Sale.init(
       type: DataTypes.DATEONLY,
       allowNull: true,
     },
+    // 'wholesale' when the sale used wholesale prices, otherwise 'retail'.
+    priceTier: {
+      type: DataTypes.STRING(16),
+      allowNull: false,
+      defaultValue: 'retail',
+    },
     clientRef: {
       // Id the till generated for this sale. Makes checkout idempotent: a
       // sale sent twice (offline queue retry, lost response) is stored once.

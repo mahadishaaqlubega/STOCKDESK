@@ -23,6 +23,17 @@ const tenderMethods = ['Cash', 'Card', 'Mobile Money'];
 
 const isServiceProduct = (product) => product?.type === 'service';
 
+// The catalogue price for a cart line: the wholesale price when the sale is
+// wholesale and the line meets the product's minimum quantity, else retail.
+// A price the cashier typed in is kept.
+function repriceLine(item, wholesale) {
+  if (item.isService || item.retailPrice == null) return item;
+  const useWholesale = wholesale && item.wholesalePrice != null && item.quantity >= (item.wholesaleMinQty || 1);
+  const listPrice = useWholesale ? item.wholesalePrice : item.retailPrice;
+  const price = item.priceInput !== undefined ? item.price : listPrice;
+  return listPrice === item.listPrice && price === item.price ? item : { ...item, listPrice, price, wholesale: useWholesale };
+}
+
 // Tiles rendered at once; more load on demand so big catalogues stay fast on phones.
 const PAGE_SIZE = 60;
 
@@ -65,6 +76,8 @@ export default function POS() {
   const [creditDepositMethod, setCreditDepositMethod] = useState('Cash');
   const [creditDueDate, setCreditDueDate] = useState('');
   const [splitPayments, setSplitPayments] = useState([{ method: 'Cash', amount: '' }, { method: 'Card', amount: '' }]);
+  const [wholesaleWalkIn, setWholesaleWalkIn] = useState(false);
+  const isAdminUser = getUser()?.role === 'Admin';
 
   useBodyScrollLock(showReceipt);
 
@@ -183,6 +196,18 @@ export default function POS() {
     [customers, customerId]
   );
 
+  // Wholesale customers always get wholesale prices; admins can also switch a
+  // walk-in sale to wholesale.
+  const customerIsWholesale = selectedCustomer?.priceTier === 'wholesale';
+  const wholesaleMode = customerIsWholesale || (isAdminUser && wholesaleWalkIn);
+
+  useEffect(() => {
+    setCart((prev) => {
+      const next = prev.map((item) => repriceLine(item, wholesaleMode));
+      return next.some((item, i) => item !== prev[i]) ? next : prev;
+    });
+  }, [wholesaleMode]);
+
   const cartItemCount = useMemo(
     () => cart.reduce((sum, item) => sum + item.quantity, 0),
     [cart]
@@ -194,7 +219,7 @@ export default function POS() {
       if (existing) {
         return prev.map((item) =>
           item.productId === product.id
-            ? { ...item, quantity: item.isService ? item.quantity + 1 : Math.min(item.quantity + 1, product.quantity) }
+            ? repriceLine({ ...item, quantity: item.isService ? item.quantity + 1 : Math.min(item.quantity + 1, product.quantity) }, wholesaleMode)
             : item
         );
       }
@@ -202,17 +227,20 @@ export default function POS() {
         setMessage(`${product.name} is out of stock.`);
         return prev;
       }
-      return [...prev, {
+      return [...prev, repriceLine({
         productId: product.id,
         name: product.name,
         price: parseFloat(product.sellPrice),
         // Catalogue price and cost, so a typed-in price can be shown and
         // checked as a discount.
         listPrice: parseFloat(product.sellPrice) || 0,
+        retailPrice: parseFloat(product.sellPrice) || 0,
+        wholesalePrice: product.wholesalePrice == null ? null : parseFloat(product.wholesalePrice),
+        wholesaleMinQty: product.wholesaleMinQty || null,
         buyPrice: parseFloat(product.buyPrice) || 0,
         quantity: 1,
         isService: isServiceProduct(product),
-      }];
+      }, wholesaleMode)];
     });
   };
 
@@ -226,7 +254,7 @@ export default function POS() {
   const updateQuantity = (productId, amount) => {
     setCart((prev) =>
       prev
-        .map((item) => (item.productId === productId ? { ...item, quantity: Math.max(0, item.quantity + amount) } : item))
+        .map((item) => (item.productId === productId ? repriceLine({ ...item, quantity: Math.max(0, item.quantity + amount) }, wholesaleMode) : item))
         .filter((item) => item.quantity > 0)
     );
   };
@@ -237,6 +265,7 @@ export default function POS() {
 
   const clearCart = () => {
     setCart([]);
+    setWholesaleWalkIn(false);
     setDiscount(0);
     setDiscountType('fixed');
     setMobileSection('browse');
@@ -312,6 +341,7 @@ export default function POS() {
       paymentSplits: useSplit ? splitPayments.filter((p) => parseFloat(p.amount) > 0).map((p) => ({ ...p, amount: Number(p.amount) })) : null,
       balanceDue: 0,
       creditAmount: 0,
+      priceTier: wholesaleMode ? 'wholesale' : 'retail',
       customer: customer ? { id: customer.id, name: customer.name, phone: customer.phone } : null,
       cashier: { name: user?.name },
       receipt: { receiptNumber: offlineReceiptNumber(clientRef) },
@@ -361,9 +391,9 @@ export default function POS() {
         setMessage(`Enter the amount charged for ${unpriced.name}.`);
         return;
       }
-      const overpriced = cart.find((item) => !item.isService && Number(item.price) > item.listPrice + 0.005);
+      const overpriced = cart.find((item) => !item.isService && Number(item.price) > (item.retailPrice ?? item.listPrice) + 0.005);
       if (overpriced) {
-        setMessage(`${overpriced.name} can't be sold above its price of ${formatMoney(currency, overpriced.listPrice)}.`);
+        setMessage(`${overpriced.name} can't be sold above its price of ${formatMoney(currency, overpriced.retailPrice ?? overpriced.listPrice)}.`);
         return;
       }
       const unpricedGoods = cart.find((item) => !item.isService && item.price === '');
@@ -440,6 +470,7 @@ export default function POS() {
         discount,
         discountType,
         customerId: customerId ? Number(customerId) : null,
+        priceTier: wholesaleMode ? 'wholesale' : 'retail',
         ...(isCredit
           ? { amountPaid: depositValue, depositMethod: creditDepositMethod, dueDate: creditDueDate || null }
           : {}),
@@ -585,7 +616,14 @@ export default function POS() {
                       <span className="line-clamp-2 pr-6 text-sm font-medium leading-snug text-[var(--text-primary)]">{product.name}</span>
                       <span className="mt-0.5 truncate text-[11px] uppercase tracking-wide text-[var(--text-muted)]">{product.category || 'Uncategorized'}</span>
                       <span className="mt-auto flex items-end justify-between gap-2 pt-2">
-                        <span className="num text-sm font-semibold text-[var(--text-primary)]">{service && !(Number(product.sellPrice) > 0) ? 'Set price' : formatMoney(currency, product.sellPrice)}</span>
+                        {wholesaleMode && !service && product.wholesalePrice != null ? (
+                          <span className="min-w-0">
+                            <span className="num block text-sm font-semibold text-[var(--accent)]">{formatMoney(currency, product.wholesalePrice)}</span>
+                            <span className="block truncate text-[10px] text-[var(--text-muted)]">wholesale{product.wholesaleMinQty ? ` · ${product.wholesaleMinQty}+` : ''}</span>
+                          </span>
+                        ) : (
+                          <span className="num text-sm font-semibold text-[var(--text-primary)]">{service && !(Number(product.sellPrice) > 0) ? 'Set price' : formatMoney(currency, product.sellPrice)}</span>
+                        )}
                         <span className={`num shrink-0 text-[11px] ${outOfStock ? 'font-semibold text-[var(--danger)]' : service ? 'text-[var(--accent)]' : stock <= Number(product.lowStock ?? 5) ? 'text-[var(--warning)]' : 'text-[var(--text-muted)]'}`}>
                           {service ? 'Service' : outOfStock ? 'Out' : `${stock} left`}
                         </span>
@@ -645,10 +683,19 @@ export default function POS() {
                 {customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
                     {customer.name}{customer.phone ? ` · ${customer.phone}` : ''}
+                    {customer.priceTier === 'wholesale' ? ' · wholesale' : ''}
                     {Number(customer.balance) > 0 ? ` (owes ${formatMoney(currency, customer.balance)})` : ''}
                   </option>
                 ))}
               </select>
+              {customerIsWholesale ? (
+                <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-medium text-[var(--accent-strong)]">Wholesale prices</p>
+              ) : isAdminUser ? (
+                <label className="mt-2 flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
+                  <input type="checkbox" checked={wholesaleWalkIn} onChange={(e) => setWholesaleWalkIn(e.target.checked)} />
+                  Use wholesale prices for this sale
+                </label>
+              ) : null}
             </div>
 
             {/* Lines */}

@@ -30,6 +30,16 @@ Product.init(
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
     },
+    // Price for wholesale buyers. NULL means the product has no wholesale price.
+    wholesalePrice: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
+    // Smallest quantity per sale that gets the wholesale price (NULL = any).
+    wholesaleMinQty: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     quantity: {
       type: DataTypes.INTEGER,
       allowNull: false,

@@ -13,6 +13,11 @@ function normalizeCustomerPayload(body, { allowCreditLimit = false } = {}) {
     isActive: body.isActive !== false,
   };
 
+  // Only admins decide who buys at wholesale prices.
+  if (allowCreditLimit && body.priceTier !== undefined) {
+    payload.priceTier = body.priceTier === 'wholesale' ? 'wholesale' : 'retail';
+  }
+
   // Only admins may set how much a customer can owe; empty means no limit.
   if (allowCreditLimit && body.creditLimit !== undefined) {
     if (body.creditLimit === null || body.creditLimit === '') {

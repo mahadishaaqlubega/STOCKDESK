@@ -163,6 +163,11 @@ const STATEMENTS = [
   { name: 'pending_signups.location', sql: `ALTER TABLE IF EXISTS "pending_signups" ADD COLUMN IF NOT EXISTS "location" VARCHAR(120);` },
   { name: 'index: subscription payments by shop', sql: `CREATE INDEX IF NOT EXISTS "subscription_payments_shop_idx" ON "subscription_payments" ("shopId", "createdAt");` },
   { name: 'index: payment requests by shop', sql: `CREATE INDEX IF NOT EXISTS "payment_requests_shop_idx" ON "payment_requests" ("shopId", "status");` },
+  // Wholesale and retail prices.
+  { name: 'products.wholesalePrice', sql: `ALTER TABLE IF EXISTS "products" ADD COLUMN IF NOT EXISTS "wholesalePrice" NUMERIC(12, 2);` },
+  { name: 'products.wholesaleMinQty', sql: `ALTER TABLE IF EXISTS "products" ADD COLUMN IF NOT EXISTS "wholesaleMinQty" INTEGER;` },
+  { name: 'customers.priceTier', sql: `ALTER TABLE IF EXISTS "customers" ADD COLUMN IF NOT EXISTS "priceTier" VARCHAR(16) NOT NULL DEFAULT 'retail';` },
+  { name: 'sales.priceTier', sql: `ALTER TABLE IF EXISTS "sales" ADD COLUMN IF NOT EXISTS "priceTier" VARCHAR(16) NOT NULL DEFAULT 'retail';` },
   // Indexes for the queries every screen runs, so lists and reports stay
   // fast as shops grow to thousands of customers and sales.
   { name: 'index: sales by shop and date', sql: `CREATE INDEX IF NOT EXISTS "sales_shop_created_idx" ON "sales" ("shopId", "createdAt");` },

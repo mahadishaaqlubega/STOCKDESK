@@ -52,7 +52,7 @@ function finish(res, { dryRun, results, created, updated, unchanged }) {
 }
 
 // POST /api/import/products  { rows: [{ name, category, sku, type, buyPrice,
-//   sellPrice, quantity, lowStock }], dryRun = true, updateStock = false }
+//   sellPrice, wholesalePrice, quantity, lowStock }], dryRun = true, updateStock = false }
 exports.importProducts = async (req, res, next) => {
   let transaction;
   try {
@@ -63,7 +63,7 @@ exports.importProducts = async (req, res, next) => {
     const updateStock = req.body.updateStock === true;
     const shopId = req.user.shopId;
 
-    const existing = await Product.findAll({ where: { shopId }, attributes: ['id', 'name', 'sku', 'category', 'buyPrice', 'sellPrice', 'quantity', 'lowStock', 'type', 'isActive'], raw: true });
+    const existing = await Product.findAll({ where: { shopId }, attributes: ['id', 'name', 'sku', 'category', 'buyPrice', 'sellPrice', 'wholesalePrice', 'quantity', 'lowStock', 'type', 'isActive'], raw: true });
     const bySku = new Map(existing.filter((p) => p.sku).map((p) => [String(p.sku).trim().toLowerCase(), p]));
     const byName = new Map(existing.map((p) => [String(p.name).trim().toLowerCase(), p]));
     const seen = new Map();
@@ -75,6 +75,7 @@ exports.importProducts = async (req, res, next) => {
       const type = normType(raw.type);
       const sellPrice = amount(raw.sellPrice);
       const buyPrice = amount(raw.buyPrice);
+      const wholesalePrice = amount(raw.wholesalePrice);
       const quantity = wholeNumber(raw.quantity);
       const lowStock = wholeNumber(raw.lowStock);
       const fail = (message) => ({ row: rowNumber, name: name || '(no name)', action: 'error', message });
@@ -87,6 +88,7 @@ exports.importProducts = async (req, res, next) => {
       if (sellPrice === null && (type || 'goods') === 'goods' && !match) return fail('Selling price is missing');
       if (sellPrice !== null && (!Number.isFinite(sellPrice) || sellPrice < 0)) return fail('Selling price is not a valid amount');
       if (buyPrice !== null && (!Number.isFinite(buyPrice) || buyPrice < 0)) return fail('Cost price is not a valid amount');
+      if (wholesalePrice !== null && (!Number.isFinite(wholesalePrice) || wholesalePrice < 0)) return fail('Wholesale price is not a valid amount');
       if (quantity !== null && (!Number.isInteger(quantity) || quantity < 0)) return fail('Quantity must be a whole number, 0 or more');
       if (lowStock !== null && (!Number.isInteger(lowStock) || lowStock < 0)) return fail('Reorder level must be a whole number, 0 or more');
 
@@ -102,6 +104,8 @@ exports.importProducts = async (req, res, next) => {
         type: resolvedType,
         sellPrice: sellPrice ?? (match ? Number(match.sellPrice) : 0),
         buyPrice: buyPrice ?? (match ? Number(match.buyPrice) : 0),
+        // Empty keeps an existing product's wholesale price.
+        wholesalePrice: wholesalePrice ?? (match && match.wholesalePrice != null ? Number(match.wholesalePrice) : null),
         lowStock: resolvedType === 'service' ? 0 : lowStock ?? (match ? match.lowStock : 5),
       };
       if (resolvedType === 'service') fields.quantity = 0;
@@ -111,7 +115,8 @@ exports.importProducts = async (req, res, next) => {
       if (!match) return { row: rowNumber, name, action: 'create', fields };
       // Compare as trimmed text so stray spaces in old data aren't "changes".
       const same = (a, b) => String(a ?? '').trim() === String(b ?? '').trim();
-      const changes = Object.keys(fields).filter((k) => !same(fields[k], k === 'sellPrice' || k === 'buyPrice' ? Number(match[k]) : match[k]));
+      const money = (k) => k === 'sellPrice' || k === 'buyPrice' || (k === 'wholesalePrice' && match[k] != null);
+      const changes = Object.keys(fields).filter((k) => !same(fields[k], money(k) ? Number(match[k]) : match[k]));
       if (!match.isActive) changes.push('isActive');
       return changes.length
         ? { row: rowNumber, name, action: 'update', id: match.id, fields: { ...fields, isActive: true }, changes }

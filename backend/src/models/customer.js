@@ -45,6 +45,12 @@ Customer.init(
       type: DataTypes.DECIMAL(12, 2),
       allowNull: true,
     },
+    // 'retail' or 'wholesale': wholesale customers get products' wholesale prices.
+    priceTier: {
+      type: DataTypes.STRING(16),
+      allowNull: false,
+      defaultValue: 'retail',
+    },
     isActive: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

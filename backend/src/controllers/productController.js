@@ -16,6 +16,37 @@ function applyTypeRules(fields) {
   return fields;
 }
 
+// Wholesale price and minimum quantity: both optional; empty clears them.
+function wholesaleFields(body, sellPrice) {
+  const out = {};
+  if (body.wholesalePrice !== undefined) {
+    if (body.wholesalePrice === null || body.wholesalePrice === '') {
+      out.wholesalePrice = null;
+    } else {
+      const price = Number(body.wholesalePrice);
+      if (!Number.isFinite(price) || price < 0) {
+        throw Object.assign(new Error('Wholesale price must be 0 or more'), { status: 400 });
+      }
+      if (sellPrice != null && price > Number(sellPrice) + 0.005) {
+        throw Object.assign(new Error('Wholesale price cannot be higher than the selling price'), { status: 400 });
+      }
+      out.wholesalePrice = price;
+    }
+  }
+  if (body.wholesaleMinQty !== undefined) {
+    if (body.wholesaleMinQty === null || body.wholesaleMinQty === '') {
+      out.wholesaleMinQty = null;
+    } else {
+      const min = Number(body.wholesaleMinQty);
+      if (!Number.isInteger(min) || min < 1) {
+        throw Object.assign(new Error('Wholesale minimum quantity must be a whole number of 1 or more'), { status: 400 });
+      }
+      out.wholesaleMinQty = min;
+    }
+  }
+  return out;
+}
+
 exports.listProducts = async (req, res, next) => {
   try {
     const { search, category, type } = req.query;
@@ -57,7 +88,7 @@ exports.createProduct = async (req, res, next) => {
   try {
     const { name, sku, category, buyPrice, sellPrice, quantity, lowStock, type = 'goods' } = req.body;
     const fields = applyTypeRules({ name, sku: sku || null, category, buyPrice, sellPrice, quantity, lowStock, type });
-    const product = await Product.create({ ...fields, shopId: req.user.shopId });
+    const product = await Product.create({ ...fields, ...wholesaleFields(req.body, sellPrice), shopId: req.user.shopId });
     res.status(201).json(product);
   } catch (error) {
     next(error);
@@ -79,6 +110,7 @@ exports.updateProduct = async (req, res, next) => {
       }
     }
     updates = applyTypeRules({ type: updates.type ?? product.type, ...updates });
+    Object.assign(updates, wholesaleFields(req.body, updates.sellPrice ?? product.sellPrice));
     await product.update(updates);
     res.json(product);
   } catch (error) {

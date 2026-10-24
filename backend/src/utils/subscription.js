@@ -20,8 +20,8 @@ const DEFAULT_CONFIG = {
   ],
   payTo: {
     mtnNumber: '',
-    airtelNumber: '',
-    accountName: 'StockDesk Inventory',
+    airtelNumber: '0742 226 839',
+    accountName: 'Mahad Ishaaq Lubega',
     instructions: 'Send the amount by Mobile Money, then enter the transaction ID below. We confirm payments within a few hours.',
   },
   supportWhatsapp: '256742226839',
