@@ -1,5 +1,6 @@
 require('./setup');
-const { renderEmail } = require('../src/services/emailService');
+// setup.js mocks the email service; the template itself is pure, so test the real one.
+const { renderEmail } = jest.requireActual('../src/services/emailService');
 
 describe('email template', () => {
   it('escapes user text and includes the button link and plain-text version', () => {
