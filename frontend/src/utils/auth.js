@@ -1,7 +1,15 @@
 import { isOffline } from './connectivity';
 
-const STORAGE_KEY = 'stockdesk_token';
-const USER_KEY = 'stockdesk_user';
+// Two sign-ins can live side by side in one browser: a shop and the platform
+// owner console. Each has its own slot; every tab remembers which slot it
+// uses, and the sign-in pages (/login, /owner) pick their slot. The shop slot
+// keeps the original keys so existing sign-ins survive the change.
+const SLOTS = {
+  shop: { token: 'stockdesk_token', user: 'stockdesk_user' },
+  owner: { token: 'stockdesk_owner_token', user: 'stockdesk_owner_user' },
+};
+const ACTIVE_SLOT_KEY = 'stockdesk_active_slot';
+const OWNER_PATHS = ['/owner', '/owner-login', '/app/owner', '/app/shops', '/app/owner-billing', '/app/messages'];
 const SESSION_NOTICE_KEY = 'stockdesk_session_notice';
 const OFFLINE_GRACE_MS = 24 * 60 * 60 * 1000;
 
@@ -32,13 +40,55 @@ function parseTokenPayload(token) {
   }
 }
 
-function clearSessionData() {
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(USER_KEY);
+function slotForUser(user) {
+  return user?.role === 'SuperAdmin' ? 'owner' : 'shop';
+}
+
+// Before slots, an owner sign-in was stored in the shop keys: move it over.
+function migrateLegacyOwner() {
+  try {
+    const raw = localStorage.getItem(SLOTS.shop.user);
+    const user = raw ? JSON.parse(raw) : null;
+    if (user?.role === 'SuperAdmin') {
+      localStorage.setItem(SLOTS.owner.token, localStorage.getItem(SLOTS.shop.token) || '');
+      localStorage.setItem(SLOTS.owner.user, raw);
+      localStorage.removeItem(SLOTS.shop.token);
+      localStorage.removeItem(SLOTS.shop.user);
+    }
+  } catch {
+    // unreadable stored user: leave it
+  }
+}
+
+const hasToken = (slot) => Boolean(localStorage.getItem(SLOTS[slot].token));
+const currentPath = () => (typeof window !== 'undefined' ? window.location.pathname : '/');
+const isOwnerPath = (path) => OWNER_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+
+// Which slot this tab uses. Sign-in pages always use their own slot so you can
+// sign in to one while signed in to the other.
+export function getActiveSlot() {
+  migrateLegacyOwner();
+  const path = currentPath();
+  if (path === '/login' || path === '/signup') { setActiveSlot('shop'); return 'shop'; }
+  if (path === '/owner' || path === '/owner-login') { setActiveSlot('owner'); return 'owner'; }
+  const remembered = sessionStorage.getItem(ACTIVE_SLOT_KEY);
+  if (remembered && SLOTS[remembered] && hasToken(remembered)) return remembered;
+  const preferred = isOwnerPath(path) ? 'owner' : 'shop';
+  const other = preferred === 'owner' ? 'shop' : 'owner';
+  return hasToken(preferred) || !hasToken(other) ? preferred : other;
+}
+
+export function setActiveSlot(slot) {
+  if (SLOTS[slot]) sessionStorage.setItem(ACTIVE_SLOT_KEY, slot);
+}
+
+function clearSessionData(slot = getActiveSlot()) {
+  localStorage.removeItem(SLOTS[slot].token);
+  localStorage.removeItem(SLOTS[slot].user);
 }
 
 function getStoredToken() {
-  return localStorage.getItem(STORAGE_KEY);
+  return localStorage.getItem(SLOTS[getActiveSlot()].token);
 }
 
 function isTokenExpired(token) {
@@ -53,8 +103,10 @@ function isTokenExpired(token) {
 
 export const saveSession = (token, user) => {
   setSessionNotice('');
-  localStorage.setItem(STORAGE_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  const slot = slotForUser(user);
+  localStorage.setItem(SLOTS[slot].token, token);
+  localStorage.setItem(SLOTS[slot].user, JSON.stringify(user));
+  setActiveSlot(slot);
   window.dispatchEvent(new Event('auth-changed'));
 };
 
@@ -89,7 +141,7 @@ export const getUser = () => {
     return null;
   }
 
-  const value = localStorage.getItem(USER_KEY);
+  const value = localStorage.getItem(SLOTS[getActiveSlot()].user);
   return value ? JSON.parse(value) : null;
 };
 
@@ -108,9 +160,21 @@ export const logout = ({ message = '', redirectTo } = {}) => {
 };
 
 export const updateToken = (token, user) => {
-  localStorage.setItem(STORAGE_KEY, token);
+  const slot = getActiveSlot();
+  localStorage.setItem(SLOTS[slot].token, token);
   if (user) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    localStorage.setItem(SLOTS[slot].user, JSON.stringify(user));
   }
   window.dispatchEvent(new Event('auth-changed'));
+};
+
+// True when the other slot (shop vs owner console) is also signed in.
+export const otherSessionUser = () => {
+  const other = getActiveSlot() === 'owner' ? 'shop' : 'owner';
+  try {
+    const raw = hasToken(other) ? localStorage.getItem(SLOTS[other].user) : null;
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 };

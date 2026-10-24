@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { getUser } from '../utils/auth';
+import { getUser, otherSessionUser } from '../utils/auth';
 import { useTheme } from './ThemeProvider';
 import logo from '../assets/logo.png';
 
@@ -23,6 +23,7 @@ const icons = {
   expenses: <Icon><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /><path d="M7 15h3" /></Icon>,
   users: <Icon><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></Icon>,
   audit: <Icon><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></Icon>,
+  messages: <Icon><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></Icon>,
   billing: <Icon><rect x="2.5" y="5" width="19" height="14" rx="2" /><path d="M2.5 10h19M6.5 15h4" /></Icon>,
   settings: <Icon><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></Icon>,
   profile: <Icon><circle cx="12" cy="12" r="9" /><circle cx="12" cy="10" r="3" /><path d="M6.2 18.4a7 7 0 0 1 11.6 0" /></Icon>,
@@ -74,6 +75,7 @@ const ownerSections = [
       { to: '/app/owner', label: 'Dashboard', icon: icons.dashboard, end: true },
       { to: '/app/shops', label: 'Shops', icon: icons.shops },
       { to: '/app/owner-billing', label: 'Billing', icon: icons.billing },
+      { to: '/app/messages', label: 'Messages', icon: icons.messages },
       { to: '/app/profile', label: 'My account', icon: icons.profile },
     ],
   },
@@ -162,6 +164,23 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
 
         {/* Account */}
         <div className="border-t border-[var(--sidebar-border)] p-2.5 tall:p-3">
+          {(() => {
+            // The other sign-in in this browser (shop or owner console), if any.
+            const other = otherSessionUser();
+            if (!other) return null;
+            const toOwner = other.role === 'SuperAdmin';
+            const label = toOwner ? 'Owner console' : (other.shop?.name || 'My shop');
+            return (
+              <a
+                href={toOwner ? '/owner' : '/login'}
+                title={`Switch to ${label}`}
+                className={`mb-1.5 flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-[var(--sidebar-muted)] transition hover:bg-white/10 hover:text-[var(--sidebar-text)] ${collapsed ? 'lg:justify-center' : ''}`}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4 shrink-0" aria-hidden="true"><path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" /></svg>
+                <span className={`truncate ${hideWhenCollapsed}`}>Switch to {label}</span>
+              </a>
+            );
+          })()}
           <div className={`flex items-center gap-3 rounded-lg px-2 py-2 ${collapsed ? 'lg:flex-col lg:px-0' : ''}`}>
             {user?.avatarUrl ? (
               <img src={user.avatarUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />

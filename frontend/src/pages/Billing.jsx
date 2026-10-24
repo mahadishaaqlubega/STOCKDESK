@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { fetchBillingPayments, fetchBillingStatus, submitBillingPayment, updateBillingProfile } from '../utils/api';
+import { fetchBillingPayments, fetchBillingStatus, openPdf, submitBillingPayment, updateBillingProfile } from '../utils/api';
 import { getUser } from '../utils/auth';
 import { STATE_META, fmtDate, money, planName, stateLabel, whatsappLink } from '../utils/billing';
 import { Alert, Badge, EmptyState, Field, Panel, PanelHeader, SkeletonRows, Toast, fieldInput } from '../components/ui';
@@ -149,9 +149,12 @@ export default function Billing() {
                   <p className="font-medium text-[var(--text-primary)]">{money(r.amount, currency)} · {planName(config, r.plan)} plan · {r.months} month{r.months > 1 ? 's' : ''}</p>
                   <p className="text-[var(--text-muted)]">{r.message || 'Please pay to keep your shop running.'}{r.dueDate ? ` Due ${fmtDate(r.dueDate)}.` : ''}</p>
                 </div>
-                <button type="button" onClick={() => { setRequestId(r.id); setPlan(r.plan); setMonths(r.months); document.getElementById('pay-form')?.scrollIntoView({ behavior: 'smooth' }); }} className={`${requestId === r.id ? 'app-btn-primary' : 'app-btn-secondary border'} shrink-0 rounded-lg px-3.5 py-2 text-sm font-medium`}>
-                  {requestId === r.id ? 'Selected' : 'Pay this'}
-                </button>
+                <div className="flex shrink-0 gap-2">
+                  <button type="button" onClick={() => openPdf(`/billing/requests/${r.id}/invoice.pdf`).catch((e) => setError(e.message))} className="app-btn-secondary rounded-lg border px-3 py-2 text-sm font-medium">Invoice (PDF)</button>
+                  <button type="button" onClick={() => { setRequestId(r.id); setPlan(r.plan); setMonths(r.months); document.getElementById('pay-form')?.scrollIntoView({ behavior: 'smooth' }); }} className={`${requestId === r.id ? 'app-btn-primary' : 'app-btn-secondary border'} rounded-lg px-3.5 py-2 text-sm font-medium`}>
+                    {requestId === r.id ? 'Selected' : 'Pay this'}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -169,6 +172,9 @@ export default function Billing() {
                   <p className="text-sm font-semibold text-[var(--text-primary)]">{p.name}</p>
                   <p className="num mt-1 text-xl font-semibold text-[var(--text-primary)]">{money(p.price, currency)}</p>
                   <p className="text-xs text-[var(--text-muted)]">per month · {p.staffLimit ? `owner + ${p.staffLimit} staff` : 'unlimited staff'}</p>
+                  {data.staff && p.staffLimit != null && data.staff.used >= p.staffLimit ? (
+                    <p className="mt-1.5 text-[11px] font-medium text-[var(--warning)]">You have {data.staff.used} staff: you couldn&apos;t add more on this plan</p>
+                  ) : null}
                 </button>
               );
             })}
@@ -184,7 +190,10 @@ export default function Billing() {
             </div>
           ) : null}
           <div className="flex items-baseline justify-between border-t border-[var(--border-default)] px-4 py-4 sm:px-5">
-            <span className="text-sm font-medium text-[var(--text-secondary)]">Amount to send</span>
+            <span className="text-sm font-medium text-[var(--text-secondary)]">
+              Amount to send
+              {!request ? <button type="button" onClick={() => openPdf(`/billing/invoice.pdf?plan=${plan}&months=${months}`).catch((e) => setError(e.message))} className="ml-3 text-xs font-semibold text-[var(--accent)] hover:underline">Get invoice (PDF)</button> : null}
+            </span>
             <span className="num text-2xl font-semibold text-[var(--text-primary)]">{money(total, currency)}</span>
           </div>
         </Panel>
@@ -255,6 +264,7 @@ export default function Billing() {
                       <td data-label="Transaction" className="px-4 py-2.5 text-[var(--text-secondary)]">{p.method}{p.reference ? <span className="block font-mono text-xs text-[var(--text-muted)]">{p.reference}</span> : null}</td>
                       <td data-label="Status" className="px-4 py-2.5">
                         <Badge tone={PAYMENT_TONES[p.status]}>{p.status === 'pending' ? 'Being checked' : p.status === 'confirmed' ? 'Confirmed' : 'Not confirmed'}</Badge>
+                        {p.status === 'confirmed' ? <button type="button" onClick={() => openPdf(`/billing/payments/${p.id}/receipt.pdf`).catch((e) => setError(e.message))} className="mt-1 block text-xs font-semibold text-[var(--accent)] hover:underline">Receipt (PDF)</button> : null}
                         {p.status === 'rejected' && p.note ? <span className="mt-1 block text-xs text-[var(--text-muted)]">{p.note}</span> : null}
                       </td>
                     </tr>

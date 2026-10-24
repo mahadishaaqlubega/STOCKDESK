@@ -118,3 +118,44 @@ describe('read-only guard for expired shops', () => {
     expect(res.status).not.toBe(402);
   });
 });
+
+describe('staff limit per plan', () => {
+  const { User } = require('../src/models');
+  const { staffUsage } = require('../src/utils/subscription');
+  beforeAll(() => mockAuthUsers());
+  afterEach(() => invalidateShopStatus());
+
+  const paidStarter = { id: 10, plan: 'starter', trialEndsAt: new Date(Date.now() - 40 * DAY), paidUntil: new Date(Date.now() + 20 * DAY), isActive: true, staffLimitOverride: null };
+
+  it('is unlimited during the free trial', async () => {
+    User.count.mockResolvedValueOnce(12);
+    const usage = await staffUsage({ ...paidStarter, plan: null, paidUntil: null, trialEndsAt: new Date(Date.now() + 5 * DAY) }, DEFAULT_CONFIG);
+    expect(usage).toMatchObject({ used: 11, limit: null, source: 'trial', canAdd: true });
+  });
+
+  it('uses the plan limit once paid (owner not counted)', async () => {
+    User.count.mockResolvedValueOnce(3);
+    const usage = await staffUsage(paidStarter, DEFAULT_CONFIG);
+    expect(usage).toMatchObject({ used: 2, limit: 2, source: 'plan', canAdd: false, planName: 'Starter' });
+  });
+
+  it('a custom limit from the owner console wins', async () => {
+    User.count.mockResolvedValueOnce(3);
+    const usage = await staffUsage({ ...paidStarter, staffLimitOverride: 4 }, DEFAULT_CONFIG);
+    expect(usage).toMatchObject({ limit: 4, source: 'custom', canAdd: true });
+  });
+
+  it('refuses a new team member over the limit', async () => {
+    Shop.findByPk.mockResolvedValue(paidStarter);
+    User.findOne.mockResolvedValue(null);
+    User.count.mockResolvedValue(3);
+    const res = await request(app)
+      .post('/api/users')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ username: 'newcashier', password: 'Strong#Pass1', confirmPassword: 'Strong#Pass1', role: 'Staff' });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('STAFF_LIMIT');
+    expect(res.body.message).toMatch(/Starter plan includes 2 staff/);
+    User.count.mockResolvedValue(0);
+  });
+});

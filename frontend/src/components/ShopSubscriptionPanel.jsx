@@ -5,6 +5,7 @@ import {
   createPaymentRequest,
   extendShopTrial,
   fetchShopBilling,
+  openPdf,
   recordShopPayment,
   rejectSubscriptionPayment,
   setShopActive,
@@ -79,7 +80,7 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
   if (loading) return <Panel><SkeletonRows rows={4} /></Panel>;
   if (!data) return <Panel><EmptyState title={error || 'Billing not available'} /></Panel>;
 
-  const { status, config, profile, payments, requests } = data;
+  const { status, config, profile, payments, requests, staff } = data;
   const currency = config.currency || 'UGX';
   const meta = STATE_META[status.state];
   const defaultPlan = status.plan || 'starter';
@@ -105,8 +106,10 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
           <button type="button" onClick={() => open('request', { plan: defaultPlan, months: 1, amount: '', dueDate: '', message: '', sendEmail: true })} className="app-btn-primary rounded-lg px-3.5 py-2 text-sm font-semibold">Send payment request</button>
           <button type="button" onClick={() => open('record', { plan: defaultPlan, months: 1, amount: '', method: 'Cash', reference: '', note: '' })} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Record payment</button>
           <button type="button" onClick={() => open('extend', { days: 7 })} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Extend trial</button>
+          <a href={`/app/messages?shop=${shopId}`} className="app-btn-secondary inline-flex items-center rounded-lg border px-3.5 py-2 text-sm font-medium">Email owner</a>
+          <button type="button" onClick={() => openPdf(`/admin/shops/${shopId}/invoice.pdf`).catch((e) => setError(e.message))} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Invoice (PDF)</button>
           {profile.whatsapp ? <a href={whatsappLink(profile.whatsapp, followUp)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center rounded-lg bg-[#25d366] px-3.5 py-2 text-sm font-semibold text-white hover:opacity-90">WhatsApp owner</a> : null}
-          <button type="button" onClick={() => open('profile', { ownerPhone: profile.ownerPhone || '', businessType: profile.businessType || '', location: profile.location || '', billingNotes: profile.billingNotes || '' })} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Edit contact &amp; notes</button>
+          <button type="button" onClick={() => open('profile', { ownerPhone: profile.ownerPhone || '', businessType: profile.businessType || '', location: profile.location || '', billingNotes: profile.billingNotes || '', staffLimitOverride: staff?.override ?? '' })} className="app-btn-secondary rounded-lg border px-3.5 py-2 text-sm font-medium">Edit contact, staff &amp; notes</button>
           <button
             type="button"
             onClick={() => run(() => setShopActive(shopId, !isActive), (res) => { onActiveChange?.(res.isActive); flash(res.isActive ? 'Shop enabled.' : 'Shop disabled: it can only view its data now.'); })}
@@ -119,6 +122,15 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
         <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
           <div><dt className="text-[var(--text-muted)]">Phone / WhatsApp</dt><dd className="text-[var(--text-primary)]">{profile.ownerPhone || 'Not given'}</dd></div>
           <div><dt className="text-[var(--text-muted)]">Business</dt><dd className="text-[var(--text-primary)]">{[profile.businessType, profile.location].filter(Boolean).join(' · ') || 'Not given'}</dd></div>
+          {staff ? (
+            <div>
+              <dt className="text-[var(--text-muted)]">Staff logins</dt>
+              <dd className={staff.canAdd ? 'text-[var(--text-primary)]' : 'font-medium text-[var(--warning)]'}>
+                {staff.limit == null ? `${staff.used} (unlimited)` : `${staff.used} of ${staff.limit}`}
+                <span className="text-[var(--text-muted)]"> · {staff.source === 'custom' ? 'custom limit' : staff.source === 'trial' ? 'free trial' : `${staff.planName || 'no'} plan`}</span>
+              </dd>
+            </div>
+          ) : null}
           {profile.billingNotes ? <div className="sm:col-span-2"><dt className="text-[var(--text-muted)]">Notes</dt><dd className="whitespace-pre-line text-[var(--text-primary)]">{profile.billingNotes}</dd></div> : null}
         </dl>
 
@@ -129,7 +141,10 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
               {requests.filter((r) => r.status === 'open').map((r) => (
                 <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border-default)] px-3 py-2 text-sm">
                   <span>{money(r.amount, currency)} · {planName(config, r.plan)} · {r.months} mo{r.dueDate ? ` · due ${fmtDate(r.dueDate)}` : ''}<span className="block text-xs text-[var(--text-muted)]">Sent {fmtDate(r.createdAt)}{r.emailedAt ? ' · emailed' : ''}</span></span>
-                  <button type="button" onClick={() => run(() => cancelPaymentRequest(r.id), () => flash('Request cancelled.'))} className="text-xs font-medium text-[var(--danger)]">Cancel</button>
+                  <span className="flex gap-3">
+                    <button type="button" onClick={() => openPdf(`/admin/payment-requests/${r.id}/invoice.pdf`).catch((e) => setError(e.message))} className="text-xs font-semibold text-[var(--accent)]">Invoice</button>
+                    <button type="button" onClick={() => run(() => cancelPaymentRequest(r.id), () => flash('Request cancelled.'))} className="text-xs font-medium text-[var(--danger)]">Cancel</button>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -153,7 +168,12 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
                       <button type="button" disabled={busy} onClick={() => run(() => rejectSubscriptionPayment(p.id, 'We could not find this transaction on our statement.'), () => flash('Payment rejected.'))} className="app-btn-secondary rounded-lg border px-2.5 py-1 text-xs">Reject</button>
                       <button type="button" disabled={busy} onClick={() => run(() => confirmSubscriptionPayment(p.id), () => flash('Payment confirmed.'))} className="app-btn-primary rounded-lg px-2.5 py-1 text-xs font-semibold">Confirm</button>
                     </div>
-                  ) : <Badge tone={PAYMENT_TONES[p.status]}>{p.status}</Badge>}
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      {p.status === 'confirmed' ? <button type="button" onClick={() => openPdf(`/admin/payments/${p.id}/receipt.pdf`).catch((e) => setError(e.message))} className="text-xs font-semibold text-[var(--accent)]">Receipt</button> : null}
+                      <Badge tone={PAYMENT_TONES[p.status]}>{p.status}</Badge>
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -245,6 +265,9 @@ export default function ShopSubscriptionPanel({ shopId, shopName, isActive, onAc
               </Field>
               <Field label="Town / area"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className={fieldInput} /></Field>
             </div>
+            <Field label="Custom staff limit" hint={`Leave empty to use the plan's limit${staff ? ` (this shop has ${staff.used} staff now)` : ''}. Applies even during the trial.`}>
+              <input type="number" min="0" max="500" value={form.staffLimitOverride} onChange={(e) => setForm({ ...form, staffLimitOverride: e.target.value })} className={fieldInput} placeholder="Plan limit" />
+            </Field>
             <Field label="Private notes" hint="Only you see these"><textarea rows={3} value={form.billingNotes} onChange={(e) => setForm({ ...form, billingNotes: e.target.value })} className={fieldInput} /></Field>
           </div>
         </Modal>

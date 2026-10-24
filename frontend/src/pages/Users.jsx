@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchUsers, createUser, deleteUser, resetUserPassword } from '../utils/api';
+import { fetchUsers, createUser, deleteUser, resetUserPassword, fetchBillingStatus } from '../utils/api';
+import { Link } from 'react-router-dom';
 import { getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -75,7 +76,11 @@ export default function Users() {
     window.setTimeout(() => setToast(''), 3000);
   };
 
+  const [staff, setStaff] = useState(null);
+  const loadStaff = () => fetchBillingStatus().then((res) => setStaff(res.staff || null)).catch(() => {});
+
   const loadUsers = async () => {
+    loadStaff();
     try {
       setUsers(await fetchUsers());
     } catch (error) {
@@ -180,16 +185,29 @@ export default function Users() {
   return (
     <div className="space-y-5">
       <StatGrid>
-        <StatTile label="Team members" value={users.length.toLocaleString()} hint="Accounts in this shop"  icon={statIcons.users} />
+        <StatTile
+          label="Staff logins"
+          value={staff?.limit != null ? `${staff.used} of ${staff.limit}` : (staff ? staff.used : Math.max(0, users.length - 1)).toLocaleString()}
+          hint={staff ? (staff.source === 'trial' ? 'Unlimited during your free trial' : staff.limit == null ? `Unlimited on ${staff.planName || 'your plan'}` : staff.source === 'custom' ? 'Your shop limit' : `${staff.planName} plan`) : 'Besides the owner'}
+          tone={staff && !staff.canAdd ? 'warning' : 'default'}
+          icon={statIcons.users}
+        />
         <StatTile label="Admins" value={counts.admin.toLocaleString()} hint="Full access"  icon={statIcons.key} iconTone="accent" />
         <StatTile label="Managers" value={counts.manager.toLocaleString()} hint="Run the shop day to day"  icon={statIcons.users} iconTone="warning" />
         <StatTile label="Cashiers" value={counts.cashier.toLocaleString()} hint="Sell at the counter"  icon={statIcons.receipt} iconTone="success" />
       </StatGrid>
 
+      {staff && !staff.canAdd ? (
+        <div className="app-alert-warning flex flex-wrap items-center justify-between gap-2 rounded-lg px-3.5 py-2.5 text-sm">
+          <span>You are using {staff.used} of {staff.limit} staff login{staff.limit === 1 ? '' : 's'}{staff.source === 'plan' && staff.planName ? ` on the ${staff.planName} plan` : ''}. {staff.source === 'custom' ? 'Contact StockDesk to add more.' : 'Upgrade your plan to add more people.'}</span>
+          {staff.source !== 'custom' ? <Link to="/app/billing" className="shrink-0 rounded-md bg-[var(--surface-primary)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)] shadow-sm">See plans</Link> : null}
+        </div>
+      ) : null}
+
       <Panel>
         <div className="flex flex-col gap-3 border-b border-[var(--border-default)] p-4 sm:flex-row sm:items-center sm:justify-between">
           <SearchInput value={search} onChange={setSearch} placeholder="Search team" className="sm:w-72" />
-          <button type="button" onClick={() => { setForm(initialForm); setFormError(''); setDrawerOpen(true); }} className="app-btn-primary inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm">
+          <button type="button" disabled={Boolean(staff && !staff.canAdd)} title={staff && !staff.canAdd ? 'Staff limit reached for your plan' : undefined} onClick={() => { setForm(initialForm); setFormError(''); setDrawerOpen(true); }} className="app-btn-primary inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50">
             {icons.plus}
             Add team member
           </button>

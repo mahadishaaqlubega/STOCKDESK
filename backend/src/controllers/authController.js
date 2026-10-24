@@ -463,7 +463,7 @@ exports.forgotPassword = async (req, res, next) => {
       const resetPasswordExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
       await user.update({ resetPasswordToken, resetPasswordExpiry });
       try {
-        await sendPasswordResetEmail(normalizedEmail, resetPasswordToken);
+        await sendPasswordResetEmail(normalizedEmail, resetPasswordToken, { name: user.name || user.username });
       } catch (emailError) {
         console.error('Failed to send password reset email:', emailError.message);
       }

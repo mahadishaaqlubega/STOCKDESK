@@ -221,7 +221,7 @@ function button(label, url) {
 function renderEmail(o) {
   const paragraphs = (o.paragraphs || [])
     .filter(Boolean)
-    .map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${BRAND.text};">${escapeHtml(p)}</p>`)
+    .map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${BRAND.text};">${escapeHtml(p).split('\n').join('<br>')}</p>`)
     .join('');
   const cta = o.cta ? button(o.cta.label, o.cta.url) : '';
   const link = o.cta && o.showLink
@@ -308,12 +308,13 @@ async function sendVerificationEmail(to, token, { name, shopName } = {}) {
   await sendEmail({ to, subject: `Confirm your email for ${shopName || 'StockDesk'}`, html, text });
 }
 
-async function sendPasswordResetEmail(to, token) {
+async function sendPasswordResetEmail(to, token, { name } = {}) {
   const url = buildResetUrl(token);
   const { html, text } = renderEmail({
     preheader: 'Use this link within 1 hour to choose a new StockDesk password.',
     eyebrow: 'Account security',
     heading: 'Reset your password',
+    greeting: `Hello ${name || 'there'},`,
     paragraphs: [
       'We received a request to reset the password for your StockDesk account. Click the button below to choose a new one.',
       'For your security, signing in with the new password signs you out on your other devices.',
@@ -333,17 +334,18 @@ try {
 
 // Subscription emails: trial and renewal reminders, payment requests and
 // payment confirmations. `lines` are plain-text paragraphs.
-async function sendBillingEmail(to, { subject, heading, lines = [], details, ctaLabel = 'Open billing', ctaPath = '/app/billing', preheader }) {
+async function sendBillingEmail(to, { subject, heading, lines = [], details, ctaLabel = 'Open billing', ctaPath = '/app/billing', preheader, name, greeting, attachments }) {
   const { html, text } = renderEmail({
     preheader: preheader || lines[0] || heading,
     eyebrow: 'Your StockDesk subscription',
     heading,
+    greeting: greeting || `Hello ${name || 'there'},`,
     paragraphs: lines,
     details,
     cta: { label: ctaLabel, url: `${getFrontendUrl()}${ctaPath}` },
     note: 'Questions about billing? Reply to this email or message us on WhatsApp and a person will help.',
   });
-  await sendEmail({ to, subject, html, text });
+  await sendEmail({ to, subject, html, text, attachments });
 }
 
 // A sale receipt for a customer, with the PDF attached.
@@ -371,7 +373,7 @@ async function sendReceiptEmail(to, { shopName, shopPhone, shopAddress, replyTo,
     preheader: `Receipt ${receiptNumber} from ${shopName}${totals.length ? `: ${totals[totals.length - 1][1]}` : ''}. PDF attached.`,
     eyebrow: `Receipt ${receiptNumber}`,
     heading: `Thank you for shopping with ${shopName}`,
-    greeting: customerName ? `Hello ${customerName},` : null,
+    greeting: customerName ? `Hello ${customerName},` : 'Hello there,',
     paragraphs: [message || 'Here is your receipt. A PDF copy is attached for your records.'],
     details: [
       ['Receipt', receiptNumber],
@@ -408,4 +410,10 @@ async function sendShopEmail(to, { shop, replyTo, subject, attachments, ...conte
   await sendEmail({ to, subject, html, text, fromName: `${shop.name} via StockDesk`.slice(0, 70), replyTo, attachments });
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendBillingEmail, sendReceiptEmail, sendShopEmail, renderEmail, escapeHtml };
+// An email from StockDesk (the platform owner) to a shop owner.
+async function sendPlatformEmail(to, { subject, attachments, ...content }) {
+  const { html, text } = renderEmail(content);
+  await sendEmail({ to, subject, html, text, replyTo: process.env.SUPPORT_EMAIL || undefined, attachments });
+}
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendBillingEmail, sendReceiptEmail, sendShopEmail, sendPlatformEmail, renderEmail, escapeHtml };

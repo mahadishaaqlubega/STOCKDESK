@@ -159,6 +159,28 @@ function invalidateShopStatus(shopId) {
   else statusCache.delete(Number(shopId));
 }
 
+// Staff logins: every account in the shop except the owner (the first admin).
+// Unlimited during the free trial; otherwise the shop's own limit set by the
+// platform owner, else the plan's. null = unlimited.
+async function staffUsage(shop, config) {
+  const cfg = config || (await getBillingConfig());
+  const { User } = getModels();
+  const status = computeStatus(shop, cfg);
+  const total = await User.count({ where: { shopId: shop.id } });
+  const used = Math.max(0, total - 1);
+  const plan = findPlan(cfg, shop.plan);
+  let limit = null;
+  let source = 'trial';
+  if (shop.staffLimitOverride != null) {
+    limit = Number(shop.staffLimitOverride);
+    source = 'custom';
+  } else if (status.state !== 'trial') {
+    limit = plan ? (plan.staffLimit == null ? null : Number(plan.staffLimit)) : null;
+    source = 'plan';
+  }
+  return { used, limit, source, planName: plan?.name || null, canAdd: limit == null || used < limit };
+}
+
 // Ugandan numbers typed as 07XX... become 2567XX... for wa.me links.
 function toWhatsappNumber(raw) {
   let digits = String(raw || '').replace(/[^\d]/g, '');
@@ -178,4 +200,5 @@ module.exports = {
   getShopStatus,
   invalidateShopStatus,
   toWhatsappNumber,
+  staffUsage,
 };

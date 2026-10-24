@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
+const { staffUsage } = require('../utils/subscription');
 const { passwordProblem } = require('../utils/password');
-const { User } = require('../models');
+const { User, Shop } = require('../models');
 const { normalizeUsername } = require('../utils/username');
 
 function normalizeManageableRole(role) {
@@ -55,6 +56,21 @@ exports.createUser = async (req, res, next) => {
     const existingUser = await User.findOne({ where: { shopId: req.user.shopId, username } });
     if (existingUser) {
       return res.status(409).json({ message: 'Username is already in use for this shop' });
+    }
+
+    // Staff logins are limited by the shop's plan (unlimited on the free trial).
+    const shopRow = await Shop.findByPk(req.user.shopId);
+    if (shopRow) {
+      const usage = await staffUsage(shopRow);
+      if (!usage.canAdd) {
+        return res.status(403).json({
+          code: 'STAFF_LIMIT',
+          message: usage.source === 'custom'
+            ? `Your shop can have ${usage.limit} staff login${usage.limit === 1 ? '' : 's'}. Contact StockDesk to add more.`
+            : `Your ${usage.planName || 'current'} plan includes ${usage.limit} staff login${usage.limit === 1 ? '' : 's'} and you are using ${usage.used}. Upgrade your plan on the Billing page to add more.`,
+          usage,
+        });
+      }
     }
 
     const hash = await bcrypt.hash(password, 10);

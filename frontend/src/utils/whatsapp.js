@@ -71,8 +71,12 @@ export function receiptMessage(sale, settings, link) {
   const total = Number(sale.total || 0);
   const balance = Number(sale.balanceDue || 0);
   const number = sale.receipt?.receiptNumber || `SD-${String(sale.id).padStart(6, '0')}`;
+  const named = sale.customer?.name && sale.customer.name !== 'Walk-in Customer';
+  const firstName = named ? String(sale.customer.name).trim().split(/\s+/)[0] : '';
 
   return [
+    `Hello${firstName ? ` ${firstName}` : ''}, thank you for shopping with us!`,
+    '',
     `*${shopName}*`,
     `Receipt ${number} · ${shortDate(sale.createdAt)}`,
     '',

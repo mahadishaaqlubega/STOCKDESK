@@ -28,6 +28,7 @@ const Profile = lazy(() => import('./pages/Profile'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Billing = lazy(() => import('./pages/Billing'));
 const OwnerBilling = lazy(() => import('./pages/OwnerBilling'));
+const OwnerMessages = lazy(() => import('./pages/OwnerMessages'));
 
 function App() {
   const [session, setSession] = useState({
@@ -62,8 +63,8 @@ function App() {
     <Suspense fallback={<PageLoader fullPage />}>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Login />} />
+        <Route path="/login" element={session.isAuthenticated && !isSuperAdmin ? <Navigate to="/app" replace /> : <Login />} />
+        <Route path="/signup" element={session.isAuthenticated && !isSuperAdmin ? <Navigate to="/app" replace /> : <Login />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/owner-login" element={<Navigate to="/owner" replace />} />
@@ -74,6 +75,7 @@ function App() {
           <Route path="shops" element={isSuperAdmin ? <Shops /> : <Navigate to="/app" replace />} />
           <Route path="shops/:id" element={isSuperAdmin ? <ShopDetail /> : <Navigate to="/app" replace />} />
           <Route path="owner-billing" element={isSuperAdmin ? <OwnerBilling /> : <Navigate to="/app" replace />} />
+          <Route path="messages" element={isSuperAdmin ? <OwnerMessages /> : <Navigate to="/app" replace />} />
           <Route path="billing" element={isSuperAdmin ? <Navigate to="/app/owner-billing" replace /> : isStaff ? staffBlocked : <Billing />} />
           <Route path="products" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Products />} />
           <Route path="customers" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Customers />} />

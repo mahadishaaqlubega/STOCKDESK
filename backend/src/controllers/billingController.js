@@ -8,8 +8,10 @@ const {
   nextPeriod,
   invalidateShopStatus,
   toWhatsappNumber,
+  staffUsage,
 } = require('../utils/subscription');
 const { sendBillingEmail } = require('../services/emailService');
+const docs = require('../services/billingDocs');
 
 const METHODS = ['MTN Mobile Money', 'Airtel Money', 'Bank transfer', 'Cash'];
 const BUSINESS_TYPES = [
@@ -83,7 +85,7 @@ async function emailOwner(shopId, message) {
   try {
     const owner = await findOwner(shopId);
     if (!owner?.email) return false;
-    await sendBillingEmail(owner.email, message);
+    await sendBillingEmail(owner.email, { name: owner.name || owner.username, ...message });
     return true;
   } catch (error) {
     console.error('[billing] email failed:', error.message);
@@ -128,6 +130,7 @@ exports.getStatus = async (req, res, next) => {
     ]);
     res.json({
       status: computeStatus(shop, config),
+      staff: await staffUsage(shop, config),
       config: publicConfig(config),
       openRequests: openRequests.map(serializeRequest),
       pendingPayments: pendingPayments.map(serializePayment),
@@ -206,6 +209,7 @@ exports.submitPayment = async (req, res, next) => {
       sendBillingEmail(notify, {
         subject: `Payment to confirm: ${shop?.name || `shop ${shopId}`}`,
         heading: 'A shop sent a payment',
+        greeting: 'Hello,',
         lines: [
           `${shop?.name || 'A shop'} says it paid ${ugx(amount, config.currency)} for the ${plan.name} plan (${payment.months} month${payment.months > 1 ? 's' : ''}).`,
           `Method: ${method}. Transaction ID: ${reference || 'none'}. Paid from: ${payerPhone || 'not given'}.`,
@@ -388,6 +392,7 @@ exports.shopBilling = async (req, res, next) => {
     ]);
     res.json({
       status: computeStatus(shop, config),
+      staff: { ...(await staffUsage(shop, config)), override: shop.staffLimitOverride },
       config: publicConfig(config),
       profile: {
         ownerPhone: shop.ownerPhone,
@@ -449,7 +454,9 @@ exports.recordPayment = async (req, res, next) => {
     }, { transaction: t });
     const { end } = await applyPayment(payment, shop, req.user.id, t);
     await t.commit();
+    const recordedDoc = await docs.receiptForPayment(payment, shop).catch(() => null);
     emailOwner(shop.id, {
+      attachments: docs.asAttachment(recordedDoc),
       subject: `Payment received for ${shop.name}`,
       heading: 'Thank you, your payment is confirmed',
       lines: [
@@ -478,7 +485,9 @@ exports.confirmPayment = async (req, res, next) => {
     const { end } = await applyPayment(payment, shop, req.user.id, t);
     await t.commit();
     const plan = findPlan(config, payment.plan);
+    const confirmedDoc = await docs.receiptForPayment(payment, shop).catch(() => null);
     emailOwner(shop.id, {
+      attachments: docs.asAttachment(confirmedDoc),
       subject: `Payment confirmed for ${shop.name}`,
       heading: 'Thank you, your payment is confirmed',
       lines: [
@@ -547,7 +556,9 @@ exports.createRequest = async (req, res, next) => {
       const payLines = [config.payTo.mtnNumber && `MTN Mobile Money: ${config.payTo.mtnNumber}`, config.payTo.airtelNumber && `Airtel Money: ${config.payTo.airtelNumber}`]
         .filter(Boolean)
         .join(' · ');
+      const invoiceDoc = await docs.invoiceForRequest(request, shop).catch(() => null);
       emailed = await emailOwner(shop.id, {
+        attachments: docs.asAttachment(invoiceDoc),
         subject: `Payment request for ${shop.name}: ${ugx(amount, config.currency)}`,
         heading: 'Your StockDesk payment request',
         lines: [
@@ -590,6 +601,15 @@ exports.updateShopProfile = async (req, res, next) => {
     if ('businessType' in req.body) shop.businessType = clean(req.body.businessType, 60);
     if ('location' in req.body) shop.location = clean(req.body.location, 120);
     if ('billingNotes' in req.body) shop.billingNotes = clean(req.body.billingNotes, 2000);
+    if ('staffLimitOverride' in req.body) {
+      const v = req.body.staffLimitOverride;
+      if (v === null || v === '') shop.staffLimitOverride = null;
+      else {
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 0 || n > 500) return res.status(400).json({ message: 'Staff limit must be a whole number from 0 to 500, or empty for the plan limit.' });
+        shop.staffLimitOverride = n;
+      }
+    }
     if ('plan' in req.body) {
       const config = await getBillingConfig();
       shop.plan = findPlan(config, req.body.plan) ? req.body.plan : null;
@@ -615,3 +635,75 @@ exports.setShopActive = async (req, res, next) => {
 };
 
 exports.BUSINESS_TYPES = BUSINESS_TYPES;
+
+// ---------------------------------------------------------- PDF documents
+
+function sendPdf(res, doc) {
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${doc.filename}"`);
+  res.send(doc.pdf);
+}
+
+// Shop side: its own payment receipts and invoices.
+exports.myPaymentReceipt = async (req, res, next) => {
+  try {
+    const payment = await SubscriptionPayment.findOne({ where: { id: req.params.id, shopId: req.user.shopId, status: 'confirmed' } });
+    if (!payment) return res.status(404).json({ message: 'Receipt not found' });
+    sendPdf(res, await docs.receiptForPayment(payment, await Shop.findByPk(req.user.shopId)));
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.myRequestInvoice = async (req, res, next) => {
+  try {
+    const request = await PaymentRequest.findOne({ where: { id: req.params.id, shopId: req.user.shopId } });
+    if (!request) return res.status(404).json({ message: 'Invoice not found' });
+    sendPdf(res, await docs.invoiceForRequest(request, await Shop.findByPk(req.user.shopId)));
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.myPlanInvoice = async (req, res, next) => {
+  try {
+    const shop = await Shop.findByPk(req.user.shopId);
+    if (!shop) return res.status(404).json({ message: 'Shop not found' });
+    const months = Math.min(12, Math.max(1, parseInt(req.query.months, 10) || 1));
+    if (req.query.plan) shop.plan = req.query.plan;
+    sendPdf(res, await docs.invoiceForShop(shop, { months }));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Owner console.
+exports.adminPaymentReceipt = async (req, res, next) => {
+  try {
+    const payment = await SubscriptionPayment.findOne({ where: { id: req.params.paymentId, status: 'confirmed' } });
+    if (!payment) return res.status(404).json({ message: 'Receipt not found (only confirmed payments have one)' });
+    sendPdf(res, await docs.receiptForPayment(payment, await Shop.findByPk(payment.shopId)));
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.adminRequestInvoice = async (req, res, next) => {
+  try {
+    const request = await PaymentRequest.findByPk(req.params.requestId);
+    if (!request) return res.status(404).json({ message: 'Invoice not found' });
+    sendPdf(res, await docs.invoiceForRequest(request, await Shop.findByPk(request.shopId)));
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.adminShopInvoice = async (req, res, next) => {
+  try {
+    const shop = await Shop.findByPk(req.params.id);
+    if (!shop) return res.status(404).json({ message: 'Shop not found' });
+    sendPdf(res, await docs.invoiceForShop(shop, { months: Math.min(12, Math.max(1, parseInt(req.query.months, 10) || 1)) }));
+  } catch (error) {
+    next(error);
+  }
+};

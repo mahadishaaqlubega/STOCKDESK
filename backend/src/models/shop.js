@@ -76,6 +76,12 @@ Shop.init(
       type: DataTypes.STRING(120),
       allowNull: true,
     },
+    // Staff logins allowed for this shop, set by the platform owner. NULL means
+    // the plan's limit applies.
+    staffLimitOverride: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     billingNotes: {
       type: DataTypes.TEXT,
       allowNull: true,

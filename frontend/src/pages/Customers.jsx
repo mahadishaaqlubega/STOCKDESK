@@ -9,6 +9,7 @@ import {
   fetchCustomerCredit,
   recordCreditPayment,
   recordCustomerReminder,
+  openPdf,
 } from '../utils/api';
 import { customerWhatsApp, reminderMessage, whatsappLink } from '../utils/whatsapp';
 import { WhatsAppIcon } from '../components/Receipt/PosReceipt';
@@ -593,6 +594,14 @@ export default function Customers() {
                       className="inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-semibold text-white hover:bg-[#1ebe5b]"
                     >
                       <WhatsAppIcon /> Remind on WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openPdf(`/customers/${creditCustomer.id}/statement.pdf`).catch((e) => setMessage(e.message))}
+                      className="app-btn-secondary inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
+                      title="What this customer owes, sale by sale"
+                    >
+                      Statement (PDF)
                     </button>
                     <span className="text-xs text-[var(--text-muted)]">
                       {creditData.customer?.lastReminderAt ? `Last reminded ${timeAgo(creditData.customer.lastReminderAt)}` : 'Not reminded yet'}
