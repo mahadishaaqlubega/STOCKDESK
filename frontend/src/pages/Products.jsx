@@ -39,7 +39,7 @@ const statusStyles = {
   ok: { label: 'In stock', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
   low: { label: 'Running low', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
   out: { label: 'Out of stock', className: 'bg-red-500/10 text-red-700 dark:text-red-300' },
-  service: { label: 'Service', className: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' },
+  service: { label: 'Service', className: 'bg-slate-500/10 text-slate-700 dark:text-slate-300' },
 };
 
 function StatusBadge({ product }) {

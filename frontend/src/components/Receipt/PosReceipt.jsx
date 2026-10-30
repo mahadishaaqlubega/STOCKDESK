@@ -230,7 +230,7 @@ function buildA4Html(m) {
   .page { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 16mm 18mm 14mm; display: flex; flex-direction: column; }
   .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
   .logo { display: block; max-width: 170px; max-height: 56px; object-fit: contain; margin-bottom: 14px; }
-  .wordmark { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #0d9488; margin-bottom: 6px; }
+  .wordmark { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #14532d; margin-bottom: 6px; }
   .shop { font-size: 15px; font-weight: 600; }
   .line { color: #4b5563; }
   .doc { text-align: right; white-space: nowrap; }

@@ -12,18 +12,20 @@ export default {
       height: { app: 'calc(100dvh / var(--app-zoom, 1))' },
       minHeight: { app: 'calc(100dvh / var(--app-zoom, 1))' },
       colors: {
+        // Forest green, shared with the marketing site.
         brand: {
-          50: '#eef9fc',
-          100: '#dff4f9',
-          200: '#bfe7f1',
-          300: '#92d6e5',
-          400: '#5bc0d6',
-          500: '#2fa8c6',
-          600: '#258ea8',
-          700: '#21778d',
-          800: '#1f6476',
-          900: '#1f5260'
-        }
+          50: '#eef5f0',
+          100: '#e7efe9',
+          200: '#c9dccf',
+          300: '#a3c4ad',
+          400: '#6f9e80',
+          500: '#3f7a56',
+          600: '#1f6b3e',
+          700: '#14532d',
+          800: '#0f4424',
+          900: '#0b1510'
+        },
+        brass: '#8c6a2e'
       }
     }
   },

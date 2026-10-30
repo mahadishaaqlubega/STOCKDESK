@@ -4,7 +4,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { formatMoney } from '../utils/format';
 import { tileEdge } from '../components/ui';
 
-const PALETTE = ['#1ea7bd', '#4aa884', '#da6a5a', '#8e7cc3', '#e8a838', '#5b8def', '#e06fa0', '#5bceae'];
+// Forest, brass and muted earth tones that read in light and dark mode.
+const PALETTE = ['#2f6b4a', '#a07a35', '#c0634f', '#6b7f99', '#7a9a5b', '#8a6f9e', '#4f8f86', '#b8904a'];
 
 function formatCompact(value) {
   const n = Number(value || 0);
@@ -361,15 +362,15 @@ export default function Reports() {
                     <AreaChart data={salesTimeline}>
                       <defs>
                         <linearGradient id="salesGrad" x1="0" x2="0" y1="0" y2="1">
-                          <stop offset="0%" stopColor="#1ea7bd" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="#1ea7bd" stopOpacity={0} />
+                          <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid vertical={false} stroke="var(--border-default)" strokeDasharray="4 4" />
                       <XAxis dataKey="time" stroke="var(--text-muted)" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
                       <YAxis stroke="var(--text-muted)" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={formatCompact} />
                       <Tooltip content={<ChartTooltip currency={currency} />} />
-                      <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#1ea7bd" strokeWidth={2.5} fill="url(#salesGrad)" dot={{ r: 4, fill: '#1ea7bd', strokeWidth: 0 }} activeDot={{ r: 6 }} />
+                      <Area type="monotone" dataKey="revenue" name="Revenue" stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#salesGrad)" dot={{ r: 4, fill: 'var(--chart-1)', strokeWidth: 0 }} activeDot={{ r: 6 }} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -583,11 +584,11 @@ export default function Reports() {
                   </div>
                   <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-[var(--surface-tertiary)]" aria-hidden="true">
                     <span className="bg-[var(--accent)]" style={{ width: `${100 - share}%` }} />
-                    <span className="bg-sky-500" style={{ width: `${share}%` }} />
+                    <span className="bg-[var(--chart-2)]" style={{ width: `${share}%` }} />
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                     <p><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[var(--accent)]" />Retail <span className="num block font-semibold text-[var(--text-primary)]">{formatMoney(currency, retail.total)}</span><span className="text-xs text-[var(--text-muted)]">{retail.orders.toLocaleString()} sales</span></p>
-                    <p><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-sky-500" />Wholesale <span className="num block font-semibold text-[var(--text-primary)]">{formatMoney(currency, wholesale.total)}</span><span className="text-xs text-[var(--text-muted)]">{wholesale.orders.toLocaleString()} sales</span></p>
+                    <p><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[var(--chart-2)]" />Wholesale <span className="num block font-semibold text-[var(--text-primary)]">{formatMoney(currency, wholesale.total)}</span><span className="text-xs text-[var(--text-muted)]">{wholesale.orders.toLocaleString()} sales</span></p>
                   </div>
                 </div>
               );

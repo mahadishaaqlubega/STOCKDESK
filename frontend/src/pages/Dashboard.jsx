@@ -233,8 +233,8 @@ export default function Dashboard() {
       {!loading && hasAlerts && (
         <div className={`grid gap-2 ${credit?.totalOutstanding > 0 && (outOfStockCount > 0 || lowStockCount > 0) ? 'md:grid-cols-2' : ''}`}>
           {credit?.totalOutstanding > 0 && (
-            <Link to="/app/customers" className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-sky-400/30 bg-sky-400/10 px-3.5 py-2 transition hover:bg-sky-400/15">
-              <p className="min-w-0 truncate text-[13px] text-sky-700 dark:text-sky-300">
+            <Link to="/app/customers" className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-400/30 bg-slate-400/10 px-3.5 py-2 transition hover:bg-slate-400/15">
+              <p className="min-w-0 truncate text-[13px] text-slate-700 dark:text-slate-300">
                 <strong className="font-semibold">
                   {credit.debtorCount === 1 ? '1 customer owes' : `${credit.debtorCount} customers owe`} {formatMoney(currency, credit.totalOutstanding)}
                 </strong>
@@ -243,7 +243,7 @@ export default function Dashboard() {
                   ? ` · collected today ${formatMoney(currency, summary.periods.today.creditCollected)}`
                   : ''}
               </p>
-              <span className="shrink-0 text-xs font-semibold text-sky-700 dark:text-sky-300">View who owes →</span>
+              <span className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300">View who owes →</span>
             </Link>
           )}
           {(outOfStockCount > 0 || lowStockCount > 0) && (
