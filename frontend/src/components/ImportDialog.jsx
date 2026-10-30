@@ -147,7 +147,7 @@ export default function ImportDialog({ title, noun, columns, required = ['name']
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {[
                     ['New', preview.created, 'text-emerald-600 dark:text-emerald-400'],
-                    ['Updated', preview.updated, 'text-sky-600 dark:text-sky-400'],
+                    ['Updated', preview.updated, 'text-slate-600 dark:text-slate-300'],
                     ['No change', preview.unchanged, 'text-[var(--text-secondary)]'],
                     ['Errors', preview.errorCount, preview.errorCount ? 'text-red-600 dark:text-red-400' : 'text-[var(--text-secondary)]'],
                   ].map(([label, value, cls]) => (

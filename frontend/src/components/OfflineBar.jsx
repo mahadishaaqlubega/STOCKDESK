@@ -58,7 +58,7 @@ export default function OfflineBar({ shopId }) {
 
   if (!offline && !queue.length && !justSynced) return null;
 
-  let tone = 'bg-sky-500/10 text-sky-800 border-sky-500/30 dark:text-sky-200';
+  let tone = 'bg-slate-500/10 text-slate-800 border-slate-500/30 dark:text-slate-200';
   let text;
   if (offline) {
     tone = 'bg-amber-500/15 text-amber-900 border-amber-500/40 dark:text-amber-100';

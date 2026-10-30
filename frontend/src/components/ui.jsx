@@ -30,34 +30,34 @@ const toneText = {
 
 // Tinted, softly shaded icon chips (one per tone) for stat tiles.
 const chipTones = {
-  default: 'from-teal-500/20 to-teal-500/5 text-teal-600 ring-teal-500/15 dark:text-teal-300',
-  accent: 'from-teal-500/20 to-teal-500/5 text-teal-600 ring-teal-500/15 dark:text-teal-300',
+  default: 'from-green-800/15 to-green-800/5 text-green-800 ring-green-800/15 dark:text-green-300',
+  accent: 'from-green-800/15 to-green-800/5 text-green-800 ring-green-800/15 dark:text-green-300',
   success: 'from-emerald-500/20 to-emerald-500/5 text-emerald-600 ring-emerald-500/15 dark:text-emerald-300',
   warning: 'from-amber-500/25 to-amber-500/5 text-amber-600 ring-amber-500/20 dark:text-amber-300',
   danger: 'from-rose-500/20 to-rose-500/5 text-rose-600 ring-rose-500/15 dark:text-rose-300',
-  info: 'from-sky-500/20 to-sky-500/5 text-sky-600 ring-sky-500/15 dark:text-sky-300',
-  violet: 'from-violet-500/20 to-violet-500/5 text-violet-600 ring-violet-500/15 dark:text-violet-300',
+  info: 'from-slate-500/20 to-slate-500/5 text-slate-600 ring-slate-500/15 dark:text-slate-300',
+  violet: 'from-[#8c6a2e]/20 to-[#8c6a2e]/5 text-[#8c6a2e] ring-[#8c6a2e]/15 dark:text-[#d4b470]',
 };
 
 const washTones = {
-  default: 'bg-teal-500/10',
-  accent: 'bg-teal-500/10',
+  default: 'bg-green-800/10',
+  accent: 'bg-green-800/10',
   success: 'bg-emerald-500/10',
   warning: 'bg-amber-500/15',
   danger: 'bg-rose-500/10',
-  info: 'bg-sky-500/10',
-  violet: 'bg-violet-500/10',
+  info: 'bg-slate-500/10',
+  violet: 'bg-[#8c6a2e]/10',
 };
 
 // Left edge on every stat tile, echoing the sidebar's active-link marker.
 const edgeTones = {
-  default: 'border-l-teal-500',
-  accent: 'border-l-teal-500',
+  default: 'border-l-green-700',
+  accent: 'border-l-green-700',
   success: 'border-l-emerald-500',
   warning: 'border-l-amber-400',
   danger: 'border-l-rose-500',
-  info: 'border-l-sky-500',
-  violet: 'border-l-violet-500',
+  info: 'border-l-slate-400',
+  violet: 'border-l-[#a8843f]',
 };
 
 // Thick coloured left border; being a real border it curves with the
@@ -108,7 +108,7 @@ const badgeTones = {
   success: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   warning: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
   danger: 'bg-red-500/10 text-red-700 dark:text-red-300',
-  info: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
+  info: 'bg-slate-500/10 text-slate-700 dark:text-slate-300',
   accent: 'bg-[var(--accent-soft)] text-[var(--accent-strong)]',
 };
 

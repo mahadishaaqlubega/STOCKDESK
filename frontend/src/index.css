@@ -4,139 +4,139 @@
 
 :root {
   color-scheme: light;
-  --bg-app: #f6f7f9;
-  --bg-auth: linear-gradient(135deg, #f0fdfa 0%, #f8fafc 55%, #f0fdf4 100%);
+  --bg-app: #f5f4ef;
+  --bg-auth: linear-gradient(160deg, #f5f4ef 0%, #eeece5 100%);
   --surface-primary: #ffffff;
-  --surface-secondary: #f1f5f9;
-  --surface-tertiary: #e2e8f0;
+  --surface-secondary: #efeee8;
+  --surface-tertiary: #e4e2da;
   --surface-overlay: rgba(255, 255, 255, 0.96);
-  --surface-inverse: #0f172a;
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #64748b;
-  --text-soft: #475569;
-  --border-default: rgba(15, 23, 42, 0.08);
-  --border-strong: rgba(15, 23, 42, 0.14);
-  --focus-ring: rgba(13, 148, 136, 0.24);
-  --accent: #0d9488;
-  --accent-hover: #0f766e;
-  --accent-strong: #134e4a;
-  --accent-soft: #f0fdfa;
-  --success: #16a34a;
-  --success-hover: #15803d;
-  --success-soft: #f0fdf4;
-  --warning: #d97706;
-  --warning-soft: #fffbeb;
-  --danger: #dc2626;
-  --danger-hover: #b91c1c;
-  --danger-soft: #fef2f2;
-  --danger-soft-strong: #fee2e2;
-  --danger-border: rgba(220, 38, 38, 0.18);
-  --info-soft: #eff6ff;
-  --table-hover: #f8fafc;
-  --overlay: rgba(15, 23, 42, 0.45);
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.02);
-  --shadow-raised: 0 12px 32px -12px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.05);
-  --chart-1: #0d9488;
-  --chart-2: #16a34a;
-  --chart-3: #0891b2;
-  --chart-4: #d97706;
-  --chart-5: #dc2626;
-  --chart-grid: #e2e8f0;
+  --surface-inverse: #111814;
+  --text-primary: #111814;
+  --text-secondary: #3a433d;
+  --text-muted: #6b746d;
+  --text-soft: #4b544e;
+  --border-default: rgba(17, 24, 20, 0.09);
+  --border-strong: rgba(17, 24, 20, 0.16);
+  --focus-ring: rgba(20, 83, 45, 0.22);
+  --accent: #14532d;
+  --accent-hover: #0f4424;
+  --accent-strong: #0e3d22;
+  --accent-soft: #e7efe9;
+  --success: #1f7a45;
+  --success-hover: #18633a;
+  --success-soft: #e8f3ec;
+  --warning: #b4530f;
+  --warning-soft: #fbf1e6;
+  --danger: #b42318;
+  --danger-hover: #912018;
+  --danger-soft: #fdf0ee;
+  --danger-soft-strong: #fbe1dd;
+  --danger-border: rgba(180, 35, 24, 0.18);
+  --info-soft: #eef1f4;
+  --table-hover: #f8f7f3;
+  --overlay: rgba(11, 21, 16, 0.45);
+  --shadow-card: 0 1px 2px rgba(17, 24, 20, 0.04), 0 1px 1px rgba(17, 24, 20, 0.02);
+  --shadow-raised: 0 12px 32px -12px rgba(17, 24, 20, 0.2), 0 2px 6px rgba(17, 24, 20, 0.05);
+  --chart-1: #14532d;
+  --chart-2: #8c6a2e;
+  --chart-3: #5b7f6b;
+  --chart-4: #b4530f;
+  --chart-5: #b42318;
+  --chart-grid: #e4e2da;
   --panel-bg: #ffffff;
-  --panel-soft-bg: #f9fafb;
-  --panel-accent-bg: rgba(13, 148, 136, 0.07);
-  --topbar-bg: rgba(255, 255, 255, 0.94);
-  --topbar-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --sidebar-bg: #0b1220;
-  --sidebar-surface: rgba(148, 163, 184, 0.10);
-  --sidebar-border: rgba(148, 163, 184, 0.14);
-  --sidebar-text: #f8fafc;
-  --sidebar-muted: #94a3b8;
-  --sidebar-hover: rgba(255, 255, 255, 0.06);
-  --sidebar-active-bg: rgba(45, 212, 191, 0.14);
+  --panel-soft-bg: #faf9f6;
+  --panel-accent-bg: rgba(20, 83, 45, 0.06);
+  --topbar-bg: rgba(245, 244, 239, 0.94);
+  --topbar-shadow: 0 1px 2px rgba(17, 24, 20, 0.04);
+  --sidebar-bg: #0b1510;
+  --sidebar-surface: rgba(241, 240, 233, 0.07);
+  --sidebar-border: rgba(241, 240, 233, 0.1);
+  --sidebar-text: #f1f0e9;
+  --sidebar-muted: #9aa59c;
+  --sidebar-hover: rgba(241, 240, 233, 0.06);
+  --sidebar-active-bg: rgba(241, 240, 233, 0.09);
   --sidebar-active-text: #ffffff;
-  --sidebar-active-shadow: inset 2px 0 0 #2dd4bf;
+  --sidebar-active-shadow: inset 2px 0 0 #d4b470;
   --shadow-sidebar: 0 20px 40px rgba(0, 0, 0, 0.14);
-  --brand-shadow: 0 10px 24px rgba(13, 148, 136, 0.24);
+  --brand-shadow: 0 10px 24px rgba(20, 83, 45, 0.22);
   --button-primary-shadow: 0 1px 2px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   --button-secondary-bg: #ffffff;
-  --button-secondary-hover: #f8fafc;
-  --toggle-shell-bg: #f8fafc;
+  --button-secondary-hover: #faf9f6;
+  --toggle-shell-bg: #faf9f6;
   --toggle-shell-border: rgba(0, 0, 0, 0.08);
   --toggle-shell-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   --toggle-option-active-bg: #ffffff;
-  --toggle-option-active-text: #134e4a;
+  --toggle-option-active-text: #0e3d22;
   --toggle-option-active-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
   --toggle-option-hover: rgba(0, 0, 0, 0.04);
 }
 
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg-app: #09090b;
-  --bg-auth: linear-gradient(145deg, #09090b 0%, #0d1117 52%, #0a0f14 100%);
-  --surface-primary: #111317;
-  --surface-secondary: #18191f;
-  --surface-tertiary: #1e2028;
-  --surface-overlay: rgba(17, 19, 23, 0.96);
-  --surface-inverse: #f8fafc;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-soft: #94a3b8;
-  --border-default: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --focus-ring: rgba(45, 212, 191, 0.30);
-  --accent: #2dd4bf;
-  --accent-hover: #5eead4;
-  --accent-strong: #ccfbf1;
-  --accent-soft: rgba(45, 212, 191, 0.12);
-  --success: #4ade80;
-  --success-hover: #86efac;
-  --success-soft: rgba(74, 222, 128, 0.12);
-  --warning: #fbbf24;
-  --warning-soft: rgba(251, 191, 36, 0.12);
-  --danger: #f87171;
-  --danger-hover: #fca5a5;
-  --danger-soft: rgba(248, 113, 113, 0.12);
-  --danger-soft-strong: rgba(248, 113, 113, 0.20);
-  --danger-border: rgba(248, 113, 113, 0.20);
-  --info-soft: rgba(96, 165, 250, 0.12);
-  --table-hover: #18191f;
+  --bg-app: #0a0f0c;
+  --bg-auth: linear-gradient(160deg, #0a0f0c 0%, #0d1611 100%);
+  --surface-primary: #111915;
+  --surface-secondary: #16201b;
+  --surface-tertiary: #1d2923;
+  --surface-overlay: rgba(17, 25, 21, 0.96);
+  --surface-inverse: #f1f0e9;
+  --text-primary: #eef0ea;
+  --text-secondary: #aeb7b0;
+  --text-muted: #7e887f;
+  --text-soft: #a3ada5;
+  --border-default: rgba(238, 240, 234, 0.08);
+  --border-strong: rgba(238, 240, 234, 0.14);
+  --focus-ring: rgba(143, 203, 166, 0.3);
+  --accent: #8fcba6;
+  --accent-hover: #a9d9bb;
+  --accent-strong: #d3ecdc;
+  --accent-soft: rgba(143, 203, 166, 0.12);
+  --success: #7dd3a0;
+  --success-hover: #a3e2bd;
+  --success-soft: rgba(125, 211, 160, 0.12);
+  --warning: #f0b35b;
+  --warning-soft: rgba(240, 179, 91, 0.12);
+  --danger: #f28b82;
+  --danger-hover: #f6aaa3;
+  --danger-soft: rgba(242, 139, 130, 0.12);
+  --danger-soft-strong: rgba(242, 139, 130, 0.2);
+  --danger-border: rgba(242, 139, 130, 0.2);
+  --info-soft: rgba(148, 163, 184, 0.12);
+  --table-hover: #16201b;
   --overlay: rgba(0, 0, 0, 0.75);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30);
   --shadow-raised: 0 16px 40px -12px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
-  --chart-1: #2dd4bf;
-  --chart-2: #4ade80;
-  --chart-3: #60a5fa;
-  --chart-4: #fbbf24;
-  --chart-5: #f87171;
-  --chart-grid: #1e2028;
-  --panel-bg: #111317;
-  --panel-soft-bg: #18191f;
-  --panel-accent-bg: rgba(45, 212, 191, 0.10);
-  --topbar-bg: rgba(17, 19, 23, 0.94);
+  --chart-1: #8fcba6;
+  --chart-2: #d4b470;
+  --chart-3: #7fa7c4;
+  --chart-4: #f0b35b;
+  --chart-5: #f28b82;
+  --chart-grid: #1d2923;
+  --panel-bg: #111915;
+  --panel-soft-bg: #16201b;
+  --panel-accent-bg: rgba(143, 203, 166, 0.08);
+  --topbar-bg: rgba(17, 25, 21, 0.94);
   --topbar-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 16px rgba(0, 0, 0, 0.18);
-  --sidebar-bg: #0c0e12;
-  --sidebar-surface: rgba(255, 255, 255, 0.05);
-  --sidebar-border: rgba(255, 255, 255, 0.07);
-  --sidebar-text: #f1f5f9;
-  --sidebar-muted: #64748b;
-  --sidebar-hover: rgba(255, 255, 255, 0.05);
-  --sidebar-active-bg: rgba(45, 212, 191, 0.12);
+  --sidebar-bg: #0c1410;
+  --sidebar-surface: rgba(241, 240, 233, 0.05);
+  --sidebar-border: rgba(241, 240, 233, 0.07);
+  --sidebar-text: #f1f0e9;
+  --sidebar-muted: #7e887f;
+  --sidebar-hover: rgba(241, 240, 233, 0.05);
+  --sidebar-active-bg: rgba(241, 240, 233, 0.08);
   --sidebar-active-text: #ffffff;
-  --sidebar-active-shadow: inset 2px 0 0 #2dd4bf;
+  --sidebar-active-shadow: inset 2px 0 0 #d4b470;
   --shadow-sidebar: 0 20px 40px rgba(0, 0, 0, 0.32);
-  --brand-shadow: 0 10px 24px rgba(45, 212, 191, 0.20);
+  --brand-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
   --button-primary-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  --button-secondary-bg: #18191f;
-  --button-secondary-hover: #1e2028;
-  --toggle-shell-bg: #18191f;
+  --button-secondary-bg: #16201b;
+  --button-secondary-hover: #1d2923;
+  --toggle-shell-bg: #16201b;
   --toggle-shell-border: rgba(255, 255, 255, 0.06);
   --toggle-shell-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
-  --toggle-option-active-bg: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
-  --toggle-option-active-text: #ffffff;
-  --toggle-option-active-shadow: 0 4px 12px rgba(13, 148, 136, 0.30);
+  --toggle-option-active-bg: #f1f0e9;
+  --toggle-option-active-text: #0b1510;
+  --toggle-option-active-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   --toggle-option-hover: rgba(255, 255, 255, 0.04);
 }
 
@@ -300,7 +300,17 @@ textarea:focus {
 
 ::selection {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--bg-app);
+}
+
+/* The brass double rule (how a stock book marks a final total), shared
+   with the marketing site. */
+.ledger-rule {
+  display: block;
+  width: 52px;
+  height: 5px;
+  border-top: 1px solid #c9a961;
+  border-bottom: 1px solid #c9a961;
 }
 
 @layer components {
@@ -406,7 +416,8 @@ textarea:focus {
   }
 
   [data-theme='dark'] .app-btn-primary {
-    background: #0d9488;
+    background: #f1f0e9;
+    color: #0b1510;
   }
 
   .app-btn-primary:hover {
@@ -414,7 +425,7 @@ textarea:focus {
   }
 
   [data-theme='dark'] .app-btn-primary:hover {
-    background: #0f766e;
+    background: #ffffff;
   }
 
   .app-btn-primary:active,

@@ -379,7 +379,7 @@ export default function Customers() {
                             <p className="font-medium text-[var(--text-primary)]">
                               {customer.name}
                               {customer.priceTier === 'wholesale' ? <span className="ml-2 rounded-full bg-[var(--accent-soft)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--accent-strong)]">Wholesale</span> : null}
-                              {Number(customer.loyaltyPercent) > 0 ? <span className="ml-2 rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300">Loyalty {Number(customer.loyaltyPercent)}%</span> : null}
+                              {Number(customer.loyaltyPercent) > 0 ? <span className="ml-2 rounded-full bg-[#8c6a2e]/10 px-1.5 py-0.5 text-[11px] font-medium text-[#8c6a2e] dark:text-[#d4b470]">Loyalty {Number(customer.loyaltyPercent)}%</span> : null}
                               {customer.isActive === false ? <span className="ml-2 rounded-full bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[11px] font-normal text-[var(--text-muted)]">Inactive</span> : null}
                             </p>
                             <p className="text-xs text-[var(--text-muted)]">Since {new Date(customer.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</p>
