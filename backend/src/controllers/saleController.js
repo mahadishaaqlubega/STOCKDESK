@@ -7,6 +7,7 @@ const { startOfDay, endOfDay, getMetricsForRange } = require('../utils/businessM
 const { localDateString } = require('../config/timezone');
 const { Op } = require('sequelize');
 const auditController = require('./auditController');
+const { markConverted: markQuoteConverted } = require('./quotationController');
 
 function newReceiptToken() {
   return crypto.randomBytes(18).toString('base64url');
@@ -354,6 +355,10 @@ exports.createSale = async (req, res, next) => {
 
     const receiptNumber = buildReceiptNumber(sale.id);
     await Receipt.create({ saleId: sale.id, receiptNumber, shopId: req.user.shopId, publicToken: newReceiptToken() }, { transaction });
+    // A sale rung up from a quote closes that quote.
+    if (req.body.quotationId != null) {
+      await markQuoteConverted(req.user.shopId, req.body.quotationId, sale.id, transaction);
+    }
 
     await transaction.commit();
 

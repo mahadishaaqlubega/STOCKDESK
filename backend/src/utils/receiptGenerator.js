@@ -16,7 +16,7 @@ const COLORS = {
   faint: '#9CA3AF',
   hairline: '#E5E7EB',
   panel: '#F6F7F9',
-  accent: '#0D9488',
+  accent: '#14532D',
   ok: '#047857',
   due: '#B45309',
 };
@@ -276,3 +276,5 @@ exports.generateReceiptPdf = async (stream, sale, settings) => {
 
   doc.end();
 };
+
+exports.loadShopLogo = loadRemoteImageBuffer;

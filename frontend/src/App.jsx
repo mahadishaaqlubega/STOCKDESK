@@ -30,6 +30,7 @@ const Billing = lazy(() => import('./pages/Billing'));
 const OwnerBilling = lazy(() => import('./pages/OwnerBilling'));
 const OwnerMessages = lazy(() => import('./pages/OwnerMessages'));
 const Till = lazy(() => import('./pages/Till'));
+const Quotations = lazy(() => import('./pages/Quotations'));
 
 function App() {
   const [session, setSession] = useState({
@@ -87,6 +88,7 @@ function App() {
           <Route path="suppliers" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <Suppliers />} />
           <Route path="returns" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Returns />} />
           <Route path="till" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Till />} />
+          <Route path="quotes" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Quotations />} />
           <Route path="audit-logs" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <AuditLogs />} />
           <Route path="settings" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : isStaff ? staffBlocked : <Settings />} />
           <Route path="users" element={isSuperAdmin ? <Navigate to="/app/shops" replace /> : <Users />} />

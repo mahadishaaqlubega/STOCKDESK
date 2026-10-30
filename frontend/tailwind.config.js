@@ -1,5 +1,8 @@
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
+  // dark: classes follow the app's own theme switch (ThemeProvider sets
+  // data-theme on <html>), not the device setting.
+  darkMode: ['selector', '[data-theme="dark"]'],
   theme: {
     extend: {
       // Roomier spacing only when the window is tall enough (zoomed-in or

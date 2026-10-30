@@ -16,6 +16,7 @@ const {
   DayClosure,
   TillSession,
   TillMovement,
+  Quotation,
   Expense,
   StockIn,
   StockReconciliation,
@@ -302,6 +303,7 @@ exports.closeAccount = async (req, res, next) => {
       await CreditPayment.destroy({ where: { shopId }, transaction });
       await SaleItem.destroy({ where: { shopId }, transaction });
       await Sale.destroy({ where: { shopId }, transaction });
+      await Quotation.destroy({ where: { shopId }, transaction });
       await TillMovement.destroy({ where: { shopId }, transaction });
       await TillSession.destroy({ where: { shopId }, transaction });
       await DayClosure.destroy({ where: { shopId }, transaction });

@@ -20,9 +20,18 @@ const pageTitles = {
   '/app/expenses': 'Expenses',
   '/app/returns': 'Returns',
   '/app/till': 'Till',
+  '/app/quotes': 'Quotes',
   '/app/audit-logs': 'Activity log',
   '/app/stock-reconciliation': 'Stock count',
 };
+
+// "Good morning, Kato" by the shop's clock, for the dashboard title.
+function greeting(name, now = new Date()) {
+  const hour = now.getHours();
+  const part = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const first = String(name || '').trim().split(/\s+/)[0];
+  return first ? `${part}, ${first.charAt(0).toUpperCase()}${first.slice(1)}` : part;
+}
 
 export default function Header({ onOpenSidebar, onToggleSidebar, sidebarCollapsed }) {
   const location = useLocation();
@@ -59,7 +68,16 @@ export default function Header({ onOpenSidebar, onToggleSidebar, sidebarCollapse
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-[18px] w-[18px]"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg>
           </button>
-          <h1 className="truncate text-lg font-semibold tracking-tight text-[var(--text-primary)] sm:text-xl">{pageTitle}</h1>
+          {path === '/app' && user && !isSuperAdmin ? (
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-semibold tracking-tight text-[var(--text-primary)] sm:text-xl">{greeting(user.name)}</h1>
+              <p className="hidden truncate text-xs text-[var(--text-muted)] sm:block">
+                {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
+              </p>
+            </div>
+          ) : (
+            <h1 className="truncate text-lg font-semibold tracking-tight text-[var(--text-primary)] sm:text-xl">{pageTitle}</h1>
+          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">

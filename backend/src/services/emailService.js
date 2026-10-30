@@ -159,8 +159,9 @@ async function sendEmail(payload) {
 
 const BRAND = {
   name: 'StockDesk',
-  teal: '#0d9488',
-  tealDark: '#0f766e',
+  teal: '#14532d',
+  tealDark: '#0f4424',
+  brass: '#8c6a2e',
   ink: '#0b1220',
   text: '#1e293b',
   muted: '#64748b',
@@ -253,9 +254,9 @@ function renderEmail(o) {
       </td></tr>
       <tr><td style="background:#ffffff;border:1px solid ${BRAND.line};border-radius:16px;overflow:hidden;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="height:4px;background:${BRAND.teal};background:linear-gradient(90deg,${BRAND.teal},#22d3ee);font-size:0;line-height:0;">&nbsp;</td></tr>
+          <tr><td style="height:4px;background:${BRAND.teal};font-size:0;line-height:0;">&nbsp;</td></tr>
           <tr><td style="padding:32px 34px 30px;">
-            ${o.eyebrow ? `<p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${BRAND.teal};">${escapeHtml(o.eyebrow)}</p>` : ''}
+            ${o.eyebrow ? `<p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${BRAND.brass};">${escapeHtml(o.eyebrow)}</p>` : ''}
             <h1 style="margin:0 0 18px;font-size:24px;line-height:1.25;font-weight:800;color:${BRAND.ink};letter-spacing:-0.02em;">${escapeHtml(o.heading)}</h1>
             ${o.greeting ? `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${BRAND.text};">${escapeHtml(o.greeting)}</p>` : ''}
             ${paragraphs}

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# The app is for signed-in shops. Its pages carry X-Robots-Tag: noindex
+# (vercel.json) so search results point at www.stockdeskinventory.com.
+Sitemap: https://www.stockdeskinventory.com/sitemap.xml

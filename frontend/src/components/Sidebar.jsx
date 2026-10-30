@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { getUser, otherSessionUser } from '../utils/auth';
 import { useTheme } from './ThemeProvider';
 import logo from '../assets/logo.png';
+import { InstallGuide, useInstallState } from './InstallApp';
 
 // Minimal 20px stroke icons, one visual family.
 const Icon = ({ children }) => (
@@ -16,6 +17,7 @@ const icons = {
   pos: <Icon><path d="M6 2h12l2 6H4l2-6Z" /><path d="M4 8v12a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8" /><path d="M9 12h6" /></Icon>,
   customers: <Icon><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18.5 20a6.5 6.5 0 0 0-2.5-5.1" /></Icon>,
   returns: <Icon><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></Icon>,
+  quotes: <Icon><path d="M7 3h7l5 5v13H7z" /><path d="M14 3v5h5" /><path d="M10 13h6M10 17h4" /></Icon>,
   till: <Icon><rect x="3" y="11" width="18" height="9" rx="1.5" /><path d="M3 15h18" /><path d="M10 17.5h4" /><rect x="7" y="4" width="10" height="7" rx="1" /></Icon>,
   products: <Icon><path d="m21 8-9-5-9 5 9 5 9-5Z" /><path d="m3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></Icon>,
   stockCount: <Icon><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M9 3v2h6V3" /><path d="m9 13 2 2 4-4" /></Icon>,
@@ -40,6 +42,7 @@ const shopSections = [
       { to: '/app/pos', label: 'Point of sale', icon: icons.pos },
       { to: '/app/customers', label: 'Customers', icon: icons.customers },
       { to: '/app/returns', label: 'Returns', icon: icons.returns },
+      { to: '/app/quotes', label: 'Quotes', icon: icons.quotes },
       { to: '/app/till', label: 'Till', icon: icons.till },
     ],
   },
@@ -96,6 +99,8 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
     .filter((section) => section.items.length > 0);
 
   const hideWhenCollapsed = collapsed ? 'lg:hidden' : '';
+  const { installed } = useInstallState();
+  const [installGuide, setInstallGuide] = useState(false);
 
   // Keep the current page's link visible when the menu is taller than the window.
   const navRef = useRef(null);
@@ -162,7 +167,19 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
               </div>
             </div>
           ))}
+          {!installed ? (
+            <button
+              type="button"
+              onClick={() => setInstallGuide(true)}
+              title={collapsed ? 'Install app' : undefined}
+              className={`app-sidebar-link mt-3.5 flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-[13.5px] font-medium transition tall:py-2 ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
+              <span className={hideWhenCollapsed}>Install app</span>
+            </button>
+          ) : null}
         </nav>
+        {installGuide ? <InstallGuide onClose={() => setInstallGuide(false)} /> : null}
 
         {/* Account */}
         <div className="border-t border-[var(--sidebar-border)] p-2.5 tall:p-3">

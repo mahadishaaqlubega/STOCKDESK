@@ -308,6 +308,12 @@ export const addTillMovement = (body) => request('/till/movements', { method: 'P
 export const closeTill = (body) => request('/till/close', { method: 'POST', body: JSON.stringify(body) });
 export const fetchTillSessions = (limit = 30) => request(`/till/sessions?limit=${limit}`);
 export const fetchTillSession = (id) => request(`/till/sessions/${id}`);
+export const fetchQuotations = (query = '') => request(`/quotations${query ? `?${query}` : ''}`);
+export const fetchQuotation = (id) => request(`/quotations/${id}`);
+export const createQuotation = (body) => request('/quotations', { method: 'POST', body: JSON.stringify(body) });
+export const updateQuotation = (id, body) => request(`/quotations/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+export const cancelQuotation = (id) => request(`/quotations/${id}/cancel`, { method: 'POST' });
+export const shareQuotation = (id) => request(`/quotations/${id}/share`, { method: 'POST' });
 export const createReturn = (saleId, body) => request(`/sales/${saleId}/return`, { method: 'POST', body: JSON.stringify(body) });
 export const fetchReturns = () => request('/sales/returns');
 export const fetchBestSelling = () => request('/reports/best-selling');

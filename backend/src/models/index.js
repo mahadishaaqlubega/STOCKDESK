@@ -29,6 +29,7 @@ const CustomerPrice = require('./customerPrice');
 const PlatformMessage = require('./platformMessage');
 const TillSession = require('./tillSession');
 const TillMovement = require('./tillMovement');
+const Quotation = require('./quotation');
 const { backfillMissingUsernames, generateUniqueUsername } = require('../utils/username');
 const { generateUniqueShopSlug } = require('../utils/shop');
 
@@ -154,6 +155,13 @@ TillSession.hasMany(TillMovement, { foreignKey: 'sessionId', as: 'movements', on
 TillMovement.belongsTo(TillSession, { foreignKey: 'sessionId', as: 'session', onDelete: 'CASCADE' });
 TillMovement.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', onDelete: 'CASCADE' });
 TillMovement.belongsTo(User, { foreignKey: 'userId', as: 'user', constraints: false });
+
+// Quotations and proforma invoices
+Shop.hasMany(Quotation, { foreignKey: 'shopId', as: 'quotations', onDelete: 'CASCADE', hooks: true });
+Quotation.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', onDelete: 'CASCADE' });
+Quotation.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer', constraints: false });
+Quotation.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdBy', constraints: false });
+Quotation.belongsTo(Sale, { foreignKey: 'saleId', as: 'sale', constraints: false });
 
 // Subscription billing
 Shop.hasMany(SubscriptionPayment, { foreignKey: 'shopId', as: 'subscriptionPayments', onDelete: 'CASCADE', hooks: true });
@@ -318,5 +326,6 @@ module.exports = {
   PlatformMessage,
   TillSession,
   TillMovement,
+  Quotation,
   initAppData,
 };
