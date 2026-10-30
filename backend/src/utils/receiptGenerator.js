@@ -1,4 +1,5 @@
 const PDFDocument = require('pdfkit');
+const { fetchRemoteImage } = require('./remoteImage');
 
 // Currencies written without a minor unit (ISO 4217 exponent 0), e.g. UGX.
 const ZERO_DECIMAL_CURRENCIES = new Set([
@@ -30,21 +31,7 @@ async function loadRemoteImageBuffer(url) {
     // PDFKit renders PNG and JPEG only.
     return dataMatch[1] === 'webp' ? null : Buffer.from(dataMatch[2], 'base64');
   }
-  if (!/^https?:\/\//i.test(url)) {
-    return null;
-  }
-
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      return null;
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer);
-  } catch (error) {
-    return null;
-  }
+  return fetchRemoteImage(url);
 }
 
 function formatDate(value, options) {

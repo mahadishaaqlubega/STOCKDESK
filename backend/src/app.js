@@ -24,12 +24,15 @@ const supplierRoutes = require('./routes/suppliers');
 const purchaseRoutes = require('./routes/purchases');
 const importRoutes = require('./routes/imports');
 const billingRoutes = require('./routes/billing');
+const tillRoutes = require('./routes/till');
 const { errorHandler } = require('./middleware/errorHandler');
+const { clientIp } = require('./utils/clientIp');
 
 const app = express();
 
 // Security middleware: trust proxy, limit request size
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
 // Gzip JSON responses: product and customer lists shrink ~85%, which matters
 // on mobile data.
 app.use(compression());
@@ -105,6 +108,7 @@ const signupLimiter = rateLimit({
   legacyHeaders: false,
   message: { message: 'Too many signup attempts. Please wait before trying again.' },
   skipSuccessfulRequests: true, // only count failed attempts
+  keyGenerator: clientIp,
 });
 
 const loginLimiter = rateLimit({
@@ -114,6 +118,7 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
   message: { message: 'Too many login attempts. Please wait before trying again.' },
   skipSuccessfulRequests: true,
+  keyGenerator: clientIp,
 });
 
 const authLimiter = rateLimit({
@@ -122,6 +127,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many requests. Please wait before trying again.' },
+  keyGenerator: clientIp,
 });
 
 // server.js sets dbReady=false until migrations finish. (Left undefined in
@@ -143,6 +149,19 @@ app.post('/api/auth/signup', signupLimiter);
 app.post('/api/auth/login', loginLimiter);
 app.post('/api/auth/forgot-password', authLimiter);
 app.post('/api/auth/resend-verification', authLimiter);
+// Reset and verification links: only failed tries count, so people sharing
+// one mobile-network IP are not blocked by each other's successful clicks.
+const tokenLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: clientIp,
+  message: { message: 'Too many attempts. Please wait before trying again.' },
+});
+app.post('/api/auth/reset-password', tokenLimiter);
+app.post('/api/auth/verify-email', tokenLimiter);
 
 // CRUD rate limiter - protects all data endpoints. Keyed per session token
 // (falling back to IP) because several tills in one shop usually share a
@@ -154,10 +173,26 @@ const crudLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     const auth = req.headers.authorization || '';
-    return auth.startsWith('Bearer ') ? `token:${auth.slice(7)}` : `ip:${req.ip}`;
+    return auth.startsWith('Bearer ') ? `token:${auth.slice(7)}` : `ip:${clientIp(req)}`;
   },
   message: { message: 'Too many requests. Please slow down.' },
 });
+
+// Backstop for every API route, including those without their own limit
+// (reports, settings, printing, the owner console). Far above what a busy
+// till needs; it only stops scripts hammering the API.
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const auth = req.headers.authorization || '';
+    return auth.startsWith('Bearer ') ? `token:${auth.slice(7)}` : `ip:${clientIp(req)}`;
+  },
+  message: { message: 'Too many requests. Please slow down.' },
+});
+app.use('/api', apiLimiter);
 
 app.use('/api/users', crudLimiter);
 app.use('/api/customers', crudLimiter);
@@ -170,6 +205,7 @@ app.use('/api/credit', crudLimiter);
 app.use('/api/suppliers', crudLimiter);
 app.use('/api/purchases', crudLimiter);
 app.use('/api/billing', crudLimiter);
+app.use('/api/till', crudLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -190,6 +226,7 @@ app.use('/api/public', publicRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/purchases', purchaseRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/till', tillRoutes);
 app.use('/api', importRoutes);
 
 app.use(errorHandler);

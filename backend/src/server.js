@@ -10,6 +10,12 @@ if (!process.env.JWT_SECRET) {
   console.error('JWT_SECRET is required. Set it in your backend environment before starting StockDesk.');
   process.exit(1);
 }
+// A short secret can be guessed offline from any one token, which would let
+// someone sign their own. Warn rather than refuse, so a deploy never takes
+// the shops offline.
+if (process.env.JWT_SECRET.length < 32) {
+  console.warn('[security] JWT_SECRET is shorter than 32 characters. Replace it with a long random value.');
+}
 
 // Last line of defence: a stray async error must never take every shop
 // offline. Log it and keep serving (Node's default is to exit).

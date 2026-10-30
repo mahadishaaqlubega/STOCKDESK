@@ -2,11 +2,12 @@ const { Audit, User, Shop } = require('../models');
 const { Op } = require('sequelize');
 const { parseLocalDate } = require('../config/timezone');
 const { startOfDay, endOfDay } = require('../utils/businessMetrics');
+const { clientIp } = require('../utils/clientIp');
 
 // Log an action
 exports.logAction = async (userId, shopId, action, entityType, entityId, details, req) => {
   try {
-    const ipAddress = req?.ip || req?.connection?.remoteAddress || null;
+    const ipAddress = req ? clientIp(req) : null;
     const userAgent = req?.get('user-agent') || null;
 
     await Audit.create({

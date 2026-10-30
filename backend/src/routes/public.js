@@ -1,5 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const { clientIp } = require('../utils/clientIp');
 const saleController = require('../controllers/saleController');
 
 // Unauthenticated endpoints: links customers open from WhatsApp.
@@ -11,6 +12,7 @@ router.use(rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many requests. Please try again in a minute.' },
+  keyGenerator: clientIp,
 }));
 
 router.get('/receipts/:token', saleController.publicReceipt);

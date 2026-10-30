@@ -459,9 +459,11 @@ exports.forgotPassword = async (req, res, next) => {
 
     // Always respond with success to avoid email enumeration
     if (user) {
+      // Only a hash is stored, so a leaked database or backup cannot be
+      // used to reset anyone's password. The email carries the token itself.
       const resetPasswordToken = crypto.randomBytes(32).toString('hex');
       const resetPasswordExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-      await user.update({ resetPasswordToken, resetPasswordExpiry });
+      await user.update({ resetPasswordToken: hashResetToken(resetPasswordToken), resetPasswordExpiry });
       try {
         await sendPasswordResetEmail(normalizedEmail, resetPasswordToken, { name: user.name || user.username });
       } catch (emailError) {
@@ -474,6 +476,10 @@ exports.forgotPassword = async (req, res, next) => {
     next(error);
   }
 };
+
+function hashResetToken(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('hex');
+}
 
 exports.resetPassword = async (req, res, next) => {
   try {
@@ -489,7 +495,7 @@ exports.resetPassword = async (req, res, next) => {
       return res.status(400).json({ message: resetPasswordProblem });
     }
 
-    const user = await User.findOne({ where: { resetPasswordToken: String(token) } });
+    const user = await User.findOne({ where: { resetPasswordToken: hashResetToken(token) } });
     if (!user) {
       return res.status(400).json({ message: 'This password reset link is invalid or has already been used.' });
     }

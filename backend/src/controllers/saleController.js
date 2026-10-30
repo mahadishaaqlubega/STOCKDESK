@@ -711,7 +711,7 @@ exports.createReturn = async (req, res, next) => {
     }
 
     const saleReturn = await SaleReturn.create(
-      { saleId: sale.id, reason: reason || null, totalRefund, processedByUserId: req.user.id, shopId: req.user.shopId },
+      { saleId: sale.id, reason: reason || null, totalRefund, cashRefund, processedByUserId: req.user.id, shopId: req.user.shopId },
       { transaction }
     );
 

@@ -16,6 +16,7 @@ const icons = {
   pos: <Icon><path d="M6 2h12l2 6H4l2-6Z" /><path d="M4 8v12a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8" /><path d="M9 12h6" /></Icon>,
   customers: <Icon><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18.5 20a6.5 6.5 0 0 0-2.5-5.1" /></Icon>,
   returns: <Icon><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></Icon>,
+  till: <Icon><rect x="3" y="11" width="18" height="9" rx="1.5" /><path d="M3 15h18" /><path d="M10 17.5h4" /><rect x="7" y="4" width="10" height="7" rx="1" /></Icon>,
   products: <Icon><path d="m21 8-9-5-9 5 9 5 9-5Z" /><path d="m3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></Icon>,
   stockCount: <Icon><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M9 3v2h6V3" /><path d="m9 13 2 2 4-4" /></Icon>,
   suppliers: <Icon><path d="M3 7h11v9H3z" /><path d="M14 10h4l3 3v3h-7" /><circle cx="7" cy="18" r="1.8" /><circle cx="17.5" cy="18" r="1.8" /></Icon>,
@@ -39,6 +40,7 @@ const shopSections = [
       { to: '/app/pos', label: 'Point of sale', icon: icons.pos },
       { to: '/app/customers', label: 'Customers', icon: icons.customers },
       { to: '/app/returns', label: 'Returns', icon: icons.returns },
+      { to: '/app/till', label: 'Till', icon: icons.till },
     ],
   },
   {

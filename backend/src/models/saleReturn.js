@@ -23,6 +23,11 @@ SaleReturn.init(
       allowNull: false,
       defaultValue: 0,
     },
+    cashRefund: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+      comment: 'Part of the refund handed back from the till (the rest cancelled credit)',
+    },
     processedByUserId: {
       type: DataTypes.INTEGER,
       allowNull: true,

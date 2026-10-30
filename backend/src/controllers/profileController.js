@@ -14,6 +14,8 @@ const {
   CreditPayment,
   Receipt,
   DayClosure,
+  TillSession,
+  TillMovement,
   Expense,
   StockIn,
   StockReconciliation,
@@ -300,6 +302,8 @@ exports.closeAccount = async (req, res, next) => {
       await CreditPayment.destroy({ where: { shopId }, transaction });
       await SaleItem.destroy({ where: { shopId }, transaction });
       await Sale.destroy({ where: { shopId }, transaction });
+      await TillMovement.destroy({ where: { shopId }, transaction });
+      await TillSession.destroy({ where: { shopId }, transaction });
       await DayClosure.destroy({ where: { shopId }, transaction });
       await StockReconciliation.destroy({ where: { shopId }, transaction });
       // Supplier records reference products, so they go first.

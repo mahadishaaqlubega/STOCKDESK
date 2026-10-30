@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchProducts, createSale, fetchSettings, downloadReceipt, fetchSale, fetchCustomers, fetchCustomerPrices, saveCustomerPrice } from '../utils/api';
+import { fetchProducts, createSale, fetchSettings, downloadReceipt, fetchSale, fetchCustomers, fetchCustomerPrices, saveCustomerPrice, fetchTill } from '../utils/api';
 import { Link } from 'react-router-dom';
 import { getUser } from '../utils/auth';
 import { getPrintSettings, savePrintSettings } from '../utils/printSettings';
@@ -98,6 +98,13 @@ export default function POS() {
   const isAdminUser = getUser()?.role === 'Admin';
 
   useBodyScrollLock(showReceipt);
+
+  // null until known; a closed till gets a small reminder in the cart header.
+  const [tillOpen, setTillOpen] = useState(null);
+  useEffect(() => {
+    if (isOffline()) return;
+    fetchTill().then((t) => setTillOpen(Boolean(t?.session))).catch(() => {});
+  }, []);
 
   useEffect(() => {
     loadProducts();
@@ -708,6 +715,11 @@ export default function POS() {
               <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Current sale</h2>
               {cartItemCount > 0 ? (
                 <span className="num rounded-full bg-[var(--surface-secondary)] px-2 py-0.5 text-xs font-medium text-[var(--text-secondary)]">{cartItemCount}</span>
+              ) : null}
+              {tillOpen === false ? (
+                <Link to="/app/till" className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-500/20 dark:text-amber-300">
+                  Open till
+                </Link>
               ) : null}
             </div>
             {cart.length > 0 ? (
