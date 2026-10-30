@@ -1,4 +1,5 @@
 const express = require('express');
+const { clientIp } = require('../utils/clientIp');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth');
 const { authorize } = require('../middleware/roles');
@@ -56,7 +57,7 @@ router.put('/me', authorize(['Admin']), async (req, res) => {
 const verifyWhatsappLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5, // verification attempts per hour
-  keyGenerator: (req) => (req.user?.id ? `user:${req.user.id}` : req.ip),
+  keyGenerator: (req) => (req.user?.id ? `user:${req.user.id}` : clientIp(req)),
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => res.status(429).json({ error: 'Too many verification attempts. Try again later.' }),
@@ -101,7 +102,7 @@ router.post('/me/whatsapp/verify', authorize(['Admin']), verifyWhatsappLimiter, 
         entityType: 'SHOP',
         entityId: shop.id,
         details: { senderNumber: parsedSender.number, adminPhone: parsedAdmin.number, sid: result.sid || result.messageSid || null },
-        ipAddress: req.ip,
+        ipAddress: clientIp(req),
         userAgent: req.get('User-Agent') || null,
       });
     } catch (err) {

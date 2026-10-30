@@ -5,6 +5,8 @@ const {
   Audit,
   Customer,
   DayClosure,
+  TillSession,
+  TillMovement,
   Expense,
   PendingSignup,
   Product,
@@ -428,6 +430,8 @@ exports.deleteShop = async (req, res, next) => {
       await SaleItem.destroy({ where: { shopId }, transaction: t });
       await Sale.destroy({ where: { shopId }, transaction: t });
       // Delete records that reference Products and Users before them
+      await TillMovement.destroy({ where: { shopId }, transaction: t });
+      await TillSession.destroy({ where: { shopId }, transaction: t });
       await DayClosure.destroy({ where: { shopId }, transaction: t });
       await StockReconciliation.destroy({ where: { shopId }, transaction: t });
       // Supplier records reference products, so they go first.

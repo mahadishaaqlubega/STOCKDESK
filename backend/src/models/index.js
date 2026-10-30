@@ -27,6 +27,8 @@ const PaymentRequest = require('./paymentRequest');
 const PlatformSetting = require('./platformSetting');
 const CustomerPrice = require('./customerPrice');
 const PlatformMessage = require('./platformMessage');
+const TillSession = require('./tillSession');
+const TillMovement = require('./tillMovement');
 const { backfillMissingUsernames, generateUniqueUsername } = require('../utils/username');
 const { generateUniqueShopSlug } = require('../utils/shop');
 
@@ -141,6 +143,17 @@ Customer.hasMany(CustomerPrice, { foreignKey: 'customerId', as: 'specialPrices',
 CustomerPrice.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer', onDelete: 'CASCADE' });
 Product.hasMany(CustomerPrice, { foreignKey: 'productId', as: 'customerPrices', onDelete: 'CASCADE' });
 CustomerPrice.belongsTo(Product, { foreignKey: 'productId', as: 'product', onDelete: 'CASCADE' });
+
+// Till cash counts. Staff references carry no foreign key so a closed count
+// keeps its history after the person who did it leaves the team.
+Shop.hasMany(TillSession, { foreignKey: 'shopId', as: 'tillSessions', onDelete: 'CASCADE', hooks: true });
+TillSession.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', onDelete: 'CASCADE' });
+TillSession.belongsTo(User, { foreignKey: 'openedByUserId', as: 'openedBy', constraints: false });
+TillSession.belongsTo(User, { foreignKey: 'closedByUserId', as: 'closedBy', constraints: false });
+TillSession.hasMany(TillMovement, { foreignKey: 'sessionId', as: 'movements', onDelete: 'CASCADE', hooks: true });
+TillMovement.belongsTo(TillSession, { foreignKey: 'sessionId', as: 'session', onDelete: 'CASCADE' });
+TillMovement.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', onDelete: 'CASCADE' });
+TillMovement.belongsTo(User, { foreignKey: 'userId', as: 'user', constraints: false });
 
 // Subscription billing
 Shop.hasMany(SubscriptionPayment, { foreignKey: 'shopId', as: 'subscriptionPayments', onDelete: 'CASCADE', hooks: true });
@@ -303,5 +316,7 @@ module.exports = {
   PlatformSetting,
   CustomerPrice,
   PlatformMessage,
+  TillSession,
+  TillMovement,
   initAppData,
 };

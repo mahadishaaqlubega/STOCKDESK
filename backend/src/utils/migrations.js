@@ -195,6 +195,17 @@ const STATEMENTS = [
   { name: 'index: stock-ins by product', sql: `CREATE INDEX IF NOT EXISTS "stock_ins_shop_product_idx" ON "stock_ins" ("shopId", "productId");` },
   { name: 'index: users by shop', sql: `CREATE INDEX IF NOT EXISTS "users_shop_idx" ON "users" ("shopId");` },
   { name: 'index: credit payments by sale', sql: `CREATE INDEX IF NOT EXISTS "credit_payments_sale_idx" ON "credit_payments" ("saleId");` },
+  // Till cash count. Expenses and returns record how they were paid, so the
+  // till knows what left the drawer. Older rows stay NULL.
+  { name: 'expenses.method', sql: `ALTER TABLE IF EXISTS "expenses" ADD COLUMN IF NOT EXISTS "method" VARCHAR(16);` },
+  { name: 'sale_returns.cashRefund', sql: `ALTER TABLE IF EXISTS "sale_returns" ADD COLUMN IF NOT EXISTS "cashRefund" NUMERIC(12, 2);` },
+  {
+    name: 'index: one open till per shop',
+    sql: `CREATE UNIQUE INDEX IF NOT EXISTS "till_sessions_one_open_uq" ON "till_sessions" ("shopId") WHERE "closedAt" IS NULL;`,
+  },
+  { name: 'index: till sessions by shop', sql: `CREATE INDEX IF NOT EXISTS "till_sessions_shop_opened_idx" ON "till_sessions" ("shopId", "openedAt");` },
+  { name: 'index: till movements by session', sql: `CREATE INDEX IF NOT EXISTS "till_movements_session_idx" ON "till_movements" ("sessionId");` },
+  { name: 'index: credit payments by shop and date', sql: `CREATE INDEX IF NOT EXISTS "credit_payments_shop_created_idx" ON "credit_payments" ("shopId", "createdAt");` },
 ];
 
 async function runMigrations(sequelize) {

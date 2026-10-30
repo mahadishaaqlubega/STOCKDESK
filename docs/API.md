@@ -113,16 +113,33 @@ limit and needs a connection.
 | GET | `/api/reports/summary` | Today / week / month metrics (net sales, profit, refunds, discounts, credit) |
 | GET | `/api/reports/dashboard-stats` | Stock counts, 7-day trend |
 | GET | `/api/reports/best-selling` | |
-| GET | `/api/reports/by-cashier` | |
-| GET | `/api/reports/range` | `start`, `end` |
-| GET | `/api/reports/daily`, `/monthly`, `/customer/:customerId` | |
+| GET | `/api/reports/by-cashier` | Admin |
+| GET | `/api/reports/range` | Admin. `start`, `end` |
+| GET | `/api/reports/daily`, `/monthly` | Admin |
+| GET | `/api/reports/customer/:customerId` | |
+
+## Till cash count
+
+One open till per shop. Expected cash = opening float + cash sales (cash lines of
+splits and credit deposits included) + debt payments in cash + cash in − cash
+refunds − expenses paid with `method: "Cash"` − suppliers paid in cash − cash out,
+all since the till was opened.
+
+| Method | Endpoint | Access | Notes |
+|---|---|---|---|
+| GET | `/api/till/current` | All | `{ session, movements, lastClosed, denominations }`; admins also get `expectedCash` and `breakdown` (staff count blind) |
+| POST | `/api/till/open` | All | `{ openingFloat, note? }`; 409 if a till is already open |
+| POST | `/api/till/movements` | All | `{ type: "in" \| "out", amount, reason }` |
+| POST | `/api/till/close` | All | `{ countedCash, denominations?: { "50000": 2, ... }, note? }` → `{ expectedCash, breakdown, difference }` (negative = short) |
+| GET | `/api/till/sessions` | Admin | Closed counts, newest first (`limit` ≤ 200) |
+| GET | `/api/till/sessions/:id` | Admin | One count with its cash in/out lines |
 
 ## Expenses, stock counts, activity log
 
 | Method | Endpoint | Access |
 |---|---|---|
 | GET | `/api/expenses` | All |
-| POST / PUT / DELETE | `/api/expenses[/:id]` | Admin |
+| POST / PUT / DELETE | `/api/expenses[/:id]` | Admin. `method`: Cash (out of the till) / Mobile Money / Bank / Card / Other |
 | GET | `/api/stock-reconciliation/products`, `/history`, `/summary` | Admin |
 | POST | `/api/stock-reconciliation/create` | Admin |
 | GET | `/api/audit/logs`, `/users`, `/stats` | Admin |

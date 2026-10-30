@@ -19,6 +19,7 @@ const pageTitles = {
   '/app/profile': 'My account',
   '/app/expenses': 'Expenses',
   '/app/returns': 'Returns',
+  '/app/till': 'Till',
   '/app/audit-logs': 'Activity log',
   '/app/stock-reconciliation': 'Stock count',
 };

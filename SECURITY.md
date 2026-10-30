@@ -46,20 +46,37 @@ This policy covers the StockDesk application code in this repository. It does no
   reset or "Sign out on all devices" bumps it and ends every older session.
   The user is re-loaded on every request, so role changes and removed
   accounts take effect immediately.
-- **Brute force:** per-IP limits on sign-in, sign-up and email endpoints,
-  plus a per-account lockout (10 wrong passwords → 15 minutes; an email
-  reset lifts it).
+- **Brute force:** per-IP limits on sign-in, sign-up, email, password-reset
+  and verification endpoints, plus a per-account lockout (10 wrong passwords
+  → 15 minutes; an email reset lifts it). Every API route also has a
+  backstop limit (600 requests a minute per session or IP). Behind
+  Cloudflare the visitor's address comes from `CF-Connecting-IP`, believed
+  only when the request really arrives from a Cloudflare address
+  (`backend/src/utils/clientIp.js`).
+- **Reset links:** only a SHA-256 hash of each password-reset token is
+  stored, so a leaked database or backup cannot reset passwords.
 - **Input:** exact-match lookups escape LIKE wildcards; request bodies are
   limited to 3 MB; logos must be PNG/JPEG/WebP or https; ids are validated.
+  Every SQL query passes values as bound parameters.
+- **Logo links:** the server downloads https logos only from public
+  addresses (never localhost, private or Railway-internal hosts), with a
+  5-second timeout, a 2 MB cap and at most 3 checked redirects
+  (`backend/src/utils/remoteImage.js`).
 - **Roles:** Admin-only areas (team, settings, suppliers, imports, reports,
-  stock counts, activity log) are enforced on the server, not only hidden
-  in the UI. Staff discounts are limited server-side.
+  stock counts, activity log, till history) are enforced on the server, not
+  only hidden in the UI. Staff discounts are limited server-side. Staff
+  count the till blind: the expected total is shown to them only after
+  they close it.
 - **Receipt links** shared on WhatsApp use 144-bit random tokens, are
   rate-limited and marked noindex.
 - **Audit:** sign-ins, lockouts, sales, payments, imports, reminders and
   admin actions are written to the activity log.
 - **Headers:** HSTS, nosniff, frame-deny, strict referrer policy and a
   restrictive CSP on API responses; CORS limited to configured origins.
+  The web app (`frontend/vercel.json`) sends its own CSP (scripts only from
+  the app itself, API calls only to the StockDesk API and the local printer
+  bridge), frame-deny, nosniff and a permissions policy. If the API address
+  changes, add it to `connect-src` there first.
 - **Development safety:** `STOCKDESK_LOCAL_ONLY=1` makes the backend refuse
   any non-local database (used by `scripts/dev-local.ps1`).
 

@@ -1,4 +1,5 @@
 const express = require('express');
+const { clientIp } = require('../utils/clientIp');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth');
 const { authorize } = require('../middleware/roles');
@@ -234,7 +235,7 @@ router.post('/disconnect', authenticate, authorize(['Admin']), (req, res) => {
 const sendWhatsappLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10, // limit each user/IP to 10 requests per windowMs
-  keyGenerator: (req) => (req.user?.id ? `user:${req.user.id}` : req.ip),
+  keyGenerator: (req) => (req.user?.id ? `user:${req.user.id}` : clientIp(req)),
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => res.status(429).json({ error: 'Too many WhatsApp send attempts. Try again later.' }),
@@ -312,7 +313,7 @@ router.post('/send-whatsapp', authenticate, sendWhatsappLimiter, async (req, res
         entityType: 'SALE',
         entityId: sale.id,
         details: { to, provider, sid: result.sid || result.messageSid || null },
-        ipAddress: req.ip,
+        ipAddress: clientIp(req),
         userAgent: req.get('User-Agent') || null,
       });
     } catch (err) {

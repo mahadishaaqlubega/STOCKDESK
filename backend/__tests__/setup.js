@@ -24,6 +24,7 @@ jest.mock('../src/models', () => {
     'Shop', 'User', 'Setting', 'PendingSignup', 'Product', 'Customer', 'Sale', 'SaleItem',
     'Expense', 'Audit', 'DayClosure', 'StockIn', 'StockReconciliation', 'SaleReturn',
     'SaleReturnItem', 'Receipt', 'SubscriptionPayment', 'PaymentRequest', 'PlatformSetting', 'CustomerPrice', 'PlatformMessage',
+    'TillSession', 'TillMovement', 'CreditPayment', 'SupplierPayment',
   ];
   const models = Object.fromEntries(names.map((name) => [name, mockModel()]));
 

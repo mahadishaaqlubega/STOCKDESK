@@ -7,11 +7,18 @@ import { formatMoney, formatCompactMoney, formatAmount } from '../utils/format';
 import { Drawer, EmptyState, Field, IconButton, Panel, PanelHeader, SkeletonRows, StatGrid, StatTile, Toast, fieldInput, icons, statIcons } from '../components/ui';
 
 const CATEGORIES = ['Rent', 'Utilities', 'Supplies', 'Salaries', 'Maintenance', 'Marketing', 'Transport', 'Other'];
+// 'Cash' means paid out of the till, so the till count expects less cash.
+const METHODS = [
+  { value: 'Cash', label: 'Cash from the till' },
+  { value: 'Mobile Money', label: 'Mobile Money' },
+  { value: 'Bank', label: 'Bank' },
+  { value: 'Other', label: 'Other' },
+];
 
 // Local calendar dates (toISOString would shift to UTC and land on the wrong day).
 const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const todayISO = () => localISO(new Date());
-const emptyForm = () => ({ id: null, category: CATEGORIES[0], description: '', amount: '', date: todayISO(), notes: '' });
+const emptyForm = () => ({ id: null, category: CATEGORIES[0], description: '', amount: '', date: todayISO(), notes: '', method: 'Cash' });
 
 function isoDaysAgo(days) {
   const d = new Date();
@@ -102,6 +109,7 @@ export default function Expenses() {
       amount: expense.amount,
       date: String(expense.date).slice(0, 10),
       notes: expense.notes || '',
+      method: expense.method || '',
     });
     setFormError('');
     setDrawerOpen(true);
@@ -119,11 +127,12 @@ export default function Expenses() {
     setFormError('');
     try {
       let saved;
+      const body = { ...form, method: form.method || null };
       if (form.id) {
-        saved = await updateExpense(form.id, form);
+        saved = await updateExpense(form.id, body);
         flash(`Expense updated · ${formatMoney(currency, form.amount)}`);
       } else {
-        saved = await createExpense(form);
+        saved = await createExpense(body);
         flash(`Expense recorded · ${formatMoney(currency, form.amount)}`);
       }
       setDrawerOpen(false);
@@ -219,7 +228,7 @@ export default function Expenses() {
                       <td data-label="Date" className="whitespace-nowrap px-4 py-2.5 text-[var(--text-muted)]">{new Date(expense.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                       <td data-label="Expense" className="px-4 py-2.5">
                         <p className="font-medium text-[var(--text-primary)]">{expense.description || expense.category}</p>
-                        <p className="text-xs text-[var(--text-muted)]">{expense.category}{expense.notes ? ` · ${expense.notes}` : ''}</p>
+                        <p className="text-xs text-[var(--text-muted)]">{expense.category}{expense.method ? ` · ${expense.method === 'Cash' ? 'Cash from the till' : expense.method}` : ''}{expense.notes ? ` · ${expense.notes}` : ''}</p>
                       </td>
                       <td data-label="Amount" className="num px-4 py-2.5 text-right font-medium text-[var(--text-primary)]">{formatAmount(currency, expense.amount)}</td>
                       {isAdmin ? (
@@ -309,6 +318,22 @@ export default function Expenses() {
             <Field label="Date">
               <input required type="date" value={form.date} max={todayISO()} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} className={fieldInput} />
             </Field>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-[var(--text-secondary)]">Paid with</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {METHODS.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, method: m.value }))}
+                  aria-pressed={form.method === m.value}
+                  className={`rounded-full border px-3 py-1 text-sm transition ${form.method === m.value ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]' : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--text-muted)]'}`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
           </div>
           <Field label="Description">
             <input required value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className={fieldInput} placeholder="e.g. October shop rent" />

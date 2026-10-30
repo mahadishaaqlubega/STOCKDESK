@@ -30,6 +30,11 @@ Expense.init(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    method: {
+      type: DataTypes.STRING(16),
+      allowNull: true,
+      comment: "How it was paid; 'Cash' means out of the till",
+    },
     recordedByUserId: {
       type: DataTypes.INTEGER,
       allowNull: true,
