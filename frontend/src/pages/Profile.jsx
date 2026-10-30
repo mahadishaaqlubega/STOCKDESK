@@ -4,6 +4,7 @@ import { getToken, updateToken, logout } from '../utils/auth';
 import { Link } from 'react-router-dom';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { Alert, Badge, Field, Modal, Panel, PanelHeader, fieldInput } from '../components/ui';
+import { TwoStepPanel } from '../components/TwoStep';
 
 function resizeImage(file, maxSize = 512) {
   return new Promise((resolve, reject) => {
@@ -73,7 +74,8 @@ export default function Profile() {
   const [closing, setClosing] = useState(false);
   const [closeMessage, setCloseMessage] = useState('');
   const [closeStep, setCloseStep] = useState('confirm');
-  const [activeTab, setActiveTab] = useState('account');
+  // ?tab=security opens a section directly (the owner dashboard links here).
+  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get('tab') || 'account');
 
   useBodyScrollLock(showAvatarModal);
 
@@ -261,7 +263,7 @@ export default function Profile() {
 
   const sections = [
     { key: 'account', label: 'Profile' },
-    { key: 'security', label: 'Password' },
+    { key: 'security', label: 'Security' },
     { key: 'shop', label: isSuperAdmin ? 'Access' : 'Shop' },
     { key: 'danger', label: 'Close account' },
   ];
@@ -397,6 +399,9 @@ export default function Profile() {
                 actions={<button type="button" onClick={handleSignOutEverywhere} className="app-btn-secondary rounded-lg px-4 py-2 text-sm">Sign out on all devices</button>}
               />
             </Panel>
+          ) : null}
+          {activeTab === 'security' ? (
+            <TwoStepPanel profile={profile} onChanged={() => fetchProfile().then(setProfile).catch(() => {})} />
           ) : null}
 
           {activeTab === 'shop' ? (

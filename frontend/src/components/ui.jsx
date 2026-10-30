@@ -209,7 +209,7 @@ function CloseButton({ onClick }) {
 export function Modal({ title, subtitle, onClose, children, footer, size = 'md' }) {
   const width = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' }[size];
   return (
-    <div className="app-overlay fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="app-overlay fixed inset-0 z-50 flex items-end justify-center pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className={`app-modal flex max-h-[calc(92dvh/var(--app-zoom,1))] w-full ${width} flex-col rounded-t-2xl border sm:rounded-2xl`} role="dialog" aria-modal="true">
         <div className="flex items-start justify-between gap-3 border-b border-[var(--border-default)] px-5 py-4">
           <div className="min-w-0">
@@ -228,7 +228,7 @@ export function Modal({ title, subtitle, onClose, children, footer, size = 'md' 
 export function Drawer({ title, onClose, onSubmit, children, footer }) {
   const Tag = onSubmit ? 'form' : 'div';
   return (
-    <div className="app-overlay fixed inset-0 z-50 flex justify-end" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="app-overlay fixed inset-0 z-50 flex justify-end pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <Tag onSubmit={onSubmit} className="app-modal flex h-full w-full max-w-md flex-col border-l" role="dialog" aria-modal="true">
         <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 py-4">
           <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2>
@@ -290,7 +290,7 @@ export function Toast({ text, tone = 'neutral' }) {
   if (!text) return null;
   const toneClass = tone === 'danger' ? 'bg-red-600 text-white' : 'bg-[var(--surface-inverse)] text-[var(--bg-app)]';
   return (
-    <div className={`fixed bottom-4 left-1/2 z-[60] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg px-4 py-2.5 text-sm shadow-[var(--shadow-raised)] ${toneClass}`} role="status">
+    <div className={`fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-[60] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg px-4 py-2.5 text-sm shadow-[var(--shadow-raised)] ${toneClass}`} role="status">
       {text}
     </div>
   );

@@ -1,6 +1,7 @@
 // Local business day for everything below (also when app.js is loaded alone).
 require('./config/timezone');
 const express = require('express');
+const Sentry = require('@sentry/node');
 const compression = require('compression');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
@@ -148,6 +149,7 @@ app.get('/api', (req, res) => {
 // Apply rate limiters to specific auth routes before the router
 app.post('/api/auth/signup', signupLimiter);
 app.post('/api/auth/login', loginLimiter);
+app.post('/api/auth/login/2fa', loginLimiter);
 app.post('/api/auth/forgot-password', authLimiter);
 app.post('/api/auth/resend-verification', authLimiter);
 // Reset and verification links: only failed tries count, so people sharing
@@ -232,6 +234,8 @@ app.use('/api/till', tillRoutes);
 app.use('/api/quotations', quotationRoutes);
 app.use('/api', importRoutes);
 
+// Reports server errors (5xx) to Sentry, then the normal handler answers.
+Sentry.setupExpressErrorHandler(app);
 app.use(errorHandler);
 
 module.exports = app;

@@ -1,6 +1,8 @@
 const dotenv = require('dotenv');
 
 dotenv.config();
+// Error alerts first, so Sentry can watch Express and Postgres.
+require('./instrument');
 // Before anything else makes a Date: run the process on shop-local time.
 require('./config/timezone');
 

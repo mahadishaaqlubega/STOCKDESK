@@ -116,7 +116,7 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
         onClick={onClose}
       />
       <aside
-        className={`app-sidebar-shell fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col border-r transition-[width,transform] duration-300 lg:sticky lg:top-0 lg:h-app lg:translate-x-0 lg:shadow-none ${
+        className={`app-sidebar-shell fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col border-r pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] transition-[width,transform] duration-300 lg:sticky lg:top-0 lg:h-app lg:translate-x-0 lg:shadow-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } ${collapsed ? 'lg:w-[72px]' : 'lg:w-[248px]'}`}
         aria-label="Main navigation"

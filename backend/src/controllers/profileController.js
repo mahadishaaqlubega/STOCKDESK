@@ -52,6 +52,8 @@ function toProfile(user, shop, extra = {}) {
     avatarUrl: user.avatarUrl,
     isVerified: user.isVerified,
     createdAt: user.createdAt,
+    twoFactorEnabled: Boolean(user.totpEnabledAt && user.totpSecret),
+    recoveryCodesLeft: Array.isArray(user.totpRecoveryCodes) ? user.totpRecoveryCodes.length : 0,
     ...extra,
   };
 }
@@ -330,6 +332,101 @@ exports.closeAccount = async (req, res, next) => {
     if (transaction && !transaction.finished) {
       await transaction.rollback();
     }
+    next(error);
+  }
+};
+
+// ── Two-step sign-in ─────────────────────────────────────────────────────────
+// Wrong passwords and codes answer 400, never 401: a 401 makes the app sign
+// the user out.
+
+const totp = require('../utils/totp');
+const twoFactor = require('../services/twoFactor');
+
+async function confirmPassword(user, password) {
+  if (!password || !(await bcrypt.compare(String(password), user.password))) {
+    throw Object.assign(new Error('Your password is not right.'), { status: 400 });
+  }
+}
+
+function newRecoveryCodes() {
+  const codes = totp.generateRecoveryCodes();
+  return { codes, hashes: codes.map(totp.hashRecoveryCode) };
+}
+
+// POST /api/profile/2fa/setup - a new secret to scan; nothing changes until
+// it is confirmed with a code.
+exports.twoFactorSetup = async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (twoFactor.isEnabled(user)) return res.status(409).json({ message: 'Two-step sign-in is already on.' });
+    const secret = totp.generateSecret();
+    await user.update({ totpPendingSecret: totp.encryptSecret(secret) });
+    res.json({ secret, otpauthUrl: totp.otpauthUrl({ secret, account: user.email || user.username }) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/profile/2fa/enable { password, code }
+exports.twoFactorEnable = async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    await confirmPassword(user, req.body.password);
+    const pending = totp.decryptSecret(user.totpPendingSecret);
+    if (!pending) return res.status(409).json({ message: 'Start the set-up again.' });
+    const step = totp.verifyTotp(pending, req.body.code);
+    if (step == null) return res.status(400).json({ message: 'That code is not right. Enter the newest code from the app.' });
+    const { codes, hashes } = newRecoveryCodes();
+    await user.update({
+      totpSecret: user.totpPendingSecret,
+      totpPendingSecret: null,
+      totpEnabledAt: new Date(),
+      totpLastStep: step,
+      totpRecoveryCodes: hashes,
+    });
+    await auditController.logAction(user.id, user.shopId, 'TWO_STEP_ON', 'USER', user.id, {}, req);
+    res.json({ recoveryCodes: codes });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message });
+    next(error);
+  }
+};
+
+// POST /api/profile/2fa/disable { password, code }
+exports.twoFactorDisable = async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!twoFactor.isEnabled(user)) return res.status(409).json({ message: 'Two-step sign-in is already off.' });
+    await confirmPassword(user, req.body.password);
+    if (!twoFactor.checkSecondFactor(user, req.body.code)) return res.status(400).json({ message: 'That code is not right.' });
+    await user.update({ totpSecret: null, totpPendingSecret: null, totpEnabledAt: null, totpLastStep: null, totpRecoveryCodes: null });
+    await auditController.logAction(user.id, user.shopId, 'TWO_STEP_OFF', 'USER', user.id, {}, req);
+    res.json({ message: 'Two-step sign-in is off.' });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message });
+    next(error);
+  }
+};
+
+// POST /api/profile/2fa/recovery-codes { password, code } - replaces them all.
+exports.twoFactorRecoveryCodes = async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!twoFactor.isEnabled(user)) return res.status(409).json({ message: 'Turn on two-step sign-in first.' });
+    await confirmPassword(user, req.body.password);
+    const check = twoFactor.checkSecondFactor(user, req.body.code);
+    if (!check) return res.status(400).json({ message: 'That code is not right.' });
+    const { codes, hashes } = newRecoveryCodes();
+    await user.update({ ...(check.via === 'app' ? check.updates : {}), totpRecoveryCodes: hashes });
+    await auditController.logAction(user.id, user.shopId, 'TWO_STEP_NEW_CODES', 'USER', user.id, {}, req);
+    res.json({ recoveryCodes: codes });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message });
     next(error);
   }
 };

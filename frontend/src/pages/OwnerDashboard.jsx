@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { fetchPlatformDashboard } from '../utils/api';
+import { fetchPlatformDashboard, fetchProfile } from '../utils/api';
 import { getUser } from '../utils/auth';
 import { Alert, Badge, EmptyState, Panel, PanelHeader, SkeletonRows, StatTile, Tabs, icons, statIcons } from '../components/ui';
 
@@ -112,6 +112,12 @@ export default function OwnerDashboard() {
     }
   };
 
+  // The owner console reaches every shop, so nudge until two-step sign-in is on.
+  const [twoStepOff, setTwoStepOff] = useState(false);
+  useEffect(() => {
+    fetchProfile().then((p) => setTwoStepOff(!p?.twoFactorEnabled)).catch(() => {});
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
     load(true);
@@ -130,6 +136,12 @@ export default function OwnerDashboard() {
 
   return (
     <div className="space-y-5">
+      {twoStepOff ? (
+        <Alert tone="warning">
+          <span className="font-medium">Protect the owner console.</span> This account can open every shop. Turn on two-step sign-in so a stolen password alone is not enough.{' '}
+          <Link to="/app/profile?tab=security" className="font-semibold underline">Turn it on</Link>
+        </Alert>
+      ) : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm text-[var(--text-muted)]">Hello {currentUser?.name?.split(' ')[0] || 'there'}, here is how the network is doing.</p>

@@ -90,9 +90,9 @@ async function request(path, options = {}) {
   }
 
   if (response.status === 401) {
-    if (path === '/auth/login') {
-      // Login failure - show actual error, don't logout
-      throw new Error(data?.error || data?.message || 'Invalid credentials');
+    if (path === '/auth/login' || path === '/auth/login/2fa') {
+      // Login failure (password or two-step code) - show the error, don't log out
+      throw Object.assign(new Error(data?.error || data?.message || 'Invalid credentials'), { code: data?.code });
     }
     const sessionMessage = data?.error || data?.message || 'Session expired. Please log in again.';
     logout({ message: sessionMessage });
@@ -115,7 +115,7 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(data?.error || data?.message || 'Request failed');
+    throw Object.assign(new Error(data?.error || data?.message || 'Request failed'), { code: data?.code });
   }
   return data;
 }
@@ -154,6 +154,11 @@ async function printerRequest(path, options = {}) {
 }
 
 export const login = (body) => request('/auth/login', { method: 'POST', body: JSON.stringify(body) });
+export const loginTwoFactor = (body) => request('/auth/login/2fa', { method: 'POST', body: JSON.stringify(body) });
+export const twoFactorSetup = () => request('/profile/2fa/setup', { method: 'POST' });
+export const twoFactorEnable = (body) => request('/profile/2fa/enable', { method: 'POST', body: JSON.stringify(body) });
+export const twoFactorDisable = (body) => request('/profile/2fa/disable', { method: 'POST', body: JSON.stringify(body) });
+export const twoFactorRecoveryCodes = (body) => request('/profile/2fa/recovery-codes', { method: 'POST', body: JSON.stringify(body) });
 export const signup = (body) => request('/auth/signup', { method: 'POST', body: JSON.stringify(body) });
 export const refreshToken = () => request('/auth/refresh', { method: 'POST' });
 export const verifyEmail = (body) => request('/auth/verify-email', { method: 'POST', body: JSON.stringify(body) });
