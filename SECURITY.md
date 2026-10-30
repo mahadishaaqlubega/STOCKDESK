@@ -67,8 +67,9 @@ This policy covers the StockDesk application code in this repository. It does no
   only hidden in the UI. Staff discounts are limited server-side. Staff
   count the till blind: the expected total is shown to them only after
   they close it.
-- **Receipt links** shared on WhatsApp use 144-bit random tokens, are
-  rate-limited and marked noindex.
+- **Receipt and quote links** shared on WhatsApp use 144-bit random tokens,
+  are rate-limited and marked noindex; a cancelled quote's link stops working.
+  The web app itself is served with `X-Robots-Tag: noindex`.
 - **Audit:** sign-ins, lockouts, sales, payments, imports, reminders and
   admin actions are written to the activity log.
 - **Headers:** HSTS, nosniff, frame-deny, strict referrer policy and a

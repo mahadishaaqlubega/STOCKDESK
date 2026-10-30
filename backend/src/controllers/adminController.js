@@ -7,6 +7,7 @@ const {
   DayClosure,
   TillSession,
   TillMovement,
+  Quotation,
   Expense,
   PendingSignup,
   Product,
@@ -430,6 +431,7 @@ exports.deleteShop = async (req, res, next) => {
       await SaleItem.destroy({ where: { shopId }, transaction: t });
       await Sale.destroy({ where: { shopId }, transaction: t });
       // Delete records that reference Products and Users before them
+      await Quotation.destroy({ where: { shopId }, transaction: t });
       await TillMovement.destroy({ where: { shopId }, transaction: t });
       await TillSession.destroy({ where: { shopId }, transaction: t });
       await DayClosure.destroy({ where: { shopId }, transaction: t });

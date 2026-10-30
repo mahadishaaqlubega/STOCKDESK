@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchProducts, createSale, fetchSettings, downloadReceipt, fetchSale, fetchCustomers, fetchCustomerPrices, saveCustomerPrice, fetchTill } from '../utils/api';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getUser } from '../utils/auth';
 import { getPrintSettings, savePrintSettings } from '../utils/printSettings';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
@@ -101,6 +101,11 @@ export default function POS() {
 
   // null until known; a closed till gets a small reminder in the cart header.
   const [tillOpen, setTillOpen] = useState(null);
+  // A quote opened from the Quotes page ("Open in till"): its sale closes it.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const pendingQuote = location.state?.quote || null;
+  const [fromQuote, setFromQuote] = useState(null);
   useEffect(() => {
     if (isOffline()) return;
     fetchTill().then((t) => setTillOpen(Boolean(t?.session))).catch(() => {});
@@ -265,6 +270,47 @@ export default function POS() {
     [cart]
   );
 
+  useEffect(() => {
+    if (!pendingQuote || !products.length || !customers.length) return;
+    const skipped = [];
+    const lines = [];
+    for (const item of pendingQuote.items || []) {
+      const product = item.productId ? products.find((p) => p.id === item.productId) : null;
+      if (!product) {
+        skipped.push(item.name);
+        continue;
+      }
+      const listPrice = parseFloat(product.sellPrice) || 0;
+      // The quoted price is kept as typed, so the till charges what was promised.
+      lines.push(repriceLine({
+        productId: product.id,
+        name: product.name,
+        price: Number(item.price),
+        priceInput: String(Number(item.price)),
+        listPrice,
+        retailPrice: listPrice,
+        wholesalePrice: product.wholesalePrice == null ? null : parseFloat(product.wholesalePrice),
+        wholesaleMinQty: product.wholesaleMinQty || null,
+        buyPrice: parseFloat(product.buyPrice) || 0,
+        quantity: Number(item.quantity),
+        isService: isServiceProduct(product),
+      }, pricing));
+    }
+    setCart(lines);
+    if (pendingQuote.customerId && customers.some((c) => c.id === pendingQuote.customerId)) {
+      setCustomerId(String(pendingQuote.customerId));
+    }
+    setDiscount(Number(pendingQuote.discount) || 0);
+    setDiscountType('fixed');
+    setFromQuote({ id: pendingQuote.id, number: pendingQuote.displayNumber });
+    setMobileSection('cart');
+    setMessage(skipped.length
+      ? `Loaded ${pendingQuote.displayNumber}. Left out (not products): ${skipped.join(', ')}.`
+      : `Loaded ${pendingQuote.displayNumber}. Check the items, choose how the customer pays, and charge.`);
+    // Forget the hand-over so a refresh does not load it twice.
+    navigate(location.pathname, { replace: true, state: null });
+  }, [pendingQuote, products, customers]);
+
   const addToCart = (product) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.productId === product.id);
@@ -317,6 +363,7 @@ export default function POS() {
 
   const clearCart = () => {
     setCart([]);
+    setFromQuote(null);
     setWholesaleWalkIn(false);
     setDiscount(0);
     setDiscountType('fixed');
@@ -424,6 +471,7 @@ export default function POS() {
     setPrintOnOpen(autoPrint);
     setShowReceipt(true);
     setCart([]);
+    setFromQuote(null);
     setDiscount(0);
     setDiscountType('fixed');
     setMobileSection('browse');
@@ -531,6 +579,7 @@ export default function POS() {
         discountType,
         customerId: customerId ? Number(customerId) : null,
         priceTier: wholesaleMode ? 'wholesale' : 'retail',
+        ...(fromQuote ? { quotationId: fromQuote.id } : {}),
         ...(isCredit
           ? { amountPaid: depositValue, depositMethod: creditDepositMethod, dueDate: creditDueDate || null }
           : {}),
@@ -554,6 +603,7 @@ export default function POS() {
       setPrintOnOpen(autoPrint);
       setShowReceipt(true);
       setCart([]);
+      setFromQuote(null);
       setDiscount(0);
       setDiscountType('fixed');
       setMobileSection('browse');
@@ -715,6 +765,9 @@ export default function POS() {
               <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Current sale</h2>
               {cartItemCount > 0 ? (
                 <span className="num rounded-full bg-[var(--surface-secondary)] px-2 py-0.5 text-xs font-medium text-[var(--text-secondary)]">{cartItemCount}</span>
+              ) : null}
+              {fromQuote ? (
+                <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-xs font-medium text-[var(--accent-strong)]">From {fromQuote.number}</span>
               ) : null}
               {tillOpen === false ? (
                 <Link to="/app/till" className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-500/20 dark:text-amber-300">
@@ -1071,7 +1124,7 @@ export default function POS() {
             </label>
 
             {message ? (
-              <div className={`rounded-lg px-3 py-2 text-sm ${/offline/i.test(message) && /recorded/i.test(message) ? 'app-alert-warning' : /successfully|recorded/i.test(message) ? 'app-alert-success' : 'app-alert-danger'}`} role="status">
+              <div className={`rounded-lg px-3 py-2 text-sm ${/offline/i.test(message) && /recorded/i.test(message) ? 'app-alert-warning' : /successfully|recorded/i.test(message) ? 'app-alert-success' : /^Loaded (QT|PF)-/.test(message) ? 'app-alert-info' : 'app-alert-danger'}`} role="status">
                 <p>{message}</p>
                 {/successfully|recorded/i.test(message) && lastSaleId ? (
                   <div className="mt-1.5 flex gap-3 text-xs font-medium">

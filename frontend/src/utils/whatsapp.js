@@ -56,6 +56,12 @@ export function publicReceiptUrl(apiBase, token) {
   return `${base.replace(/\/$/, '')}/public/receipts/${token}`;
 }
 
+export function publicQuoteUrl(apiBase, token) {
+  if (!token) return '';
+  const base = /^https?:\/\//.test(apiBase) ? apiBase : `${window.location.origin}${apiBase}`;
+  return `${base.replace(/\/$/, '')}/public/quotations/${token}`;
+}
+
 const shortDate = (value) => new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 const dueDate = (value) => (value ? shortDate(`${value}T00:00:00`) : '');
 

@@ -25,6 +25,7 @@ const purchaseRoutes = require('./routes/purchases');
 const importRoutes = require('./routes/imports');
 const billingRoutes = require('./routes/billing');
 const tillRoutes = require('./routes/till');
+const quotationRoutes = require('./routes/quotations');
 const { errorHandler } = require('./middleware/errorHandler');
 const { clientIp } = require('./utils/clientIp');
 
@@ -49,7 +50,7 @@ app.use((req, res, next) => {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   // Restrict what API responses may load. Skipped for receipt PDFs so inline
   // PDF rendering in the browser's viewer is not blocked.
-  if (!req.path.endsWith('/receipt') && !req.path.startsWith('/api/public/receipts/')) {
+  if (!req.path.endsWith('/receipt') && !req.path.endsWith('/pdf') && !req.path.startsWith('/api/public/')) {
     res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
   }
   next();
@@ -206,6 +207,7 @@ app.use('/api/suppliers', crudLimiter);
 app.use('/api/purchases', crudLimiter);
 app.use('/api/billing', crudLimiter);
 app.use('/api/till', crudLimiter);
+app.use('/api/quotations', crudLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -227,6 +229,7 @@ app.use('/api/suppliers', supplierRoutes);
 app.use('/api/purchases', purchaseRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/till', tillRoutes);
+app.use('/api/quotations', quotationRoutes);
 app.use('/api', importRoutes);
 
 app.use(errorHandler);

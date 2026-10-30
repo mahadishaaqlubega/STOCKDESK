@@ -2,6 +2,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { clientIp } = require('../utils/clientIp');
 const saleController = require('../controllers/saleController');
+const quotationController = require('../controllers/quotationController');
 
 // Unauthenticated endpoints: links customers open from WhatsApp.
 const router = express.Router();
@@ -16,5 +17,6 @@ router.use(rateLimit({
 }));
 
 router.get('/receipts/:token', saleController.publicReceipt);
+router.get('/quotations/:token', quotationController.publicPdf);
 
 module.exports = router;

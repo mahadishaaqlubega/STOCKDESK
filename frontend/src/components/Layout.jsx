@@ -5,6 +5,7 @@ import Header from './Header';
 import PageLoader from './PageLoader';
 import OfflineBar from './OfflineBar';
 import SubscriptionBanner from './SubscriptionBanner';
+import { InstallBanner } from './InstallApp';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { logout, getUser } from '../utils/auth';
 
@@ -37,6 +38,7 @@ export default function Layout() {
           <main className="mx-auto w-full max-w-[1440px] lg:max-w-[1600px] xl:flex xl:min-h-[calc(100dvh/var(--app-zoom,1)-125px)] xl:flex-col">
             {user?.shopId ? <OfflineBar shopId={user.shopId} /> : null}
             {user?.shopId && user?.role !== 'SuperAdmin' ? <SubscriptionBanner user={user} /> : null}
+            {user?.shopId && user?.role !== 'SuperAdmin' ? <InstallBanner /> : null}
             <Suspense fallback={<PageLoader />}>
               <Outlet />
             </Suspense>

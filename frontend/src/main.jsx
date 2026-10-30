@@ -4,6 +4,10 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { ThemeProvider } from './components/ThemeProvider';
 import './index.css';
+import { initInstallPrompt } from './utils/installPrompt';
+
+// Catch the browser's install offer before React mounts (see InstallApp).
+initInstallPrompt();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

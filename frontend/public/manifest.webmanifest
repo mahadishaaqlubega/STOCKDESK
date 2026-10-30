@@ -1,14 +1,18 @@
 {
-  "name": "StockDesk - Inventory & POS",
+  "name": "StockDesk",
   "short_name": "StockDesk",
-  "description": "Inventory and point-of-sale control for shops: sales, stock, reports, and team activity.",
+  "description": "Point of sale, stock, credit and profit for shops in Uganda.",
   "id": "/",
-  "start_url": "/",
+  "start_url": "/app",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
+  "background_color": "#f5f4ef",
   "theme_color": "#0b1510",
-  "categories": ["business", "productivity", "finance"],
+  "categories": [
+    "business",
+    "productivity",
+    "finance"
+  ],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -27,6 +31,42 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New sale",
+      "short_name": "Sell",
+      "url": "/app/pos",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Till",
+      "url": "/app/till",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Quotes",
+      "url": "/app/quotes",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

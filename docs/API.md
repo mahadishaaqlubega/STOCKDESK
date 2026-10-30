@@ -134,6 +134,24 @@ all since the till was opened.
 | GET | `/api/till/sessions` | Admin | Closed counts, newest first (`limit` ≤ 200) |
 | GET | `/api/till/sessions/:id` | Admin | One count with its cash in/out lines |
 
+## Quotations and proforma invoices
+
+One numbered series per shop (`QT-00012` / `PF-00013`). Lines are stored on the quote, so later
+price changes never alter a quote already sent. Totals use the shop's VAT rate.
+
+| Method | Endpoint | Access | Notes |
+|---|---|---|---|
+| GET | `/api/quotations` | All | `q` (name or number), `status` (open / expired / converted / cancelled), `limit`, `offset` → `{ rows, total }` |
+| POST | `/api/quotations` | All | `{ docType: "quotation" \| "proforma", customerId?, billToName, billToPhone?, billToAddress?, items: [{ productId?, name?, quantity, price? }], discount?, validUntil?, notes? }` |
+| GET | `/api/quotations/:id` | All | |
+| PUT | `/api/quotations/:id` | All | Open quotes only (409 otherwise) |
+| POST | `/api/quotations/:id/cancel` | All | |
+| GET | `/api/quotations/:id/pdf` | All | A4 PDF |
+| POST | `/api/quotations/:id/share` | All | `{ token }` for the public link |
+| GET | `/api/public/quotations/:token` | Public | PDF, rate-limited, `noindex`; cancelled quotes answer 404 |
+
+`POST /api/sales` accepts `quotationId`: the sale marks that open quote as `converted` (same transaction).
+
 ## Expenses, stock counts, activity log
 
 | Method | Endpoint | Access |
