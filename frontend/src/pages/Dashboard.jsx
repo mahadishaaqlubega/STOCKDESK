@@ -184,7 +184,10 @@ export default function Dashboard() {
       date.setHours(0, 0, 0, 0);
       date.setDate(today.getDate() - index);
       days.push({
-        key: date.toISOString().slice(0, 10),
+        // Local date, matching the server's days (shop time). toISOString()
+        // gave the UTC date, so in Uganda every bar was a day late and
+        // today's sales after 3 a.m. were missing.
+        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
         label: date.toLocaleDateString([], { weekday: 'short' }),
         sales: 0,
       });
