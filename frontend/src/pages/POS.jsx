@@ -1142,7 +1142,7 @@ export default function POS() {
         <button
           type="button"
           onClick={() => setMobileSection('cart')}
-          className="app-btn-primary fixed bottom-3 left-3 right-3 z-30 flex items-center justify-between rounded-xl px-4 py-3.5 shadow-[var(--shadow-raised)] xl:hidden"
+          className="app-btn-primary fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 right-3 z-30 flex items-center justify-between rounded-xl px-4 py-3.5 shadow-[var(--shadow-raised)] xl:hidden"
           style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
         >
           <span className="text-sm font-medium">View cart · {cartItemCount} item{cartItemCount === 1 ? '' : 's'}</span>

@@ -9,6 +9,7 @@ const { normalizeUsername } = require('../utils/username');
 const { generateUniqueShopSlug } = require('../utils/shop');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
 const auditController = require('./auditController');
+const twoFactor = require('../services/twoFactor');
 
 function maskEmail(email) {
   const [local, domain] = email.split('@');
@@ -102,37 +103,29 @@ exports.login = async (req, res, next) => {
       await user.update({ failedLoginCount: 0, lockedUntil: null });
     }
 
-    if (!user.isVerified) {
-      // Legacy accounts created before email verification was introduced: allow
-      // sign-in so the admin can add/verify their email from the Profile page.
-      // New accounts never exist unverified (they are created only after the
-      // verification link is clicked), so no new shop can sign in this way.
-      await auditController.logAction(user.id, user.shopId, 'LOGIN', 'USER', user.id, {}, req);
-      return res.status(200).json({
-        token: signToken(user),
-        user: {
-          id: user.id,
-          name: user.name,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          shopId: user.shopId,
-          shop: null,
-          isVerified: false,
-        },
-      });
+    // Two-step sign-in: the password was right, now ask for the code.
+    if (twoFactor.isEnabled(user)) {
+      return res.json({ twoFactorRequired: true, challenge: twoFactor.issueChallenge(user) });
     }
 
-    if (!shop && user.shopId) {
-      shop = await Shop.findByPk(user.shopId, { attributes: ['id', 'name', 'slug'] });
-    }
+    await sendSession(req, res, user, shop);
+  } catch (error) {
+    console.error('Login error:', error);
+    next(error);
+  }
+};
 
-    const token = signToken(user);
-
-    await auditController.logAction(user.id, user.shopId, 'LOGIN', 'USER', user.id, {}, req);
-
-    res.json({
-      token,
+// The signed-in response, after the password (and the code, if two-step
+// sign-in is on).
+async function sendSession(req, res, user, shop = null, details = {}) {
+  await auditController.logAction(user.id, user.shopId, 'LOGIN', 'USER', user.id, details, req);
+  if (!user.isVerified) {
+    // Legacy accounts created before email verification was introduced: allow
+    // sign-in so the admin can add/verify their email from the Profile page.
+    // New accounts never exist unverified (they are created only after the
+    // verification link is clicked), so no new shop can sign in this way.
+    return res.status(200).json({
+      token: signToken(user),
       user: {
         id: user.id,
         name: user.name,
@@ -140,12 +133,66 @@ exports.login = async (req, res, next) => {
         email: user.email,
         role: user.role,
         shopId: user.shopId,
-        shop,
-        isVerified: true,
+        shop: null,
+        isVerified: false,
       },
     });
+  }
+
+  if (!shop && user.shopId) {
+    shop = await Shop.findByPk(user.shopId, { attributes: ['id', 'name', 'slug'] });
+  }
+
+  res.json({
+    token: signToken(user),
+    user: {
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      shopId: user.shopId,
+      shop,
+      isVerified: true,
+    },
+  });
+}
+
+// POST /api/auth/login/2fa { challenge, code } - the second step. Wrong codes
+// count toward the same lockout as wrong passwords.
+exports.loginTwoFactor = async (req, res, next) => {
+  try {
+    const payload = twoFactor.readChallenge(req.body.challenge);
+    if (!payload) {
+      return res.status(401).json({ message: 'This sign-in has expired. Enter your password again.', code: 'CHALLENGE_EXPIRED' });
+    }
+    const user = await User.findByPk(payload.id);
+    if (!user || !isCurrentSession(payload, user) || !twoFactor.isEnabled(user)) {
+      return res.status(401).json({ message: 'This sign-in has expired. Enter your password again.', code: 'CHALLENGE_EXPIRED' });
+    }
+    if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+      const minutes = Math.ceil((new Date(user.lockedUntil) - Date.now()) / 60000);
+      return res.status(429).json({ message: `Too many wrong codes. This account is locked for ${minutes} more minute${minutes === 1 ? '' : 's'}.` });
+    }
+
+    const result = twoFactor.checkSecondFactor(user, req.body.code);
+    if (!result) {
+      const failures = (user.failedLoginCount || 0) + 1;
+      const locking = failures >= MAX_FAILED_LOGINS;
+      await user.update({
+        failedLoginCount: locking ? 0 : failures,
+        lockedUntil: locking ? new Date(Date.now() + LOCKOUT_MINUTES * 60000) : user.lockedUntil,
+      });
+      if (locking) {
+        await auditController.logAction(user.id, user.shopId, 'LOCKED', 'USER', user.id, { failures, step: 'two-step code' }, req);
+        return res.status(429).json({ message: `Too many wrong codes. This account is locked for ${LOCKOUT_MINUTES} minutes.` });
+      }
+      return res.status(401).json({ message: 'That code is not right. Check the newest code in your authenticator app.' });
+    }
+
+    await user.update({ ...result.updates, failedLoginCount: 0, lockedUntil: null });
+    await sendSession(req, res, user, null, { twoStep: result.via, ...(result.via === 'recovery' ? { recoveryCodesLeft: result.remaining } : {}) });
   } catch (error) {
-    console.error('Login error:', error);
     next(error);
   }
 };

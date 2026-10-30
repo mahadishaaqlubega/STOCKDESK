@@ -43,7 +43,7 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
       style={{ background: 'var(--overlay)', backdropFilter: 'blur(4px)' }}
       onClick={onCancel}
       onKeyDown={handleKeyDown}

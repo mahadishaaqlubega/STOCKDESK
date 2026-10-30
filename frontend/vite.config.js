@@ -35,6 +35,11 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  // Source maps let Sentry show the real file and line for errors in the
+  // live app (the code is already public on GitHub).
+  build: {
+    sourcemap: true,
+  },
   test: {
     environment: 'jsdom',
     globals: true,

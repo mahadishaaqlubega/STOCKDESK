@@ -81,8 +81,21 @@ This policy covers the StockDesk application code in this repository. It does no
 - **Development safety:** `STOCKDESK_LOCAL_ONLY=1` makes the backend refuse
   any non-local database (used by `scripts/dev-local.ps1`).
 
-Known gaps (see docs/ROADMAP.md): no two-step sign-in yet; tokens are kept
-in the browser's localStorage; database backups rely on the host.
+- **Two-step sign-in** (any admin or the platform owner, from My account →
+  Security): a 6-digit authenticator-app code after the password, with 8
+  one-time recovery codes. Secrets are AES-256-GCM encrypted (key from
+  `TWO_FACTOR_KEY`, else derived from `JWT_SECRET`), recovery codes are
+  stored as hashes, a code cannot be reused, and wrong codes count toward
+  the account lockout. The password step returns a 5-minute challenge signed
+  with a separate key, so it can never act as a session.
+- **Error alerts:** server and app errors go to Sentry (project `stockdesk`)
+  with IP addresses, headers, cookies, bodies and variable values switched
+  off and share-link tokens blanked (`backend/src/instrument.js`,
+  `frontend/src/utils/errorAlerts.jsx`).
+
+Known gaps (see docs/ROADMAP.md): tokens are kept in the browser's
+localStorage (the app's CSP limits injected scripts); database backups rely
+on the host.
 
 ## Best Practices for Deployment
 

@@ -114,7 +114,7 @@ export default function ResetPassword() {
 
   return (
     <div
-      className="flex min-h-app items-center justify-center px-4 py-8"
+      className="flex min-h-app items-center justify-center px-4 pb-8 pt-[calc(env(safe-area-inset-top)+2rem)]"
       style={{ background: 'var(--bg-auth)' }}
     >
       <div className="app-modal w-full max-w-md overflow-hidden rounded-2xl border p-8">

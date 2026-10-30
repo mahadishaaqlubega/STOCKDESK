@@ -451,7 +451,7 @@ export default function Customers() {
       </section>
 
       {drawerOpen ? (
-        <div className="app-overlay fixed inset-0 z-50 flex justify-end" onClick={(e) => { if (e.target === e.currentTarget) setDrawerOpen(false); }}>
+        <div className="app-overlay fixed inset-0 z-50 flex justify-end pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]" onClick={(e) => { if (e.target === e.currentTarget) setDrawerOpen(false); }}>
           <form onSubmit={handleSubmit} className="app-modal flex h-full w-full max-w-md flex-col border-l" role="dialog" aria-modal="true" aria-labelledby="customer-drawer-title">
             <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 py-4">
               <h2 id="customer-drawer-title" className="text-base font-semibold text-[var(--text-primary)]">{form.id ? 'Edit customer' : 'New customer'}</h2>
@@ -530,7 +530,7 @@ export default function Customers() {
 
       {/* Purchase History Modal */}
       {historyCustomer && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={(e) => { if (e.target === e.currentTarget) setHistoryCustomer(null); }}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:items-center" onClick={(e) => { if (e.target === e.currentTarget) setHistoryCustomer(null); }}>
           <div className="app-panel w-full max-w-2xl rounded-2xl border p-6">
             <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-4">
               <div>
@@ -575,7 +575,7 @@ export default function Customers() {
       )}
 
       {creditCustomer && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={(e) => { if (e.target === e.currentTarget) setCreditCustomer(null); }}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:items-center" onClick={(e) => { if (e.target === e.currentTarget) setCreditCustomer(null); }}>
           <div className="app-panel flex max-h-[calc(92dvh/var(--app-zoom,1))] w-full max-w-2xl flex-col rounded-2xl border p-6" role="dialog" aria-modal="true" aria-labelledby="credit-title">
             <div className="flex items-start justify-between gap-3 border-b border-[var(--border-default)] pb-4">
               <div>

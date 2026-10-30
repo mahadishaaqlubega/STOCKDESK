@@ -48,7 +48,7 @@ export default function Header({ onOpenSidebar, onToggleSidebar, sidebarCollapse
   const showNewSale = !isSuperAdmin && path !== '/app/pos';
 
   return (
-    <header className="sticky top-0 z-20 -mx-3 mb-5 border-b border-[var(--border-default)] app-header-blur px-3 backdrop-blur-md sm:-mx-5 sm:px-5 lg:-mx-8 lg:px-8">
+    <header className="sticky top-0 z-20 -mx-3 mb-5 border-b pt-[env(safe-area-inset-top)] border-[var(--border-default)] app-header-blur px-3 backdrop-blur-md sm:-mx-5 sm:px-5 lg:-mx-8 lg:px-8">
       <div className="flex h-14 items-center justify-between gap-3 sm:h-16">
         <div className="flex min-w-0 items-center gap-2">
           <button

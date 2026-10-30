@@ -206,6 +206,12 @@ const STATEMENTS = [
   { name: 'index: till sessions by shop', sql: `CREATE INDEX IF NOT EXISTS "till_sessions_shop_opened_idx" ON "till_sessions" ("shopId", "openedAt");` },
   { name: 'index: till movements by session', sql: `CREATE INDEX IF NOT EXISTS "till_movements_session_idx" ON "till_movements" ("sessionId");` },
   { name: 'index: credit payments by shop and date', sql: `CREATE INDEX IF NOT EXISTS "credit_payments_shop_created_idx" ON "credit_payments" ("shopId", "createdAt");` },
+  // Two-step sign-in.
+  { name: 'users.totpSecret', sql: `ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "totpSecret" TEXT;` },
+  { name: 'users.totpPendingSecret', sql: `ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "totpPendingSecret" TEXT;` },
+  { name: 'users.totpEnabledAt', sql: `ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "totpEnabledAt" TIMESTAMPTZ;` },
+  { name: 'users.totpLastStep', sql: `ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "totpLastStep" BIGINT;` },
+  { name: 'users.totpRecoveryCodes', sql: `ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "totpRecoveryCodes" JSON;` },
   // Quotations and proforma invoices.
   { name: 'index: one quote number per shop', sql: `CREATE UNIQUE INDEX IF NOT EXISTS "quotations_shop_number_uq" ON "quotations" ("shopId", "number");` },
   { name: 'index: quote share links', sql: `CREATE UNIQUE INDEX IF NOT EXISTS "quotations_public_token_uq" ON "quotations" ("publicToken") WHERE "publicToken" IS NOT NULL;` },

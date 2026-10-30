@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { TwoStepSignIn } from '../components/TwoStep';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { login, signup, forgotPassword, resendVerification } from '../utils/api';
 import { consumeSessionNotice, saveSession } from '../utils/auth';
@@ -224,6 +225,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  // Ticket from the password step when two-step sign-in is on.
+  const [twoStep, setTwoStep] = useState(null);
   const navigate = useNavigate();
 
   const panelCopy =
@@ -275,6 +278,11 @@ export default function Login() {
 
     try {
       const data = await login(loginForm);
+      if (data.twoFactorRequired) {
+        setTwoStep(data.challenge);
+        setLoading(false);
+        return;
+      }
       saveSession(data.token, data.user);
       navigate('/app');
     } catch (err) {
@@ -343,7 +351,7 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-app overflow-x-hidden px-3 py-2 sm:px-4 sm:py-3 lg:px-5 lg:py-2.5" style={{ background: 'var(--bg-auth)' }}>
+    <div className="relative min-h-app overflow-x-hidden px-3 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] sm:px-4 sm:pb-3 sm:pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:px-5 lg:py-2.5" style={{ background: 'var(--bg-auth)' }}>
       <div className="relative mx-auto flex max-w-5xl justify-end">
         <button
           type="button"
@@ -484,7 +492,13 @@ export default function Login() {
             )}
 
             <div className="app-panel-soft mt-4 rounded-2xl border p-4 sm:p-4.5">
-              {mode === 'login' ? (
+              {mode === 'login' && twoStep ? (
+                <TwoStepSignIn
+                  challenge={twoStep}
+                  onSuccess={(data) => { saveSession(data.token, data.user); navigate('/app'); }}
+                  onCancel={(message) => { setTwoStep(null); setError(message); }}
+                />
+              ) : mode === 'login' ? (
                 <form className="space-y-3.5" onSubmit={handleSubmit}>
                   <AuthField
                     label="Shop Name"

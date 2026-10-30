@@ -5,16 +5,21 @@ import App from './App';
 import { ThemeProvider } from './components/ThemeProvider';
 import './index.css';
 import { initInstallPrompt } from './utils/installPrompt';
+import { initErrorAlerts, ErrorBoundary, CrashScreen } from './utils/errorAlerts';
 
-// Catch the browser's install offer before React mounts (see InstallApp).
+// Error alerts first, then catch the browser's install offer before React
+// mounts (see InstallApp).
+initErrorAlerts();
 initInstallPrompt();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <App />
-      </BrowserRouter>
+      <ErrorBoundary fallback={<CrashScreen />}>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <App />
+        </BrowserRouter>
+      </ErrorBoundary>
     </ThemeProvider>
   </React.StrictMode>
 );

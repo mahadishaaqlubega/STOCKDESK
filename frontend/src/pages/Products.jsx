@@ -772,7 +772,7 @@ export default function Products() {
 
       {/* Toast */}
       {toast ? (
-        <div className="fixed bottom-4 left-1/2 z-[60] -translate-x-1/2 rounded-lg bg-[var(--surface-inverse)] px-4 py-2.5 text-sm text-[var(--bg-app)] shadow-[var(--shadow-raised)]" role="status">
+        <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-[60] -translate-x-1/2 rounded-lg bg-[var(--surface-inverse)] px-4 py-2.5 text-sm text-[var(--bg-app)] shadow-[var(--shadow-raised)]" role="status">
           {toast}
         </div>
       ) : null}
