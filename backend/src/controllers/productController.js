@@ -47,6 +47,20 @@ function wholesaleFields(body, sellPrice) {
   return out;
 }
 
+// Expiry date: optional, "YYYY-MM-DD"; empty clears it. Services never expire.
+function expiryField(body, type) {
+  if (type === 'service') return { expiryDate: null };
+  if (body.expiryDate === undefined) return {};
+  if (body.expiryDate === null || body.expiryDate === '') return { expiryDate: null };
+  const value = String(body.expiryDate).trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  const date = match && new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  if (!date || date.getUTCMonth() !== Number(match[2]) - 1 || date.getUTCDate() !== Number(match[3])) {
+    throw Object.assign(new Error('Expiry date must be a valid date'), { status: 400 });
+  }
+  return { expiryDate: value };
+}
+
 exports.listProducts = async (req, res, next) => {
   try {
     const { search, category, type } = req.query;
@@ -88,7 +102,7 @@ exports.createProduct = async (req, res, next) => {
   try {
     const { name, sku, category, buyPrice, sellPrice, quantity, lowStock, type = 'goods' } = req.body;
     const fields = applyTypeRules({ name, sku: sku || null, category, buyPrice, sellPrice, quantity, lowStock, type });
-    const product = await Product.create({ ...fields, ...wholesaleFields(req.body, sellPrice), shopId: req.user.shopId });
+    const product = await Product.create({ ...fields, ...wholesaleFields(req.body, sellPrice), ...expiryField(req.body, fields.type), shopId: req.user.shopId });
     res.status(201).json(product);
   } catch (error) {
     next(error);
@@ -111,6 +125,7 @@ exports.updateProduct = async (req, res, next) => {
     }
     updates = applyTypeRules({ type: updates.type ?? product.type, ...updates });
     Object.assign(updates, wholesaleFields(req.body, updates.sellPrice ?? product.sellPrice));
+    Object.assign(updates, expiryField(req.body, updates.type));
     await product.update(updates);
     res.json(product);
   } catch (error) {

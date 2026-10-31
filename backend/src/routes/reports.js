@@ -16,5 +16,6 @@ router.get('/daily', authorize(['Admin']), reportController.dailySales);
 router.get('/monthly', authorize(['Admin']), reportController.monthlySales);
 router.get('/by-cashier', authorize(['Admin']), reportController.salesByCashier);
 router.get('/range', authorize(['Admin']), reportController.rangeReport);
+router.get('/payments', authorize(['Admin']), reportController.paymentsByMethod);
 
 module.exports = router;

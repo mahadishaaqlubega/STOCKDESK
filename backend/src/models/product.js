@@ -50,6 +50,12 @@ Product.init(
       allowNull: false,
       defaultValue: 5,
     },
+    // Optional: only shops selling medicine, food and the like fill it in.
+    // One date per product, the soonest expiry of the stock on the shelf.
+    expiryDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
     type: {
       // 'goods' are stock-tracked; 'service' items (repairs, labour, fees)
       // are sold without any stock count.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchReports, fetchBestSelling, fetchCashierReport, fetchDashboardSummary, fetchSettings, fetchRangeReport, fetchReturns, fetchSales, downloadReceipt, exportSalesRows } from '../utils/api';
+import { fetchReports, fetchBestSelling, fetchCashierReport, fetchDashboardSummary, fetchSettings, fetchRangeReport, fetchPaymentsByMethod, fetchReturns, fetchSales, downloadReceipt, exportSalesRows } from '../utils/api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, AreaChart, Area, LineChart, Line, Legend } from 'recharts';
 import { formatMoney } from '../utils/format';
 import { tileEdge } from '../components/ui';
@@ -39,6 +39,42 @@ function KPICard({ eyebrow, label, value, delta, icon }) {
           </p>
         </div>
         {icon && <div className="shrink-0 rounded-lg bg-[var(--surface-secondary)] p-1.5 text-[var(--text-muted)] [&>svg]:h-4 [&>svg]:w-4">{icon}</div>}
+      </div>
+    </div>
+  );
+}
+
+const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// "2026-11-01" moved by whole days, in local time.
+function shiftISO(value, days) {
+  const [y, m, d] = value.split('-').map(Number);
+  return localISO(new Date(y, m - 1, d + days));
+}
+
+// Cash, Mobile Money and Card received, from GET /reports/payments or the
+// range report's `payments`.
+function PaymentTiles({ currency, data, dimmed = false }) {
+  return (
+    <div className={`space-y-3 transition-opacity ${dimmed ? 'opacity-50' : ''}`}>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {data.methods.map((m) => (
+          <div key={m.method} className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{m.method}</p>
+            <p className="num mt-2 text-xl font-bold text-[var(--text-primary)]">{formatMoney(currency, m.total)}</p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Sales <span className="num">{formatMoney(currency, m.sales)}</span>
+              {m.debtPayments > 0 ? <> · debts paid <span className="num">{formatMoney(currency, m.debtPayments)}</span></> : null}
+            </p>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 text-sm">
+        <p className="font-semibold text-[var(--text-primary)]">Total received <span className="num ml-1.5">{formatMoney(currency, data.total)}</span></p>
+        <p className="text-xs text-[var(--text-muted)]">
+          {data.soldOnCredit > 0 ? <>Sold on credit, not paid yet: <span className="num">{formatMoney(currency, data.soldOnCredit)}</span></> : 'Nothing sold on credit'}
+          {data.cashRefunds > 0 ? <> · cash given back for returns: <span className="num">{formatMoney(currency, data.cashRefunds)}</span></> : null}
+        </p>
       </div>
     </div>
   );
@@ -105,6 +141,10 @@ export default function Reports() {
   const [rangeStart, setRangeStart] = useState('');
   const [rangeEnd, setRangeEnd] = useState('');
   const [rangeData, setRangeData] = useState(null);
+  const [payDay, setPayDay] = useState(() => localISO(new Date()));
+  const [payments, setPayments] = useState(null);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
+  const [paymentsError, setPaymentsError] = useState('');
   const [rangeLoading, setRangeLoading] = useState(false);
   const [allSales, setAllSales] = useState([]);
   const [receiptsLoaded, setReceiptsLoaded] = useState(false);
@@ -227,6 +267,19 @@ export default function Reports() {
 
   const filteredReceipts = allSales;
 
+  /* ---------- money received on one day ---------- */
+  useEffect(() => {
+    let cancelled = false;
+    setPaymentsLoading(true);
+    setPaymentsError('');
+    fetchPaymentsByMethod(payDay)
+      .then((data) => { if (!cancelled) setPayments(data); })
+      .catch((e) => { if (!cancelled) setPaymentsError(e.message); })
+      .finally(() => { if (!cancelled) setPaymentsLoading(false); });
+    return () => { cancelled = true; };
+  }, [payDay]);
+  const today = localISO(new Date());
+
   /* ---------- range report ---------- */
   const runRangeReport = async () => {
     if (!rangeStart || !rangeEnd) return;
@@ -260,6 +313,11 @@ export default function Reports() {
         { item: 'Gross profit', value: Number(m.grossProfit || 0) },
         { item: 'Sold on credit', value: Number(m.creditSales || 0) },
         { item: 'Credit collected', value: Number(m.creditCollected || 0) },
+        ...(rangeData?.payments ? [
+          ...rangeData.payments.methods.map((p) => ({ item: `${p.method} received`, value: p.total })),
+          { item: 'Total received', value: rangeData.payments.total },
+          { item: 'Cash given back for returns', value: rangeData.payments.cashRefunds },
+        ] : []),
         ...(rangeData?.byPriceTier ? [
           { item: 'Retail sales', value: Number(rangeData.byPriceTier.retail?.total || 0) },
           { item: 'Wholesale sales', value: Number(rangeData.byPriceTier.wholesale?.total || 0) },
@@ -345,6 +403,37 @@ export default function Reports() {
           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="M9 14l-4-4 4-4" /><path d="M5 10h11a4 4 0 0 1 0 8h-1" /></svg>}
         />
       </div>
+
+      {/* ---------- Money received by payment type ---------- */}
+      <section className="app-panel rounded-2xl border">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border-default)] px-5 py-4">
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">Money received</h3>
+            <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">Cash, Mobile Money and card taken on the day, including payments on debts.</p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={() => setPayDay((d) => shiftISO(d, -1))} className="app-btn-secondary rounded-lg border p-2" aria-label="Previous day">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4"><path d="m15 18-6-6 6-6" /></svg>
+            </button>
+            <input type="date" value={payDay} max={today} onChange={(e) => { if (e.target.value) setPayDay(e.target.value); }} className="app-input rounded-[0.9rem] border px-3 py-1.5 text-sm" aria-label="Day" />
+            <button type="button" onClick={() => setPayDay((d) => shiftISO(d, 1))} disabled={payDay >= today} className="app-btn-secondary rounded-lg border p-2 disabled:opacity-40" aria-label="Next day">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+            {payDay !== today ? (
+              <button type="button" onClick={() => setPayDay(today)} className="ml-1 text-xs font-semibold text-[var(--accent)] hover:underline">Today</button>
+            ) : null}
+          </div>
+        </div>
+        <div className="p-5">
+          {paymentsError ? (
+            <p className="app-alert-danger rounded-lg px-3 py-2 text-sm" role="alert">{paymentsError}</p>
+          ) : payments ? (
+            <PaymentTiles currency={currency} data={payments} dimmed={paymentsLoading} />
+          ) : (
+            <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+          )}
+        </div>
+      </section>
 
       {loading ? <SkeletonCards /> : (
         <>
@@ -548,6 +637,13 @@ export default function Reports() {
                 </div>
               ))}
             </div>
+
+            {rangeData.payments ? (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">Money received by payment type</p>
+                <PaymentTiles currency={currency} data={rangeData.payments} />
+              </div>
+            ) : null}
 
             {(() => {
               const revenue = Number(rangeData.metrics?.netSales || 0);

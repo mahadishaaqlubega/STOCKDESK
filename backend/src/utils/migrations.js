@@ -216,6 +216,8 @@ const STATEMENTS = [
   { name: 'index: one quote number per shop', sql: `CREATE UNIQUE INDEX IF NOT EXISTS "quotations_shop_number_uq" ON "quotations" ("shopId", "number");` },
   { name: 'index: quote share links', sql: `CREATE UNIQUE INDEX IF NOT EXISTS "quotations_public_token_uq" ON "quotations" ("publicToken") WHERE "publicToken" IS NOT NULL;` },
   { name: 'index: quotes by shop and date', sql: `CREATE INDEX IF NOT EXISTS "quotations_shop_created_idx" ON "quotations" ("shopId", "createdAt");` },
+  // Optional product expiry dates.
+  { name: 'products.expiryDate', sql: `ALTER TABLE IF EXISTS "products" ADD COLUMN IF NOT EXISTS "expiryDate" DATE;` },
 ];
 
 async function runMigrations(sequelize) {
