@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchSettings, restockProduct, restockCategory, fetchStockHistory } from '../utils/api';
 import { getUser } from '../utils/auth';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
@@ -22,7 +23,7 @@ const PRODUCT_SHEET_COLUMNS = [
   { header: 'Reorder level', key: 'lowStock', width: 14 },
 ];
 
-const emptyForm = { name: '', sku: '', category: '', buyPrice: '', sellPrice: '', wholesalePrice: '', wholesaleMinQty: '', quantity: 0, lowStock: 5, type: 'goods' };
+const emptyForm = { name: '', sku: '', category: '', buyPrice: '', sellPrice: '', wholesalePrice: '', wholesaleMinQty: '', quantity: 0, lowStock: 5, expiryDate: '', type: 'goods' };
 const PAGE_SIZE = 50;
 
 const isService = (product) => product?.type === 'service';
@@ -45,6 +46,39 @@ const statusStyles = {
 function StatusBadge({ product }) {
   const status = statusStyles[stockStatus(product)];
   return <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{status.label}</span>;
+}
+
+// Optional expiry dates: products expiring within this many days are flagged.
+const EXPIRY_WARNING_DAYS = 30;
+const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const parseISO = (value) => {
+  const [y, m, d] = String(value).split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+// Days until the product expires (negative once expired), or null when it has
+// no expiry date.
+function daysToExpiry(product) {
+  if (isService(product) || !product.expiryDate) return null;
+  return Math.round((parseISO(product.expiryDate) - parseISO(localISO(new Date()))) / 86400000);
+}
+
+// Expired or expiring soon, with stock still on the shelf.
+const needsExpiryCheck = (product) => {
+  const days = daysToExpiry(product);
+  return days != null && days <= EXPIRY_WARNING_DAYS && Number(product.quantity || 0) > 0;
+};
+
+function ExpiryNote({ product }) {
+  const days = daysToExpiry(product);
+  if (days == null) return null;
+  const date = parseISO(product.expiryDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  if (days < 0) return <span className="mt-1 block text-[11px] font-semibold text-red-700 dark:text-red-300">Expired {date}</span>;
+  if (days <= EXPIRY_WARNING_DAYS) {
+    const when = days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`;
+    return <span className="mt-1 block text-[11px] font-semibold text-amber-700 dark:text-amber-300" title={date}>Expires {when}</span>;
+  }
+  return <span className="mt-1 block text-[11px] text-[var(--text-muted)]">Expires {date}</span>;
 }
 
 function marginPercent(product) {
@@ -96,7 +130,12 @@ export default function Products() {
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  // ?show=expiring (from the dashboard) opens a filtered list.
+  const [searchParams] = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState(() => {
+    const show = searchParams.get('show');
+    return ['low', 'out', 'expiring', 'service'].includes(show) ? show : 'all';
+  });
   const [view, setView] = useState(() => {
     try { return localStorage.getItem('products_view') || 'table'; } catch { return 'table'; }
   });
@@ -124,7 +163,7 @@ export default function Products() {
 
   const exportProducts = () => downloadWorkbook(`products-${fileDate()}.xlsx`, [{
     name: 'Products',
-    columns: [...PRODUCT_SHEET_COLUMNS, { header: 'Stock value (cost)', key: 'stockValue', width: 18, money: true }],
+    columns: [...PRODUCT_SHEET_COLUMNS, { header: 'Expiry date', key: 'expiryDate', width: 13 }, { header: 'Stock value (cost)', key: 'stockValue', width: 18, money: true }],
     rows: products.map((p) => ({
       name: p.name,
       category: p.category,
@@ -135,6 +174,7 @@ export default function Products() {
       wholesalePrice: p.wholesalePrice == null ? '' : Number(p.wholesalePrice),
       quantity: p.type === 'service' ? '' : Number(p.quantity || 0),
       lowStock: p.type === 'service' ? '' : Number(p.lowStock || 0),
+      expiryDate: p.expiryDate || '',
       stockValue: p.type === 'service' ? '' : Number(p.buyPrice || 0) * Number(p.quantity || 0),
     })),
   }]).catch((error) => showToast(error.message));
@@ -191,12 +231,14 @@ export default function Products() {
   }, [view]);
 
   const counts = useMemo(() => {
-    const result = { all: products.length, low: 0, out: 0, service: 0, units: 0, value: 0 };
+    const result = { all: products.length, low: 0, out: 0, service: 0, expiring: 0, withExpiry: 0, units: 0, value: 0 };
     products.forEach((product) => {
       const status = stockStatus(product);
       if (status === 'low') result.low += 1;
       if (status === 'out') result.out += 1;
       if (status === 'service') result.service += 1;
+      if (product.expiryDate && !isService(product)) result.withExpiry += 1;
+      if (needsExpiryCheck(product)) result.expiring += 1;
       if (status !== 'service') {
         result.units += Number(product.quantity || 0);
         result.value += Number(product.quantity || 0) * Number(product.buyPrice || 0);
@@ -207,6 +249,9 @@ export default function Products() {
 
   const visibleProducts = useMemo(() => {
     if (statusFilter === 'all') return products;
+    if (statusFilter === 'expiring') {
+      return products.filter(needsExpiryCheck).sort((a, b) => daysToExpiry(a) - daysToExpiry(b));
+    }
     return products.filter((product) => stockStatus(product) === statusFilter);
   }, [products, statusFilter]);
 
@@ -231,6 +276,7 @@ export default function Products() {
       wholesaleMinQty: product.wholesaleMinQty ?? '',
       quantity: product.quantity,
       lowStock: product.lowStock,
+      expiryDate: product.expiryDate || '',
       type: product.type || 'goods',
     });
     setFormError('');
@@ -341,6 +387,7 @@ export default function Products() {
     { key: 'all', label: 'All', count: counts.all },
     { key: 'low', label: 'Running low', count: counts.low },
     { key: 'out', label: 'Out of stock', count: counts.out },
+    ...(counts.withExpiry > 0 || statusFilter === 'expiring' ? [{ key: 'expiring', label: 'Expiring', count: counts.expiring }] : []),
     { key: 'service', label: 'Services', count: counts.service },
   ];
 
@@ -467,6 +514,7 @@ export default function Products() {
                   <p className="line-clamp-2 text-sm font-medium leading-snug text-[var(--text-primary)]">{product.name}</p>
                 </div>
                 <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">{product.category || 'Uncategorized'}{product.sku ? ` · ${product.sku}` : ''}</p>
+                <ExpiryNote product={product} />
                 <div className="mt-3 flex items-end justify-between gap-2">
                   <p className="num text-base font-semibold text-[var(--text-primary)]">{formatMoney(currency, product.sellPrice)}</p>
                   {!isService(product) ? <p className="num text-xs text-[var(--text-muted)]">{Number(product.quantity || 0).toLocaleString()} in stock</p> : null}
@@ -513,7 +561,7 @@ export default function Products() {
                         <p className="font-medium text-[var(--text-primary)]">{product.name}</p>
                         <p className="text-xs text-[var(--text-muted)]">{product.category || 'Uncategorized'}{product.sku ? ` · ${product.sku}` : ''}</p>
                       </td>
-                      <td data-label="Status" className="px-4 py-2.5"><StatusBadge product={product} /></td>
+                      <td data-label="Status" className="px-4 py-2.5"><StatusBadge product={product} /><ExpiryNote product={product} /></td>
                       <td data-label="In stock" className="num px-4 py-2.5 text-right text-[var(--text-primary)]">
                         {service ? <span className="text-[var(--text-muted)]">-</span> : (
                           <>
@@ -658,6 +706,11 @@ export default function Products() {
                   <label className={fieldLabel}>
                     Reorder at
                     <input type="number" min="0" inputMode="numeric" value={form.lowStock} onChange={(e) => setForm((prev) => ({ ...prev, lowStock: Number(e.target.value) }))} className={fieldInput} />
+                  </label>
+                  <label className={`${fieldLabel} col-span-2`}>
+                    Expiry date <span className="font-normal text-[var(--text-muted)]">(optional)</span>
+                    <input type="date" value={form.expiryDate} onChange={(e) => setForm((prev) => ({ ...prev, expiryDate: e.target.value }))} className={fieldInput} />
+                    <span className="mt-1 block text-xs font-normal text-[var(--text-muted)]">Leave empty if it doesn&apos;t expire. For several batches, use the soonest date.</span>
                   </label>
                 </div>
               ) : (

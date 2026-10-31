@@ -2,9 +2,19 @@ const { Sale, SaleItem, Product, User, Expense, Customer } = require('../models'
 
 const RANGE_SALES_LIMIT = 1000;
 const { fn, col, Op, literal } = require('sequelize');
-const { parseLocalDate } = require('../config/timezone');
+const { parseLocalDate, localDateString } = require('../config/timezone');
+const { paymentBreakdown } = require('../utils/paymentBreakdown');
 const { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getMetricsForRange } = require('../utils/businessMetrics');
 const sequelize = require('../config/db');
+
+// Products expiring within this many days are flagged on the dashboard.
+const EXPIRY_WARNING_DAYS = 30;
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
 
 function buildComparison(currentValue, previousValue) {
   const delta = currentValue - previousValue;
@@ -94,7 +104,7 @@ exports.dashboardStats = async (req, res, next) => {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
     sevenDaysAgo.setHours(0, 0, 0, 0);
 
-    const emptyProducts = { totalProducts: 0, totalStock: 0, lowStockCount: 0, outOfStockCount: 0 };
+    const emptyProducts = { totalProducts: 0, totalStock: 0, lowStockCount: 0, outOfStockCount: 0, expiredCount: 0, expiringSoonCount: 0 };
     const safe = async (fn) => { try { return await fn(); } catch { return null; } };
 
     const [productStats, salesTrend] = await Promise.all([
@@ -104,10 +114,13 @@ exports.dashboardStats = async (req, res, next) => {
            COALESCE(SUM("quantity"), 0)::int AS "totalStock",
            -- Respect each product's own reorder level; out-of-stock is reported separately.
            COUNT(*) FILTER (WHERE "quantity" > 0 AND "quantity" <= COALESCE("lowStock", 5))::int AS "lowStockCount",
-           COUNT(*) FILTER (WHERE "quantity" <= 0)::int AS "outOfStockCount"
+           COUNT(*) FILTER (WHERE "quantity" <= 0)::int AS "outOfStockCount",
+           -- Optional expiry dates: only stock still on the shelf matters.
+           COUNT(*) FILTER (WHERE "quantity" > 0 AND "expiryDate" < :today)::int AS "expiredCount",
+           COUNT(*) FILTER (WHERE "quantity" > 0 AND "expiryDate" >= :today AND "expiryDate" <= :soon)::int AS "expiringSoonCount"
          FROM "products"
          WHERE "shopId" = :shopId AND COALESCE("type", 'goods') = 'goods' AND "isActive" = true`,
-        { replacements: { shopId }, type: sequelize.QueryTypes.SELECT }
+        { replacements: { shopId, today: localDateString(now), soon: localDateString(addDays(now, EXPIRY_WARNING_DAYS)) }, type: sequelize.QueryTypes.SELECT }
       )),
       safe(() => sequelize.query(
         `SELECT
@@ -200,7 +213,7 @@ exports.rangeReport = async (req, res, next) => {
     const rangeStart = startOfDay(parseLocalDate(start));
     const rangeEnd = endOfDay(parseLocalDate(end));
 
-    const [metrics, sales, topProducts, tierRows] = await Promise.all([
+    const [metrics, sales, topProducts, tierRows, payments] = await Promise.all([
       getMetricsForRange(req.user.shopId, rangeStart, rangeEnd),
       // Sale headers only (no line items) and capped: a month of a busy shop
       // was 31 MB and a minute of database time when every item was included.
@@ -233,6 +246,7 @@ exports.rangeReport = async (req, res, next) => {
         group: ['priceTier'],
         raw: true,
       }),
+      paymentBreakdown(req.user.shopId, rangeStart, rangeEnd),
     ]);
     const byPriceTier = { retail: { orders: 0, total: 0 }, wholesale: { orders: 0, total: 0 } };
     for (const row of tierRows) {
@@ -245,7 +259,24 @@ exports.rangeReport = async (req, res, next) => {
     });
     const totalExpenses = expensesInRange.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
 
-    res.json({ metrics, sales, salesTruncated: sales.length === RANGE_SALES_LIMIT, topProducts, totalExpenses, byPriceTier, start, end });
+    res.json({ metrics, sales, salesTruncated: sales.length === RANGE_SALES_LIMIT, topProducts, totalExpenses, byPriceTier, payments, start, end });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Money received on one day (or from start to end) by Cash, Mobile Money
+// and Card, including payments on debts.
+exports.paymentsByMethod = async (req, res, next) => {
+  try {
+    const isDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+    const { start } = req.query;
+    const end = req.query.end || start;
+    if (!isDay(start) || !isDay(end)) return res.status(400).json({ message: 'start (and optional end) must be dates like 2026-11-01' });
+    if (end < start) return res.status(400).json({ message: 'end cannot be before start' });
+
+    const breakdown = await paymentBreakdown(req.user.shopId, startOfDay(parseLocalDate(start)), endOfDay(parseLocalDate(end)));
+    res.json({ start, end, ...breakdown });
   } catch (error) {
     next(error);
   }

@@ -172,6 +172,8 @@ export default function Dashboard() {
   const totalStock = dashboardStats?.products?.totalStock || 0;
   const lowStockCount = dashboardStats?.products?.lowStockCount || 0;
   const outOfStockCount = dashboardStats?.products?.outOfStockCount || 0;
+  const expiredCount = dashboardStats?.products?.expiredCount || 0;
+  const expiringSoonCount = dashboardStats?.products?.expiringSoonCount || 0;
   const todaysSales = Number(summary?.periods?.today?.orderCount || 0);
   const totalRevenue = Number(summary?.periods?.thisMonth?.netSales || 0);
   const totalProfit = Number(summary?.periods?.thisMonth?.grossProfit || 0);
@@ -215,7 +217,8 @@ export default function Dashboard() {
 
   const monthTrend = summary?.comparisons?.thisMonthVsLastMonth;
   const noSalesThisWeek = salesTrend.every((item) => item.sales === 0);
-  const hasAlerts = credit?.totalOutstanding > 0 || outOfStockCount > 0 || lowStockCount > 0;
+  const alertCount = [credit?.totalOutstanding > 0, outOfStockCount > 0 || lowStockCount > 0, expiredCount > 0 || expiringSoonCount > 0].filter(Boolean).length;
+  const hasAlerts = alertCount > 0;
 
   return (
     // On laptop and desktop the dashboard fills the window: the bottom row
@@ -234,7 +237,7 @@ export default function Dashboard() {
 
       {/* Alerts: money owed and stock, one slim row */}
       {!loading && hasAlerts && (
-        <div className={`grid gap-2 ${credit?.totalOutstanding > 0 && (outOfStockCount > 0 || lowStockCount > 0) ? 'md:grid-cols-2' : ''}`}>
+        <div className={`grid gap-2 ${alertCount === 3 ? 'md:grid-cols-2 2xl:grid-cols-3' : alertCount === 2 ? 'md:grid-cols-2' : ''}`}>
           {credit?.totalOutstanding > 0 && (
             <Link to="/app/customers" className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-400/30 bg-slate-400/10 px-3.5 py-2 transition hover:bg-slate-400/15">
               <p className="min-w-0 truncate text-[13px] text-slate-700 dark:text-slate-300">
@@ -257,6 +260,19 @@ export default function Dashboard() {
                 {lowStockCount > 0 ? `${lowStockCount.toLocaleString()} at or below reorder level` : ''}
               </p>
               <span className="shrink-0 text-xs font-semibold text-amber-700 dark:text-amber-300">Review stock →</span>
+            </Link>
+          )}
+          {(expiredCount > 0 || expiringSoonCount > 0) && (
+            <Link
+              to="/app/products?show=expiring"
+              className={`flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3.5 py-2 transition ${expiredCount > 0 ? 'border-red-400/30 bg-red-400/10 hover:bg-red-400/15' : 'border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/15'}`}
+            >
+              <p className={`min-w-0 truncate text-[13px] ${expiredCount > 0 ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                {expiredCount > 0 ? <strong className="font-semibold">{expiredCount.toLocaleString()} expired</strong> : null}
+                {expiredCount > 0 && expiringSoonCount > 0 ? ' · ' : ''}
+                {expiringSoonCount > 0 ? `${expiringSoonCount.toLocaleString()} expire${expiringSoonCount === 1 ? 's' : ''} within 30 days` : ''}
+              </p>
+              <span className={`shrink-0 text-xs font-semibold ${expiredCount > 0 ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'}`}>Check dates →</span>
             </Link>
           )}
         </div>
