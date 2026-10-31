@@ -155,7 +155,7 @@ export default function OwnerLogin() {
             <div className="flex items-center gap-3">
               <img src={logo} alt="StockDesk logo" className="h-20 w-20 object-contain" />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/70">StockDesk</p>
+                <p className="text-xs font-bold uppercase tracking-[0.22em]"><span className="text-[var(--sidebar-brand-stock)]">Stock</span><span className="text-[var(--sidebar-brand-desk)]">Desk</span></p>
                 <p className="mt-0.5 text-base font-semibold tracking-tight text-white xl:text-lg">Platform Console</p>
               </div>
             </div>
@@ -206,7 +206,7 @@ export default function OwnerLogin() {
               <div className="flex items-center gap-3">
                 <img src={logo} alt="StockDesk logo" className="h-12 w-12 object-contain" />
                 <div>
-                  <p className="text-xs font-medium text-[var(--accent-strong)]">StockDesk</p>
+                  <p className="text-xs font-semibold"><span className="text-[var(--brand-stock)]">Stock</span><span className="text-[var(--brand-desk)]">Desk</span></p>
                   <p className="mt-1 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Platform Console</p>
                 </div>
               </div>
