@@ -125,7 +125,7 @@ export default function Sidebar({ user: providedUser, isOpen = false, collapsed 
         <div className={`flex items-center gap-3 px-4 pb-3 pt-4 tall:pb-4 tall:pt-5 ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}>
           <img src={logo} alt="" className="h-9 w-9 shrink-0 object-contain" />
           <div className={`min-w-0 flex-1 ${hideWhenCollapsed}`}>
-            <p className="text-[15px] font-semibold leading-tight tracking-tight text-[var(--sidebar-text)]">StockDesk</p>
+            <p className="text-[15px] font-bold leading-tight tracking-tight"><span className="text-[var(--sidebar-brand-stock)]">Stock</span><span className="text-[var(--sidebar-brand-desk)]">Desk</span></p>
             <p className="truncate text-xs text-[var(--sidebar-muted)]" title={shopName}>{shopName}</p>
           </div>
           <button

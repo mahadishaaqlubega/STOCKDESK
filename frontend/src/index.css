@@ -53,6 +53,12 @@
   --sidebar-border: rgba(241, 240, 233, 0.1);
   --sidebar-text: #f1f0e9;
   --sidebar-muted: #9aa59c;
+  /* Two-colour StockDesk name, matching the logo: green Stock, brass Desk.
+     The menu is dark in both themes; --brand-* follow the page. */
+  --sidebar-brand-stock: #4fb57e;
+  --sidebar-brand-desk: #d4b470;
+  --brand-stock: #14532d;
+  --brand-desk: #8c6a2e;
   --sidebar-hover: rgba(241, 240, 233, 0.06);
   --sidebar-active-bg: rgba(241, 240, 233, 0.09);
   --sidebar-active-text: #ffffff;
@@ -122,6 +128,8 @@
   --sidebar-border: rgba(241, 240, 233, 0.07);
   --sidebar-text: #f1f0e9;
   --sidebar-muted: #7e887f;
+  --brand-stock: #4fb57e;
+  --brand-desk: #d4b470;
   --sidebar-hover: rgba(241, 240, 233, 0.05);
   --sidebar-active-bg: rgba(241, 240, 233, 0.08);
   --sidebar-active-text: #ffffff;
