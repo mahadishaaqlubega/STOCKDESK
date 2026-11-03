@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Modal } from './ui';
-import { canPromptInstall, devicePlatform, isInstalled, promptInstall, subscribeInstall } from '../utils/installPrompt';
+import { canPromptInstall, deviceBrowser, devicePlatform, isInstalled, promptInstall, subscribeInstall } from '../utils/installPrompt';
 
 const DISMISS_KEY = 'sd-install-dismissed-until';
 const DISMISS_DAYS = 30;
@@ -18,7 +18,7 @@ function dismissedRecently() {
 export function useInstallState() {
   const [, setTick] = useState(0);
   useEffect(() => subscribeInstall(() => setTick((n) => n + 1)), []);
-  return { installed: isInstalled(), canPrompt: canPromptInstall(), platform: devicePlatform() };
+  return { installed: isInstalled(), canPrompt: canPromptInstall(), platform: devicePlatform(), browser: deviceBrowser() };
 }
 
 const GUIDES = {
@@ -34,7 +34,7 @@ const GUIDES = {
   ios: {
     title: 'iPhone or iPad',
     steps: [
-      'Open StockDesk in Safari (or Chrome).',
+      'Open StockDesk in Safari (or Chrome, Edge or Firefox).',
       'Tap the Share button (the square with an arrow): at the bottom in Safari, at the top right in Chrome.',
       'Scroll down, tap "Add to Home Screen", then "Add".',
     ],
@@ -45,14 +45,73 @@ const GUIDES = {
     steps: [
       'Open StockDesk in Chrome or Microsoft Edge.',
       'Click the install icon at the right end of the address bar (a screen with a small arrow).',
-      'No icon? Chrome: menu (⋮) → "Cast, save and share" → "Install page as app". Edge: menu (…) → "Apps" → "Install this site as an app".',
+      'No icon? Chrome: menu (⋮) → "Cast, save and share" → "Install page as app". Edge: menu (…) → "Apps" → "Install StockDesk".',
     ],
     after: 'StockDesk gets its own window and an icon on your desktop and taskbar. Pin it for one-click opening.',
   },
 };
 
+// Steps for the browser in use, where its menus differ from the general
+// guide above. Keyed by platform, then browser.
+const BROWSER_GUIDES = {
+  android: {
+    edge: {
+      title: 'Android phone or tablet (Edge)',
+      steps: [
+        'Tap the menu (…) at the bottom of the screen.',
+        'Tap "Add to phone", then "Install" or "Add".',
+      ],
+    },
+    firefox: {
+      title: 'Android phone or tablet (Firefox)',
+      steps: [
+        'Tap the menu (⋮) next to the address bar.',
+        'Tap "Add app to Home screen" (or "Install"), then "Add".',
+      ],
+    },
+    samsung: {
+      title: 'Android phone or tablet (Samsung Internet)',
+      steps: [
+        'Tap the menu (≡) at the bottom right.',
+        'Tap "Add page to", then "Home screen", then "Add".',
+      ],
+    },
+  },
+  desktop: {
+    edge: {
+      title: 'Computer (Microsoft Edge)',
+      steps: [
+        'Click the install icon at the right end of the address bar (a screen with a small arrow), then "Install".',
+        'No icon? Click the menu (…) at the top right → "Apps" → "Install StockDesk".',
+      ],
+    },
+    chrome: {
+      title: 'Computer (Google Chrome)',
+      steps: [
+        'Click the install icon at the right end of the address bar (a screen with a small arrow), then "Install".',
+        'No icon? Click the menu (⋮) at the top right → "Cast, save and share" → "Install page as app".',
+      ],
+    },
+    firefox: {
+      title: 'Computer (Firefox)',
+      steps: [
+        'Firefox usually cannot install StockDesk as an app on a computer.',
+        'Open StockDesk in Microsoft Edge (already on every Windows computer) or Google Chrome, sign in, and install it from there.',
+        'To keep using Firefox, bookmark this page instead: press Ctrl+D (⌘+D on a Mac).',
+      ],
+    },
+  },
+};
+
+// The guide for this device: the browser's own steps when we have them.
+function guideFor(key, platform, browser) {
+  const general = GUIDES[key];
+  const specific = key === platform ? BROWSER_GUIDES[key]?.[browser] : null;
+  return specific ? { ...general, ...specific } : general;
+}
+
 export function InstallGuide({ onClose }) {
-  const { canPrompt, platform } = useInstallState();
+  const { canPrompt, platform, browser } = useInstallState();
   const order = [platform, ...Object.keys(GUIDES).filter((key) => key !== platform)];
 
   const install = async () => {
@@ -76,7 +135,7 @@ export function InstallGuide({ onClose }) {
     >
       <div className="space-y-5">
         {order.map((key, index) => {
-          const guide = GUIDES[key];
+          const guide = guideFor(key, platform, browser);
           return (
             <section key={key} className={index ? 'border-t border-[var(--border-default)] pt-5' : ''}>
               <h4 className="text-sm font-semibold text-[var(--text-primary)]">
@@ -104,9 +163,9 @@ export function InstallBanner() {
   const [hidden, setHidden] = useState(dismissedRecently);
   const [guideOpen, setGuideOpen] = useState(false);
 
-  // Computers without an install offer (e.g. Firefox) get no banner; the
-  // menu's "Install app" link still explains the options.
-  if (installed || hidden || (!canPrompt && platform === 'desktop')) {
+  // Browsers without an install offer (Firefox, or Edge before it decides to
+  // offer one) still get the banner, with "Show me how" opening the steps.
+  if (installed || hidden) {
     return guideOpen ? <InstallGuide onClose={() => setGuideOpen(false)} /> : null;
   }
 
