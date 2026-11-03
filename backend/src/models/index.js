@@ -187,7 +187,9 @@ async function findOrCreateLegacyShop() {
 }
 
 async function backfillShopOwnership(shopId) {
-  await User.update({ shopId }, { where: { shopId: null } });
+  // The platform owner belongs to no shop. Attaching it here would make it
+  // go with the shop if that shop were ever deleted.
+  await User.update({ shopId }, { where: { shopId: null, role: { [Op.ne]: 'SuperAdmin' } } });
   await Customer.update({ shopId }, { where: { shopId: null } });
   await DayClosure.update({ shopId }, { where: { shopId: null } });
   await Product.update({ shopId }, { where: { shopId: null } });
@@ -247,6 +249,11 @@ async function ensureSuperAdmin() {
   }
   if (user.verificationToken !== null) {
     user.verificationToken = null;
+    changed = true;
+  }
+  // Earlier start-ups attached the owner to the legacy shop; undo that.
+  if (user.shopId !== null) {
+    user.shopId = null;
     changed = true;
   }
 
