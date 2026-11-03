@@ -52,3 +52,15 @@ export function devicePlatform() {
   if (/Android/.test(ua)) return 'android';
   return 'desktop';
 }
+
+// Which browser this is, so the install steps can name the right menu.
+// Edge and Samsung Internet also say "Chrome" in their user agent, so they
+// are checked first.
+export function deviceBrowser() {
+  const ua = window.navigator.userAgent || '';
+  if (/Edg(e|A|iOS)?\//.test(ua)) return 'edge';
+  if (/Firefox\/|FxiOS\//.test(ua)) return 'firefox';
+  if (/SamsungBrowser\//.test(ua)) return 'samsung';
+  if (/Chrome\/|CriOS\//.test(ua)) return 'chrome';
+  return 'other';
+}
