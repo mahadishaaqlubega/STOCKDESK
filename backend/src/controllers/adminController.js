@@ -449,6 +449,8 @@ exports.deleteShop = async (req, res, next) => {
       await Setting.destroy({ where: { shopId }, transaction: t });
       // Null out emails before deleting users so the addresses are immediately
       // freed from any unique constraint and can be reused for a new shop.
+      // A platform owner wrongly attached to this shop is kept, not deleted.
+      await User.update({ shopId: null }, { where: { shopId, role: 'SuperAdmin' }, transaction: t });
       await User.update({ email: null, verificationToken: null, resetPasswordToken: null }, { where: { shopId }, transaction: t });
       await User.destroy({ where: { shopId }, transaction: t });
       await shop.destroy({ transaction: t });
