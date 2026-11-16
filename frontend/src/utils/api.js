@@ -321,7 +321,8 @@ export const cancelQuotation = (id) => request(`/quotations/${id}/cancel`, { met
 export const shareQuotation = (id) => request(`/quotations/${id}/share`, { method: 'POST' });
 export const createReturn = (saleId, body) => request(`/sales/${saleId}/return`, { method: 'POST', body: JSON.stringify(body) });
 export const fetchReturns = () => request('/sales/returns');
-export const fetchBestSelling = () => request('/reports/best-selling');
+// by: 'units' (default) or 'profit' (admins only).
+export const fetchBestSelling = (by = 'units') => request(by === 'profit' ? '/reports/best-selling?by=profit' : '/reports/best-selling');
 export const fetchCashierReport = () => request('/reports/by-cashier');
 export const fetchDashboardSummary = () => request('/reports/summary');
 export const fetchDashboardStats = () => request('/reports/dashboard-stats');
