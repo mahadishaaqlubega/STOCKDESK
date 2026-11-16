@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchReports, fetchBestSelling, fetchCashierReport, fetchDashboardSummary, fetchSettings, fetchRangeReport, fetchPaymentsByMethod, fetchReturns, fetchSales, downloadReceipt, exportSalesRows } from '../utils/api';
+import { fetchReports, fetchBestSelling, fetchCashierReport, fetchDashboardSummary, fetchSettings, fetchRangeReport, fetchPaymentsByMethod, fetchSlowStock, fetchReturns, fetchSales, downloadReceipt, exportSalesRows } from '../utils/api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, AreaChart, Area, LineChart, Line, Legend } from 'recharts';
 import { formatMoney } from '../utils/format';
 import { tileEdge } from '../components/ui';
@@ -127,6 +127,120 @@ function SkeletonCards({ count = 3 }) {
         <div key={i} className="app-panel h-[26rem] animate-pulse rounded-2xl border" />
       ))}
     </div>
+  );
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function daysAgo(value) {
+  const days = Math.floor((Date.now() - new Date(value).getTime()) / DAY_MS);
+  return days <= 0 ? 'today' : days === 1 ? '1 day ago' : `${days.toLocaleString()} days ago`;
+}
+
+// Stock on the shelf that hasn't sold in 30, 60 or 90 days, most money tied
+// up first, so owners know what to discount or stop ordering.
+function SlowStockCard({ currency }) {
+  const [days, setDays] = useState(60);
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    fetchSlowStock(days)
+      .then((result) => { if (!cancelled) setData(result); })
+      .catch((err) => { if (!cancelled) setError(err.message || 'Could not load slow-moving stock'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [days]);
+
+  const items = data?.items || [];
+  const visible = showAll ? items : items.slice(0, 10);
+
+  return (
+    <SectionCard
+      title="Slow-moving stock"
+      subtitle={`In stock but not sold in ${days} days, most money tied up first.`}
+      action={
+        <div role="group" aria-label="Not sold in" className="flex shrink-0 rounded-full bg-[var(--surface-secondary)] p-0.5 text-[12px] font-semibold">
+          {[30, 60, 90].map((d) => (
+            <button
+              key={d}
+              type="button"
+              aria-pressed={days === d}
+              aria-label={`${d} days`}
+              onClick={() => { setDays(d); setShowAll(false); }}
+              className={`rounded-full px-3 py-1 transition ${days === d ? 'bg-[var(--surface-primary)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+            >
+              {d}d
+            </button>
+          ))}
+        </div>
+      }
+    >
+      {error ? (
+        <p className="app-alert-danger rounded-lg px-3 py-2 text-sm" role="alert">{error}</p>
+      ) : !data ? (
+        <div className="h-40 animate-pulse rounded-xl bg-[var(--surface-secondary)]" />
+      ) : data.count === 0 ? (
+        <EmptyState title="Nothing sitting on the shelf" message={`Everything in stock has sold in the last ${days} days.`} />
+      ) : (
+        <div className={`space-y-4 transition-opacity ${loading ? 'opacity-50' : ''}`}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">Money tied up</p>
+              <p className="num mt-2 text-xl font-bold text-[var(--text-primary)]">{formatMoney(currency, data.stockValue)}</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">What you paid for this stock</p>
+            </div>
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">Items not moving</p>
+              <p className="num mt-2 text-xl font-bold text-[var(--text-primary)]">{data.count.toLocaleString()}</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]"><span className="num">{data.units.toLocaleString()}</span> units on the shelf</p>
+            </div>
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-secondary)] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">Worth if sold</p>
+              <p className="num mt-2 text-xl font-bold text-[var(--text-primary)]">{formatMoney(currency, data.sellValue)}</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">At today's selling prices</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-[var(--border-default)]">
+            <table className="table-cards w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border-default)] bg-[var(--surface-secondary)]">
+                  {['Product', 'In stock', 'Last sold', 'Money tied up'].map((h, i) => (
+                    <th key={h} className={`px-4 py-2.5 text-xs font-medium text-[var(--text-muted)] ${i === 0 || i === 2 ? 'text-left' : 'text-right'}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-default)]">
+                {visible.map((item) => (
+                  <tr key={item.id} className="transition hover:bg-[var(--surface-secondary)]">
+                    <td data-label="Product" className="px-4 py-2.5">
+                      <span className="block font-medium text-[var(--text-primary)]">{item.name}</span>
+                      {item.category ? <span className="block text-[11px] text-[var(--text-muted)]">{item.category}</span> : null}
+                    </td>
+                    <td data-label="In stock" className="num px-4 py-2.5 text-right text-[var(--text-secondary)]">{item.quantity.toLocaleString()}</td>
+                    <td data-label="Last sold" className="whitespace-nowrap px-4 py-2.5 text-[var(--text-muted)]">
+                      {item.lastSold ? daysAgo(item.lastSold) : <>Never <span className="text-[11px]">(added {daysAgo(item.addedAt)})</span></>}
+                    </td>
+                    <td data-label="Money tied up" className="num px-4 py-2.5 text-right font-semibold text-[var(--text-primary)]">{formatMoney(currency, item.stockValue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {items.length > 10 ? (
+            <button type="button" onClick={() => setShowAll((v) => !v)} className="text-xs font-medium text-[var(--accent)] hover:underline">
+              {showAll ? 'Show top 10' : `Show all ${items.length.toLocaleString()}`}
+            </button>
+          ) : null}
+          {showAll && data.truncated ? <p className="text-xs text-[var(--text-muted)]">Showing the {items.length} with the most money tied up.</p> : null}
+        </div>
+      )}
+    </SectionCard>
   );
 }
 
@@ -595,6 +709,8 @@ export default function Reports() {
               </div>
             </SectionCard>
           )}
+
+          <SlowStockCard currency={currency} />
         </>
       )}
 
