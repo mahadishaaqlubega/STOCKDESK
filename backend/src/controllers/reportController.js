@@ -282,6 +282,64 @@ exports.paymentsByMethod = async (req, res, next) => {
   }
 };
 
+const SLOW_STOCK_LIMIT = 200;
+
+// Stock on the shelf that hasn't sold in `days` days (default 60): active
+// goods with quantity > 0 whose last sale, or the day they were added if
+// never sold, is before the cutoff. Most money tied up first, valued at buy
+// price. Totals cover every such item; the list is capped.
+exports.slowStock = async (req, res, next) => {
+  try {
+    const days = req.query.days === undefined ? 60 : Number(req.query.days);
+    if (!Number.isInteger(days) || days < 7 || days > 365) return res.status(400).json({ message: 'days must be a whole number from 7 to 365' });
+    const cutoff = addDays(new Date(), -days);
+
+    const rows = await sequelize.query(
+      `WITH last_sold AS (
+         SELECT si."productId", MAX(s."createdAt") AS "lastSold"
+         FROM "sale_items" si
+         JOIN "sales" s ON s.id = si."saleId"
+         WHERE s."shopId" = :shopId
+         GROUP BY si."productId"
+       )
+       SELECT p.id, p.name, p.category, p.quantity,
+              p."buyPrice", p."sellPrice", p."createdAt", ls."lastSold"
+       FROM "products" p
+       LEFT JOIN last_sold ls ON ls."productId" = p.id
+       WHERE p."shopId" = :shopId AND p."isActive" = true AND p."type" = 'goods'
+         AND p.quantity > 0
+         AND COALESCE(ls."lastSold", p."createdAt") < :cutoff
+       ORDER BY p.quantity * p."buyPrice" DESC, p.name ASC`,
+      { replacements: { shopId: req.user.shopId, cutoff }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    const items = rows.map((row) => {
+      const quantity = Number(row.quantity) || 0;
+      return {
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        quantity,
+        stockValue: quantity * (Number(row.buyPrice) || 0),
+        sellValue: quantity * (Number(row.sellPrice) || 0),
+        lastSold: row.lastSold || null,
+        addedAt: row.createdAt,
+      };
+    });
+    res.json({
+      days,
+      count: items.length,
+      units: items.reduce((sum, i) => sum + i.quantity, 0),
+      stockValue: items.reduce((sum, i) => sum + i.stockValue, 0),
+      sellValue: items.reduce((sum, i) => sum + i.sellValue, 0),
+      items: items.slice(0, SLOW_STOCK_LIMIT),
+      truncated: items.length > SLOW_STOCK_LIMIT,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.customerSales = async (req, res, next) => {
   try {
     const sales = await Sale.findAll({

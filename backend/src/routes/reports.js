@@ -17,5 +17,7 @@ router.get('/monthly', authorize(['Admin']), reportController.monthlySales);
 router.get('/by-cashier', authorize(['Admin']), reportController.salesByCashier);
 router.get('/range', authorize(['Admin']), reportController.rangeReport);
 router.get('/payments', authorize(['Admin']), reportController.paymentsByMethod);
+// Valued at buy price, so admins only.
+router.get('/slow-stock', authorize(['Admin']), reportController.slowStock);
 
 module.exports = router;
