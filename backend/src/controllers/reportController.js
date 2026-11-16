@@ -173,17 +173,66 @@ exports.monthlySales = async (req, res, next) => {
   }
 };
 
+// Top 10 products of all time, net of returns. `?by=profit` ranks by profit
+// instead of units; profit is cost-sensitive, so it is for admins only.
+// A line's profit uses the cost recorded at sale time (older lines fall back
+// to the current buy price). Whole-sale discounts aren't split per item, so
+// profit here is before those.
 exports.bestSelling = async (req, res, next) => {
+  const isAdmin = req.user.role === 'Admin';
+  const byProfit = req.query.by === 'profit';
+  if (byProfit && !isAdmin) return res.status(403).json({ message: 'Access denied' });
   try {
-    const best = await SaleItem.findAll({
-      where: { shopId: req.user.shopId },
-      attributes: ['productId', [fn('SUM', col('SaleItem.quantity')), 'unitsold']],
-      include: [{ model: Product, attributes: ['id', 'name'], where: { shopId: req.user.shopId } }],
-      group: ['SaleItem.productId', 'Product.id'],
-      order: [[fn('SUM', col('SaleItem.quantity')), 'DESC']],
-      limit: 10,
-    });
-    res.json(best);
+    const rows = await sequelize.query(
+      `WITH sold AS (
+         SELECT si."productId",
+                SUM(si."quantity") AS "units",
+                SUM(si."price" * si."quantity") AS "revenue",
+                SUM((si."price" - COALESCE(NULLIF(si."costOfGoods", 0), p."buyPrice", 0)) * si."quantity") AS "profit"
+         FROM "sale_items" si
+         LEFT JOIN "products" p ON p.id = si."productId"
+         WHERE si."shopId" = :shopId
+         GROUP BY si."productId"
+       ),
+       returned AS (
+         SELECT ri."productId",
+                SUM(ri."quantity") AS "units",
+                SUM(ri."refundAmount") AS "revenue",
+                SUM(ri."refundAmount" - ri."quantity" * COALESCE(NULLIF(lc."costOfGoods", 0), p."buyPrice", 0)) AS "profit"
+         FROM "sale_return_items" ri
+         JOIN "sale_returns" r ON r.id = ri."returnId"
+         LEFT JOIN "products" p ON p.id = ri."productId"
+         LEFT JOIN LATERAL (
+           SELECT si."costOfGoods" FROM "sale_items" si
+           WHERE si."saleId" = r."saleId" AND si."productId" = ri."productId"
+           LIMIT 1
+         ) lc ON true
+         WHERE r."shopId" = :shopId
+         GROUP BY ri."productId"
+       ),
+       net AS (
+         SELECT s."productId", p."name",
+                s."units" - COALESCE(rt."units", 0) AS "unitsold",
+                s."revenue" - COALESCE(rt."revenue", 0) AS "revenue",
+                s."profit" - COALESCE(rt."profit", 0) AS "profit"
+         FROM sold s
+         JOIN "products" p ON p.id = s."productId" AND p."shopId" = :shopId
+         LEFT JOIN returned rt ON rt."productId" = s."productId"
+       )
+       SELECT * FROM net
+       WHERE ${byProfit ? '"profit" > 0' : '"unitsold" > 0'}
+       ORDER BY ${byProfit ? '"profit"' : '"unitsold"'} DESC, "name" ASC
+       LIMIT 10`,
+      { replacements: { shopId: req.user.shopId }, type: sequelize.QueryTypes.SELECT }
+    );
+    // Same shape as before ({ productId, unitsold, Product: { id, name } })
+    // so existing screens keep working.
+    res.json(rows.map((row) => ({
+      productId: row.productId,
+      unitsold: Number(row.unitsold) || 0,
+      ...(isAdmin ? { revenue: Number(row.revenue) || 0, profit: Number(row.profit) || 0 } : {}),
+      Product: { id: row.productId, name: row.name },
+    })));
   } catch (error) {
     // Return empty list instead of crashing - dashboard degrades gracefully
     console.error('bestSelling query failed:', error.message);

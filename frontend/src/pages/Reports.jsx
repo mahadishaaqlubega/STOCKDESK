@@ -133,6 +133,8 @@ function SkeletonCards({ count = 3 }) {
 export default function Reports() {
   const [dailySales, setDailySales] = useState([]);
   const [bestSelling, setBestSelling] = useState([]);
+  const [bestByProfit, setBestByProfit] = useState([]);
+  const [bestMode, setBestMode] = useState('units');
   const [cashierReport, setCashierReport] = useState([]);
   const [summary, setSummary] = useState(null);
   const [returns, setReturns] = useState([]);
@@ -156,9 +158,10 @@ export default function Reports() {
     async function loadReports() {
       try {
         setLoading(true);
-        const [salesData, productData, cashierData, summaryData, settings, returnsData] = await Promise.all([
+        const [salesData, productData, profitData, cashierData, summaryData, settings, returnsData] = await Promise.all([
           fetchReports(),
           fetchBestSelling(),
+          fetchBestSelling('profit').catch(() => []),
           fetchCashierReport(),
           fetchDashboardSummary(),
           fetchSettings(),
@@ -166,6 +169,7 @@ export default function Reports() {
         ]);
         setDailySales(salesData);
         setBestSelling(productData);
+        setBestByProfit(profitData);
         setCashierReport(cashierData);
         setSummary(summaryData);
         setReturns(returnsData);
@@ -203,14 +207,23 @@ export default function Reports() {
     return series;
   }, [dailySales]);
 
-  const bestProductData = useMemo(
-    () => bestSelling.slice(0, 6).map((item, i) => ({
-      name: item.Product?.name || 'Item',
-      units: Number(item.unitsold || 0),
-      fill: PALETTE[i % PALETTE.length],
-    })),
-    [bestSelling]
-  );
+  // Top 6 by units sold or by profit; `value` drives the pie and the list.
+  const bestProductData = useMemo(() => {
+    const source = bestMode === 'profit' ? bestByProfit : bestSelling;
+    return source.slice(0, 6).map((item, i) => {
+      const revenue = Number(item.revenue || 0);
+      const profit = Number(item.profit || 0);
+      return {
+        id: item.productId ?? i,
+        name: item.Product?.name || 'Item',
+        units: Number(item.unitsold || 0),
+        profit,
+        margin: revenue > 0 ? Math.round((profit / revenue) * 100) : null,
+        value: bestMode === 'profit' ? profit : Number(item.unitsold || 0),
+        fill: PALETTE[i % PALETTE.length],
+      };
+    });
+  }, [bestMode, bestSelling, bestByProfit]);
 
   const cashierData = useMemo(
     () => cashierReport.map((item, i) => ({
@@ -471,31 +484,54 @@ export default function Reports() {
             <SectionCard
               className="xl:col-span-2"
               title="Top Products"
-              subtitle="Best sellers by units sold."
-              action={<span className="rounded-full bg-[var(--surface-secondary)] px-3 py-1 text-[12px] font-semibold text-[var(--text-muted)]">Top {bestProductData.length}</span>}
+              subtitle={bestMode === 'profit' ? 'Best sellers by profit made, after returns.' : 'Best sellers by units sold, after returns.'}
+              action={
+                <div role="group" aria-label="Rank top products by" className="flex shrink-0 rounded-full bg-[var(--surface-secondary)] p-0.5 text-[12px] font-semibold">
+                  {[['units', 'Units'], ['profit', 'Profit']].map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-pressed={bestMode === mode}
+                      onClick={() => setBestMode(mode)}
+                      className={`rounded-full px-3 py-1 transition ${bestMode === mode ? 'bg-[var(--surface-primary)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              }
             >
               {bestProductData.length ? (
                 <>
                   <div className="h-48">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={bestProductData} dataKey="units" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={3} strokeWidth={0}>
-                          {bestProductData.map((e) => <Cell key={e.name} fill={e.fill} />)}
+                        <Pie data={bestProductData} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={3} strokeWidth={0}>
+                          {bestProductData.map((e) => <Cell key={e.id} fill={e.fill} />)}
                         </Pie>
-                        <Tooltip />
+                        <Tooltip formatter={(v) => (bestMode === 'profit' ? formatMoney(currency, v) : `${Number(v).toLocaleString()} sold`)} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
                   <div className="mt-2 space-y-1.5">
-                    {bestProductData.map((item, i) => (
-                      <div key={item.name} className="flex items-center gap-3 rounded-[0.9rem] px-3 py-2 transition hover:bg-[var(--surface-secondary)]">
+                    {bestProductData.map((item) => (
+                      <div key={item.id} className="flex items-center gap-3 rounded-[0.9rem] px-3 py-2 transition hover:bg-[var(--surface-secondary)]">
                         <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.fill }} />
                         <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--text-primary)]">{item.name}</span>
-                        <span className="text-[13px] font-semibold tabular-nums text-[var(--text-muted)]">{item.units}</span>
+                        {bestMode === 'profit' ? (
+                          <span className="shrink-0 text-right">
+                            <span className="block text-[13px] font-semibold tabular-nums text-[var(--text-muted)]">{formatMoney(currency, item.profit)}</span>
+                            <span className="block text-[11px] tabular-nums text-[var(--text-muted)]">{item.units.toLocaleString()} sold{item.margin != null ? ` · ${item.margin}% margin` : ''}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[13px] font-semibold tabular-nums text-[var(--text-muted)]">{item.units.toLocaleString()}</span>
+                        )}
                       </div>
                     ))}
                   </div>
                 </>
+              ) : bestMode === 'profit' ? (
+                <EmptyState title="No profit data" message="Products need a buy price set to show the profit they make." />
               ) : (
                 <EmptyState title="No product data" message="Sell products to see top performers." />
               )}
